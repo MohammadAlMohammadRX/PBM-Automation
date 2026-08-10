@@ -13,7 +13,7 @@ export type SupportedBrowser = 'chromium' | 'chrome' | 'edge' | 'firefox' | 'web
 
 export const SUPPORTED_BROWSERS: SupportedBrowser[] = ['chromium', 'chrome', 'edge', 'firefox', 'webkit'];
 
-export const DEFAULT_BROWSER: SupportedBrowser = 'chromium';
+export const DEFAULT_BROWSER: SupportedBrowser = 'chrome';
 
 export const DEFAULT_VIEWPORT = { width: 1920, height: 1080 } as const;
 
