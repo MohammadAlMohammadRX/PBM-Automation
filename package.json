@@ -1,0 +1,41 @@
+{
+  "name": "pbm-automation",
+  "version": "1.0.0",
+  "description": "Production-ready Playwright + TypeScript automation framework for the PBM (Pharmacy Benefit Management System) application.",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:chromium": "cross-env BROWSER=chromium playwright test",
+    "test:firefox": "cross-env BROWSER=firefox playwright test",
+    "test:webkit": "cross-env BROWSER=webkit playwright test",
+    "test:chrome": "cross-env BROWSER=chrome playwright test",
+    "test:edge": "cross-env BROWSER=edge playwright test",
+    "test:payer": "playwright test tests/payer",
+    "test:network": "playwright test tests/network",
+    "test:users": "playwright test tests/users",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen %BASE_URL%",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "install:browsers": "playwright install"
+  },
+  "keywords": [
+    "playwright",
+    "typescript",
+    "automation",
+    "pbm",
+    "qa"
+  ],
+  "author": "Neorx QA",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.7.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "typescript": "^5.6.0"
+  }
+}
