@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { defineConfig } from '@playwright/test';
 import { env } from './constants/EnvironmentConfig';
 import { Timeouts } from './constants/Timeouts';
@@ -19,15 +20,22 @@ import {
 const browsersToRun: SupportedBrowser[] =
   env.browser === 'all' ? SUPPORTED_BROWSERS : [resolveActiveBrowser()];
 
+// Once tests/setup/auth.setup.ts exists (see fixtures/auth.fixture.ts for the
+// full pattern) and has produced a saved session, every browser project
+// automatically depends on the "setup" project and reuses that session -
+// no per-test login. Until then, projects run standalone.
+const authStateExists = fs.existsSync(AUTH_STORAGE_STATE_PATH);
+
 const browserProjects = browsersToRun.map((browser) => {
   const project = buildProjectForBrowser(browser);
   return {
     ...project,
-    dependencies: ['setup'],
-    use: {
-      ...project.use,
-      storageState: AUTH_STORAGE_STATE_PATH,
-    },
+    ...(authStateExists
+      ? {
+          dependencies: ['setup'],
+          use: { ...project.use, storageState: AUTH_STORAGE_STATE_PATH },
+        }
+      : {}),
   };
 });
 
@@ -71,7 +79,8 @@ export default defineConfig({
   },
 
   projects: [
-    // One-time authentication - every browser project below depends on this.
+    // One-time authentication project. Empty until tests/setup/auth.setup.ts
+    // is added - see fixtures/auth.fixture.ts for the full pattern.
     {
       name: 'setup',
       testMatch: /.*\.setup\.ts/,

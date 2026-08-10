@@ -1,42 +1,30 @@
 import { test as base } from '@playwright/test';
-import { LoginPage } from '../pages/auth/LoginPage';
-import { DashboardPage } from '../pages/DashboardPage';
-import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
-import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
-import { UsersAdministrationPage } from '../pages/users/UsersAdministrationPage';
 
 /**
- * Authentication / Page-Object fixture.
+ * Authentication / Page-Object fixture (placeholder).
  *
- * Actual login happens ONCE per run in tests/setup/auth.setup.ts, whose
- * output (storageState) is wired into every project in playwright.config.ts.
- * This fixture's job is narrower but just as important: it hands each test
- * ready-to-use Page Object instances bound to that already-authenticated
- * `page`, so no spec file ever constructs `new LoginPage(page)` itself or
- * repeats navigation/login boilerplate.
+ * Intended pattern (per the framework's authentication requirement):
+ *   1. Add `pages/auth/LoginPage.ts` (locators + `login()` for the real login form).
+ *   2. Add `tests/setup/auth.setup.ts` as a Playwright "setup" project that logs
+ *      in once using LoginPage and persists the session via
+ *      `page.context().storageState({ path: AUTH_STORAGE_STATE_PATH })`
+ *      (see constants/Paths.ts).
+ *   3. In playwright.config.ts, give every browser project
+ *      `dependencies: ['setup']` and `use: { storageState: AUTH_STORAGE_STATE_PATH }`
+ *      so every test starts already authenticated - no spec file calls login() itself.
+ *   4. Register each new Page Object here as a fixture, e.g.:
+ *
+ *        export interface PageObjectFixtures {
+ *          loginPage: LoginPage;
+ *          dashboardPage: DashboardPage;
+ *        }
+ *
+ *        export const test = base.extend<PageObjectFixtures>({
+ *          loginPage: async ({ page }, use) => { await use(new LoginPage(page)); },
+ *          dashboardPage: async ({ page }, use) => { await use(new DashboardPage(page)); },
+ *        });
+ *
+ * Until the first Page Object exists, this fixture is a pass-through so
+ * `fixtures/index.ts` has something valid to merge.
  */
-export interface PageObjectFixtures {
-  loginPage: LoginPage;
-  dashboardPage: DashboardPage;
-  payerManagementPage: PayerManagementPage;
-  networkManagementPage: NetworkManagementPage;
-  usersAdministrationPage: UsersAdministrationPage;
-}
-
-export const test = base.extend<PageObjectFixtures>({
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
-  },
-  dashboardPage: async ({ page }, use) => {
-    await use(new DashboardPage(page));
-  },
-  payerManagementPage: async ({ page }, use) => {
-    await use(new PayerManagementPage(page));
-  },
-  networkManagementPage: async ({ page }, use) => {
-    await use(new NetworkManagementPage(page));
-  },
-  usersAdministrationPage: async ({ page }, use) => {
-    await use(new UsersAdministrationPage(page));
-  },
-});
+export const test = base;

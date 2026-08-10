@@ -1,6 +1,8 @@
 # PBM Automation Framework
 
-Production-ready Playwright + TypeScript UI automation framework for the **PBM (Pharmacy Benefit Management System)** application, built with Page Object Model, reusable fixtures, centralized configuration, and CI/CD-ready reporting.
+Playwright + TypeScript UI automation **framework scaffold** for the **PBM (Pharmacy Benefit Management System)** application, built around Page Object Model, reusable fixtures, centralized configuration, and CI/CD-ready reporting.
+
+> **Status: scaffold only.** This repository currently contains the framework architecture - configuration, fixtures, utilities, and folder structure - with **no Page Objects and no test cases yet**. Page Objects and specs will be added incrementally as user stories/feature specs are provided. See [Adding New Page Objects](#adding-new-page-objects) and [Adding New Test Cases](#adding-new-test-cases) for the pattern to follow.
 
 ## Table of Contents
 
@@ -16,16 +18,16 @@ Production-ready Playwright + TypeScript UI automation framework for the **PBM (
 - [Reports](#reports)
 - [Failed Screenshots](#failed-screenshots)
 - [MCP Setup (Claude Code)](#mcp-setup-claude-code)
-- [Adding New Test Cases](#adding-new-test-cases)
 - [Adding New Page Objects](#adding-new-page-objects)
+- [Adding New Test Cases](#adding-new-test-cases)
 - [Adding Fixtures](#adding-fixtures)
 - [Best Practices](#best-practices)
 
 ## Project Overview
 
-This framework automates functional regression testing for PBM's admin console (Dashboard, Payer Management, Network Management, Users Administration, and more). It is designed so any QA engineer can add a new module's tests without restructuring the project - just add a Page Object, test data factory, and spec file following the existing pattern.
+This is the foundation for functional regression testing of PBM's admin console. It is deliberately built **before** any specific module's Page Objects or tests, so that every module added later (Dashboard, Payer Management, Network Management, Users Administration, etc.) follows the same conventions instead of each being structured ad hoc.
 
-Authentication happens **once per test run** via a Playwright "setup project" that logs in as the admin user and reuses that session across every test, so no spec file ever repeats login code.
+Once a login Page Object is added, authentication is designed to happen **once per test run** via a Playwright "setup project" - see [Authentication](#authentication) for the exact pattern to wire in.
 
 ## Technology Stack
 
@@ -46,23 +48,18 @@ PBM-Automation/
 ├── constants/              # Centralized, typed configuration (never hardcode elsewhere)
 │   ├── BrowserConfig.ts        # Supported browsers, viewport, launch args, project builder
 │   ├── EnvironmentConfig.ts    # Typed wrapper around .env / process.env
-│   ├── AppRoutes.ts            # Relative application routes
+│   ├── AppRoutes.ts            # Relative application routes (add one entry per new module)
 │   ├── Paths.ts                # Framework-internal filesystem paths (auth storage state)
 │   └── Timeouts.ts             # Centralized timeout values
 ├── pages/                  # Page Object Model
 │   ├── BasePage.ts              # Shared navigation, readiness waits, dialog/toast handling
-│   ├── DashboardPage.ts
-│   ├── auth/LoginPage.ts
-│   ├── components/              # Reusable page fragments
-│   │   ├── SidebarNav.ts            # Left navigation drawer
-│   │   ├── ListPageBase.ts          # Shared search/table/pagination for all list screens
-│   │   └── EntityWizardDialog.ts    # Shared multi-step "Add/Edit" side-panel wizard
-│   ├── payer/PayerManagementPage.ts, PayerCreateDialog.ts
-│   ├── network/NetworkManagementPage.ts, NetworkCreateDialog.ts
-│   └── users/UsersAdministrationPage.ts, UserCreateDialog.ts
+│   └── components/              # Reusable, module-agnostic page fragments
+│       ├── ListPageBase.ts          # Shared search/table/pagination for future list screens
+│       └── EntityWizardDialog.ts    # Shared multi-step "Add/Edit" side-panel wizard pattern
+│   # New modules go here, e.g. pages/payer/PayerManagementPage.ts, pages/auth/LoginPage.ts
 ├── fixtures/                # Playwright fixtures
-│   ├── auth.fixture.ts          # Page Object fixtures (auth itself lives in tests/setup)
-│   ├── testData.fixture.ts      # Unique-per-test data fixtures
+│   ├── auth.fixture.ts          # Page Object fixture registry (placeholder - see comments)
+│   ├── testData.fixture.ts      # Test-data fixture registry (placeholder - see comments)
 │   ├── cleanup.fixture.ts       # Registerable teardown tasks
 │   ├── screenshot.fixture.ts    # Automatic failure screenshot capture
 │   └── index.ts                 # Single merged `test`/`expect` import point
@@ -70,14 +67,10 @@ PBM-Automation/
 │   ├── Logger.ts, DateUtils.ts, RandomDataUtils.ts, CommonUtils.ts
 │   ├── ScreenshotUtils.ts       # Writes failure screenshots OUTSIDE the repo
 │   └── WaitUtils.ts             # Loading-indicator / network-idle waits
-├── data/                    # Test data types + factories
-│   ├── common/types.ts, payers/payerData.ts, networks/networkData.ts, users/userData.ts
-├── tests/                   # Spec files, mirrored by module
-│   ├── setup/auth.setup.ts      # One-time admin login (Playwright setup project)
-│   ├── auth/login.spec.ts
-│   ├── payer/payer.spec.ts
-│   ├── network/network.spec.ts
-│   └── users/users.spec.ts
+├── data/                    # Test data types + factories (empty until a module is added)
+│   ├── common/, payers/, networks/, users/
+├── tests/                   # Spec files, mirrored by module (empty until specs are added)
+│   ├── setup/, auth/, payer/, network/, users/
 ├── playwright.config.ts     # Reads ONLY from constants/ - never hardcodes browser/env values
 ├── package.json
 ├── tsconfig.json
@@ -161,24 +154,27 @@ Viewport, launch arguments, and per-action/navigation timeouts are all defined o
 
 ## Authentication
 
-Login happens **once per test run**, not once per test:
+The framework is designed for login to happen **once per test run**, not once per test. This isn't wired up yet (no `LoginPage` exists), but the pattern to follow when one is added is:
 
-1. `tests/setup/auth.setup.ts` runs as a dedicated Playwright **setup project**. It uses `LoginPage` + `DashboardPage` to log in with the credentials from `.env` and saves the authenticated session (cookies/local storage) to `.auth/admin.json` (git-ignored).
-2. Every other project (`chromium`, `firefox`, etc.) declares `dependencies: ['setup']` in `playwright.config.ts` and loads that saved session via `storageState`.
-3. Tests simply request Page Object fixtures (e.g. `payerManagementPage`) and are already authenticated - no test calls `login()` itself.
+1. Add `pages/auth/LoginPage.ts` with locators + a `login(credentials)` method for the real login form.
+2. Add `tests/setup/auth.setup.ts` as a Playwright **setup project** test that uses `LoginPage` to log in with the credentials from `.env` and saves the session:
+   ```ts
+   await page.context().storageState({ path: AUTH_STORAGE_STATE_PATH }); // constants/Paths.ts
+   ```
+3. `playwright.config.ts` already detects whether that saved session file exists and, if so, automatically gives every browser project `dependencies: ['setup']` and `use: { storageState: AUTH_STORAGE_STATE_PATH }` - no config changes needed once step 2 is in place.
+4. Register `loginPage` (and any post-login Page Object) in `fixtures/auth.fixture.ts` so specs never construct `new LoginPage(page)` or call `login()` themselves.
 
-The one exception is `tests/auth/login.spec.ts`, which specifically tests the login flow and therefore opts out of the shared session with `test.use({ storageState: { cookies: [], origins: [] } })`.
+A spec that specifically tests the login flow itself should opt out of the shared session with `test.use({ storageState: { cookies: [], origins: [] } })`.
 
 ## Running Tests
 
 ```bash
-npx playwright test                 # runs the setup project, then the configured browser(s)
+npx playwright test                 # runs the setup project (if present), then the configured browser(s)
 npm test                            # same, via package.json script
-npm run test:payer                  # only tests/payer/**
-npm run test:network                # only tests/network/**
-npm run test:users                  # only tests/users/**
-npx playwright test tests/payer/payer.spec.ts   # a single file
+npx playwright test tests/payer     # only tests under a given module folder, once specs exist
 ```
+
+`npx playwright test --list` currently reports 0 tests - that's expected until the first spec file is added.
 
 ### Headed Mode
 
@@ -188,7 +184,7 @@ npm run test:headed
 
 ### Parallel Execution
 
-`fullyParallel: true` is set in `playwright.config.ts` and every test builds its own unique data via `data/*` factories (`RandomDataUtils`), so tests are safe to run concurrently with no shared mutable state. Control worker count with `WORKERS` in `.env`, or:
+`fullyParallel: true` is set in `playwright.config.ts`. Once test data factories exist under `data/`, every test should build its own unique record (via `utils/RandomDataUtils.ts`) so tests are safe to run concurrently with no shared mutable state. Control worker count with `WORKERS` in `.env`, or:
 
 ```bash
 npx playwright test --workers=4
@@ -200,7 +196,7 @@ npx playwright test --workers=4
 npx playwright test --debug         # Playwright Inspector, step through actions
 npm run test:debug                  # shortcut for the above
 npx playwright test --ui            # interactive UI mode (time-travel, watch mode)
-npx playwright codegen %BASE_URL%   # record new locators/steps against the live app (Windows)
+npx playwright codegen %BASE_URL%   # record locators/steps against the live app (Windows)
 ```
 
 ## Reports
@@ -209,7 +205,7 @@ npx playwright codegen %BASE_URL%   # record new locators/steps against the live
 npm run report                      # opens the last HTML report
 ```
 
-The HTML report (`playwright-report/`) includes failure screenshots (attached via the failure fixture) and traces for failed/retried tests. Neither `playwright-report/` nor `test-results/` are committed to Git.
+The HTML report (`playwright-report/`) will include failure screenshots (attached via the failure fixture) and traces for failed/retried tests, once tests exist. Neither `playwright-report/` nor `test-results/` are committed to Git.
 
 ## Failed Screenshots
 
@@ -231,7 +227,7 @@ Screenshots are captured **only for failed tests**, and are written **outside th
 
 ## MCP Setup (Claude Code)
 
-This project ships a committed **`.mcp.json`** at the repo root configuring the official Playwright MCP server, so Claude Code can drive a real browser against this same application directly from chat.
+This project ships a committed **`.mcp.json`** at the repo root configuring the official Playwright MCP server, so Claude Code can drive a real browser against this same application directly from chat - useful for exploring a new page's locators before writing its Page Object.
 
 ```json
 {
@@ -260,7 +256,7 @@ npm install -g @playwright/mcp
 
 ### Running Playwright through MCP
 
-Once connected, you can ask Claude Code to, for example, "navigate to the Payer Management page and list the visible table columns" - it will drive a real browser via the MCP server's tools (navigate, click, snapshot, evaluate, etc.), which is how the locators in this framework's Page Objects were originally verified against the live application.
+Once connected, you can ask Claude Code to, for example, "navigate to the Payer Management page and list the visible table columns" - it will drive a real browser via the MCP server's tools (navigate, click, snapshot, evaluate, etc.), which is the recommended way to verify real locators before writing a new Page Object.
 
 ### Windows-specific setup
 
@@ -280,6 +276,15 @@ Once connected, you can ask Claude Code to, for example, "navigate to the Payer 
 | Browser doesn't launch via MCP | Run `npx playwright install` once so the MCP server's browser binaries exist |
 | MCP actions time out against the app | Confirm `BASE_URL`/network access to the PBM app from the machine running Claude Code |
 
+## Adding New Page Objects
+
+1. Create `pages/<module>/<Module>Page.ts` (e.g. `pages/payer/PayerManagementPage.ts`).
+2. For a list/search/table screen, extend `pages/components/ListPageBase.ts` - it already provides search, row lookup, row actions, pagination, and column reads.
+3. For a create/edit side-panel wizard, extend `pages/components/EntityWizardDialog.ts` and add only the module-specific `fillXyz()` methods (locate fields by their visible label text via `field(label)` - see the class doc comment for the pattern).
+4. Add the module's route to `constants/AppRoutes.ts` instead of hardcoding a path string.
+5. Only add methods that are genuinely reusable (`createX`, `editX`, `deleteX`, `searchX`, `verifyXDetails`) - don't duplicate what the base class already provides.
+6. Register the new Page Object as a fixture in `fixtures/auth.fixture.ts` (see the pattern documented in that file) so specs can request it instead of constructing it manually.
+
 ## Adding New Test Cases
 
 1. Create a spec file under `tests/<module>/<feature>.spec.ts`.
@@ -294,19 +299,10 @@ import { test, expect } from '../../fixtures';
 test('rejects duplicate payer license numbers', async ({ payerManagementPage, uniquePayer, cleanup }) => {
   await payerManagementPage.open();
   const dialog = await payerManagementPage.startCreatePayer(uniquePayer);
-  await dialog.proceedFromBasicInfo();
   cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
   // ...assertions
 });
 ```
-
-## Adding New Page Objects
-
-1. Create `pages/<module>/<Module>Page.ts`.
-2. For a list/search/table screen, extend `pages/components/ListPageBase.ts` - it already provides search, row lookup, row actions, pagination, and column reads.
-3. For a create/edit side-panel wizard, extend `pages/components/EntityWizardDialog.ts` and add only the module-specific `fillXyz()` methods (locate fields by their visible label - see `PayerCreateDialog.ts` for the pattern).
-4. Only add methods that are genuinely reusable (`createX`, `editX`, `deleteX`, `searchX`, `verifyXDetails`) - don't duplicate what the base class already provides.
-5. Register the new Page Object as a fixture in `fixtures/auth.fixture.ts` so tests can request it instead of constructing it manually.
 
 ## Adding Fixtures
 
@@ -316,7 +312,7 @@ Add a new fixture file under `fixtures/`, following the existing pattern (`base.
 
 - **No hardcoded credentials or URLs** - everything comes from `constants/EnvironmentConfig.ts`, backed by `.env`.
 - **No `page.waitForTimeout()`** - use `expect()`, `waitForURL()`, `waitForLoadState()`, or the helpers in `utils/WaitUtils.ts`.
-- **Locator priority**: id → name → `data-testid` → stable class → label/placeholder → XPath (last resort). This app doesn't expose stable ids/`data-testid` on form fields, so field lookups are by visible label text (see `EntityWizardDialog.field()`), which is far more stable than placeholder text or DOM position.
-- **Independent tests** - every test builds its own unique data (`RandomDataUtils`) and can run in any order or in parallel.
-- **Business logic lives in Page Objects**, not in test files - tests read as a sequence of intents (`open()`, `startCreatePayer()`, `verifyPayerDetails()`), not raw locator interactions.
+- **Locator priority**: id → name → `data-testid` → stable class → label/placeholder → XPath (last resort). Verify real locators against the live app (e.g. via MCP or `codegen`) before writing a Page Object rather than guessing.
+- **Independent tests** - every test should build its own unique data (`RandomDataUtils`) and be safe to run in any order or in parallel.
+- **Business logic lives in Page Objects**, not in test files - tests should read as a sequence of intents (`open()`, `createX()`, `verifyXDetails()`), not raw locator interactions.
 - **Fail loudly** - don't swallow errors or over-use retries to mask real defects; `RETRIES` defaults to `0` locally and only a small number on CI.
