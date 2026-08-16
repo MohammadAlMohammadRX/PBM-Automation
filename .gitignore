@@ -13,6 +13,9 @@ node_modules/
 /.auth/
 *storage-state*.json
 
+# Generated email/attachment reports
+/reports/
+
 # Build output
 dist/
 *.tsbuildinfo

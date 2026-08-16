@@ -15,6 +15,12 @@ export interface EnvironmentConfigShape {
   baseUrl: string;
   adminUsername: string;
   adminPassword: string;
+  /** A second System Administrator, used to prove Draft isolation (TC-013). */
+  secondAdminUsername: string;
+  secondAdminPassword: string;
+  /** A non-admin (e.g. Standard User / Reviewer) account, used for RBAC (TC-012). */
+  nonAdminUsername: string;
+  nonAdminPassword: string;
   browser: string;
   headless: boolean;
   slowMo: number;
@@ -54,6 +60,10 @@ export const env: EnvironmentConfigShape = {
   baseUrl: process.env.BASE_URL ?? 'http://20.75.201.176',
   adminUsername: process.env.ADMIN_USERNAME ?? '',
   adminPassword: process.env.ADMIN_PASSWORD ?? '',
+  secondAdminUsername: process.env.SECOND_ADMIN_USERNAME ?? '',
+  secondAdminPassword: process.env.SECOND_ADMIN_PASSWORD ?? '',
+  nonAdminUsername: process.env.NON_ADMIN_USERNAME ?? '',
+  nonAdminPassword: process.env.NON_ADMIN_PASSWORD ?? '',
   browser: (process.env.BROWSER ?? 'chromium').toLowerCase(),
   headless: toBool(process.env.HEADLESS, true),
   slowMo: toInt(process.env.SLOW_MO, 0),

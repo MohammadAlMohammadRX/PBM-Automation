@@ -46,6 +46,12 @@ export abstract class BasePage {
     await WaitUtils.waitForLoadingToFinish(this.page);
   }
 
+  /** Reloads the current page and waits for it to settle. */
+  async reload(): Promise<void> {
+    await this.page.reload({ timeout: Timeouts.navigation, waitUntil: 'domcontentloaded' });
+    await this.waitForPageReady();
+  }
+
   async getCurrentUrl(): Promise<string> {
     return this.page.url();
   }

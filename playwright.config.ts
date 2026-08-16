@@ -47,18 +47,25 @@ export default defineConfig({
     timeout: Timeouts.expect,
   },
 
-  // Independent tests + safe parallel execution (see README > Test Independence).
+  // Tests are independent, but the current suites share a single admin account
+  // and hit a load-sensitive app, so they must run serially. fullyParallel stays
+  // on (tests remain parallel-safe by design), while workers defaults to 1 so a
+  // teammate or CI without WORKERS set still runs serially instead of colliding.
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
 
   // Retries hide flakiness if used to mask real defects - kept conservative
   // and configurable via .env / CI env vars rather than hardcoded.
   retries: process.env.CI ? Math.max(env.retries, 1) : env.retries,
-  workers: env.workers,
+  // WORKERS in .env overrides this; unset falls back to serial (1).
+  workers: env.workers ?? 1,
 
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
+    // Machine-readable results consumed by the report scripts. Written to
+    // reports/ (not the volatile test-results/, which Playwright wipes each run).
+    ['json', { outputFile: 'reports/results.json' }],
   ],
 
   use: {

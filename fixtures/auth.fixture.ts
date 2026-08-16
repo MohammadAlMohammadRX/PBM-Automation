@@ -1,30 +1,33 @@
 import { test as base } from '@playwright/test';
+import { LoginPage } from '../pages/auth/LoginPage';
+import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
+import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 
 /**
- * Authentication / Page-Object fixture (placeholder).
+ * Page-Object fixture registry.
  *
- * Intended pattern (per the framework's authentication requirement):
- *   1. Add `pages/auth/LoginPage.ts` (locators + `login()` for the real login form).
- *   2. Add `tests/setup/auth.setup.ts` as a Playwright "setup" project that logs
- *      in once using LoginPage and persists the session via
- *      `page.context().storageState({ path: AUTH_STORAGE_STATE_PATH })`
- *      (see constants/Paths.ts).
- *   3. In playwright.config.ts, give every browser project
- *      `dependencies: ['setup']` and `use: { storageState: AUTH_STORAGE_STATE_PATH }`
- *      so every test starts already authenticated - no spec file calls login() itself.
- *   4. Register each new Page Object here as a fixture, e.g.:
+ * Specs request a ready-made Page Object by name (e.g. `payerManagementPage`)
+ * instead of constructing `new PayerManagementPage(page)` themselves. Every
+ * project already starts authenticated via the "setup" project + saved
+ * storageState (see playwright.config.ts and tests/setup/auth.setup.ts), so
+ * these Page Objects assume an already-logged-in session.
  *
- *        export interface PageObjectFixtures {
- *          loginPage: LoginPage;
- *          dashboardPage: DashboardPage;
- *        }
- *
- *        export const test = base.extend<PageObjectFixtures>({
- *          loginPage: async ({ page }, use) => { await use(new LoginPage(page)); },
- *          dashboardPage: async ({ page }, use) => { await use(new DashboardPage(page)); },
- *        });
- *
- * Until the first Page Object exists, this fixture is a pass-through so
- * `fixtures/index.ts` has something valid to merge.
+ * Register each new Page Object here as its module is added.
  */
-export const test = base;
+export interface PageObjectFixtures {
+  loginPage: LoginPage;
+  payerManagementPage: PayerManagementPage;
+  approvalManagementPage: ApprovalManagementPage;
+}
+
+export const test = base.extend<PageObjectFixtures>({
+  loginPage: async ({ page }, use) => {
+    await use(new LoginPage(page));
+  },
+  payerManagementPage: async ({ page }, use) => {
+    await use(new PayerManagementPage(page));
+  },
+  approvalManagementPage: async ({ page }, use) => {
+    await use(new ApprovalManagementPage(page));
+  },
+});
