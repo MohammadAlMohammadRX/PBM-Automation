@@ -52,6 +52,38 @@ export abstract class BasePage {
     await this.waitForPageReady();
   }
 
+  /**
+   * Every list module (Payer, Approval, ...) offers a "Table view" / "Cards view"
+   * toggle and REMEMBERS the last choice for the signed-in user. All list
+   * assertions read the table, so this waits out the loading spinner and keeps
+   * switching to Table view until the table is actually rendered.
+   */
+  protected async ensureTableView(): Promise<void> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.page
+        .getByRole('progressbar', { name: 'Loading' })
+        .waitFor({ state: 'hidden', timeout: Timeouts.loadingIndicator })
+        .catch(() => undefined);
+      if (await this.page.getByRole('table').isVisible({ timeout: Timeouts.short }).catch(() => false)) {
+        return;
+      }
+      // In Arabic the view tabs render icon-only with no accessible name, so fall
+      // back to the first tab by position - Table view is always the first one.
+      const namedTab = this.page.getByRole('tab', { name: 'Table view' });
+      const tableTab = (await namedTab.count()) > 0
+        ? namedTab
+        : this.page.getByRole('tab').first();
+      if (await tableTab.isVisible().catch(() => false)) {
+        Logger.step('Switching list to Table view');
+        await tableTab.click();
+        await this.waitForPageReady();
+        continue;
+      }
+      await this.reload();
+    }
+    await expect(this.page.getByRole('table')).toBeVisible({ timeout: Timeouts.default });
+  }
+
   async getCurrentUrl(): Promise<string> {
     return this.page.url();
   }
@@ -72,7 +104,10 @@ export abstract class BasePage {
    * module uses a different notification pattern.
    */
   protected toastLocator(): Locator {
-    return this.page.locator('.p-toast-message, [role="alert"]').first();
+    // Only real toasts. The wizard renders a permanent informational banner with
+    // role="alert" ("Initial status will be set to Pending..."), which would
+    // otherwise be matched first and mask the message under test.
+    return this.page.locator('.p-toast-message').first();
   }
 
   async getToastMessage(timeout: number = Timeouts.toast): Promise<string> {

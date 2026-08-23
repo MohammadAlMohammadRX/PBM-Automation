@@ -50,9 +50,11 @@ export abstract class ListPageBase extends BasePage {
     await this.addButton().click();
   }
 
-  /** Locates a table row by the (unique) text it contains, e.g. an entity name. */
+  /** Locates a table row by the text it contains, e.g. an entity name. Rows are
+   *  read after searching, and some names legitimately repeat (a live record plus
+   *  a pending version), so the first match is the row under test. */
   protected rowByText(text: string): Locator {
-    return this.page.getByRole('row', { name: new RegExp(this.escapeRegExp(text)) });
+    return this.page.getByRole('row', { name: new RegExp(this.escapeRegExp(text)) }).first();
   }
 
   private escapeRegExp(value: string): string {

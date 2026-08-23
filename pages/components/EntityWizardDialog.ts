@@ -50,7 +50,14 @@ export abstract class EntityWizardDialog {
   async selectDropdownOption(label: string, optionText: string): Promise<void> {
     Logger.step(`Selecting "${optionText}" for "${label}"`);
     await this.fieldContainer(label).getByRole('combobox').click();
-    await this.page.getByRole('option', { name: optionText }).click();
+    // Option overlays are portalled to the body and a previously-opened one can
+    // linger in the DOM, so the same option text may match more than once. Only
+    // the overlay that is actually on screen is clickable.
+    await this.page
+      .getByRole('option', { name: optionText, exact: true })
+      .filter({ visible: true })
+      .first()
+      .click();
   }
 
   async setCheckbox(label: string, checked: boolean): Promise<void> {

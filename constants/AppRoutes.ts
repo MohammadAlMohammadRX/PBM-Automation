@@ -11,6 +11,8 @@ export const AppRoutes = {
   dashboard: '/dashboard',
   payerManagement: '/payer-management',
   approvalManagement: '/approval-management',
+  /** Reference-data (lookup) administration, e.g. /lookup-management/payerType. */
+  lookupManagement: '/system-settings/lookup-management',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

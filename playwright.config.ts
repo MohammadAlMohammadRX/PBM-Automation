@@ -42,7 +42,9 @@ const browserProjects = browsersToRun.map((browser) => {
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
-  timeout: 60_000,
+  // The payer wizard is multi-step and the app slows noticeably under parallel
+  // load, so a single test needs more than the default budget end-to-end.
+  timeout: 120_000,
   expect: {
     timeout: Timeouts.expect,
   },

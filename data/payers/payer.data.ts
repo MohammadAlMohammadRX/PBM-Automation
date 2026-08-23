@@ -11,8 +11,25 @@ import type { PayerData } from './payerTypes';
  * obvious at the call site.
  */
 
-/** The Arabic "Payer Name" label, kept as a constant so specs/POs share it. */
-export const PAYER_NAME_AR_LABEL = 'اسم الجهة المانحة';
+/** The Arabic "Payer Name" label, kept as a constant so specs/POs share it.
+ *  (The application renamed this label from "اسم الجهة المانحة" in the
+ *  versioning release; keeping it here means one edit updates every caller.) */
+export const PAYER_NAME_AR_LABEL = 'اسم جهة التغطية';
+
+/** Arabic letters used to build unique, Arabic-only names. */
+const ARABIC_LETTERS = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
+
+/**
+ * Turns a base-36 uniqueness token into a run of Arabic letters. The Arabic
+ * name field rejects anything that is not an Arabic letter, yet the Arabic UI
+ * lists payers by their Arabic name - so the Arabic name has to be unique too
+ * for a bilingual test to find its own record.
+ */
+export function toArabicToken(seed: string): string {
+  return [...seed]
+    .map((char) => ARABIC_LETTERS[parseInt(char, 36) % ARABIC_LETTERS.length])
+    .join('');
+}
 
 /**
  * Builds a unique, fully valid payer. `overrides` lets a test pin specific
@@ -23,9 +40,9 @@ export function buildUniquePayer(overrides: Partial<PayerData> = {}): PayerData 
   return {
     nameEn: `Automation Payer ${suffix}`,
     // The Arabic name field enforces "Arabic letters only", so uniqueness is
-    // carried by the English name (used for search/identification) while this
-    // stays a valid Arabic-only string.
-    nameAr: 'جهة تأمين مؤتمتة',
+    // expressed as a run of Arabic letters - the Arabic UI lists payers by this
+    // name, so bilingual tests need it to be unique as well.
+    nameAr: `جهة ${toArabicToken(suffix)}`,
     type: 'Private',
     email: `automation.payer.${suffix}@example.com`,
     phone: '512345678',

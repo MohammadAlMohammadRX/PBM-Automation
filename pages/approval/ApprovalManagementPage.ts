@@ -24,11 +24,8 @@ export class ApprovalManagementPage extends BasePage {
 
   async open(): Promise<void> {
     await this.goto(AppRoutes.approvalManagement);
-    await this.page
-      .getByRole('progressbar', { name: 'Loading' })
-      .waitFor({ state: 'hidden', timeout: Timeouts.loadingIndicator })
-      .catch(() => undefined);
-    await expect(this.page.getByRole('table')).toBeVisible({ timeout: Timeouts.default });
+    // The approval queue shares the module-wide Table/Cards view preference.
+    await this.ensureTableView();
   }
 
   private searchInput(): Locator {
@@ -64,6 +61,52 @@ export class ApprovalManagementPage extends BasePage {
     const row = this.row(payerName);
     await expect(row.locator('button[title="Approve"]')).toBeVisible();
     await expect(row.locator('button[title="Reject"]')).toBeVisible();
+  }
+
+  /**
+   * Asserts the queued request is of the expected change type. The queue's
+   * "Change Type" column reports Create / Update / Delete, which is how a
+   * staged deletion is distinguished from an edit.
+   */
+  async expectChangeType(payerName: string, changeType: string): Promise<void> {
+    await this.search(payerName);
+    await expect(this.row(payerName).getByRole('cell').nth(1)).toHaveText(changeType, {
+      timeout: Timeouts.default,
+    });
+  }
+
+  /** Number of queued requests matching a payer name - proves no duplicates. */
+  async countQueuedRequests(payerName: string): Promise<number> {
+    await this.search(payerName);
+    return this.page.getByRole('row').filter({ hasText: payerName }).count();
+  }
+
+  /** Asserts the payer has exactly one pending request (double-submission guard). */
+  async expectSingleQueuedRequest(payerName: string): Promise<void> {
+    await this.search(payerName);
+    await expect(this.page.getByRole('row').filter({ hasText: payerName })).toHaveCount(1, {
+      timeout: Timeouts.default,
+    });
+  }
+
+  async expectNotInQueue(payerName: string): Promise<void> {
+    await this.search(payerName);
+    await expect(this.row(payerName)).toHaveCount(0, { timeout: Timeouts.default });
+  }
+
+  /**
+   * Segregation of duties: a request submitted by the signed-in user must not
+   * be approvable by that same user. Satisfied either by the request being
+   * absent from their queue, or by the Approve action being unavailable.
+   */
+  async expectSelfApprovalPrevented(payerName: string): Promise<void> {
+    await this.search(payerName);
+    if ((await this.row(payerName).count()) === 0) {
+      return; // Excluded from the submitter's own queue.
+    }
+    await expect(this.row(payerName).locator('button[title="Approve"]')).toHaveCount(0, {
+      timeout: Timeouts.default,
+    });
   }
 
   /** Approves a queued request (ticks the acknowledgement, then confirms). */

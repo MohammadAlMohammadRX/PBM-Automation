@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
+import { LookupManagementPage } from '../pages/settings/LookupManagementPage';
 
 /**
  * Page-Object fixture registry.
@@ -18,6 +19,7 @@ export interface PageObjectFixtures {
   loginPage: LoginPage;
   payerManagementPage: PayerManagementPage;
   approvalManagementPage: ApprovalManagementPage;
+  lookupManagementPage: LookupManagementPage;
 }
 
 export const test = base.extend<PageObjectFixtures>({
@@ -29,5 +31,8 @@ export const test = base.extend<PageObjectFixtures>({
   },
   approvalManagementPage: async ({ page }, use) => {
     await use(new ApprovalManagementPage(page));
+  },
+  lookupManagementPage: async ({ page }, use) => {
+    await use(new LookupManagementPage(page));
   },
 });
