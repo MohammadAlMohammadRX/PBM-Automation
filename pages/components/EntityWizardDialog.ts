@@ -27,8 +27,19 @@ export abstract class EntityWizardDialog {
     this.page = page;
   }
 
+  /**
+   * The drawer the wizard is rendered in.
+   *
+   * Deliberately a plain match with no `.first()`, `.last()` or visibility
+   * filter. This flow opens, closes and reopens the drawer, and every attempt to
+   * "improve" this selector broke it: `.last()` targeted the lingering closed
+   * drawer, and filtering on visibility raced the open/close animation and made
+   * `clickNext` / `waitForClosed` flaky. AdvancedSearchDrawer and
+   * LookupManagementPage use `.last()` because THEIR flows never reopen a
+   * drawer - that difference is intentional, not an inconsistency to unify.
+   */
   protected panel(): Locator {
-    return this.page.locator('aside, .p-drawer, [role="complementary"]').last();
+    return this.page.locator('.pbm-form-drawer');
   }
 
   /** Locates the field wrapper (label + control) by the field's visible label text.
@@ -38,18 +49,14 @@ export abstract class EntityWizardDialog {
     return this.panel().locator(`div.${this.fieldClassPrefix}__field`, { hasText: label });
   }
 
-  private fieldContainer(label: string): Locator {
-    return this.field(label);
-  }
-
   async fillTextField(label: string, value: string): Promise<void> {
     Logger.step(`Filling "${label}" with "${value}"`);
-    await this.fieldContainer(label).getByRole('textbox').first().fill(value);
+    await this.field(label).getByRole('textbox').first().fill(value);
   }
 
   async selectDropdownOption(label: string, optionText: string): Promise<void> {
     Logger.step(`Selecting "${optionText}" for "${label}"`);
-    await this.fieldContainer(label).getByRole('combobox').click();
+    await this.field(label).getByRole('combobox').click();
     // Option overlays are portalled to the body and a previously-opened one can
     // linger in the DOM, so the same option text may match more than once. Only
     // the overlay that is actually on screen is clickable.
@@ -61,7 +68,7 @@ export abstract class EntityWizardDialog {
   }
 
   async setCheckbox(label: string, checked: boolean): Promise<void> {
-    const checkbox = this.fieldContainer(label).getByRole('checkbox');
+    const checkbox = this.field(label).getByRole('checkbox');
     const isChecked = await checkbox.isChecked();
     if (isChecked !== checked) {
       await checkbox.click();

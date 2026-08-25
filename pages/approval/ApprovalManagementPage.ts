@@ -29,15 +29,26 @@ export class ApprovalManagementPage extends BasePage {
   }
 
   private searchInput(): Locator {
-    return this.page.getByRole('textbox', { name: 'Search' }).first();
+    // The application's own class, not the localized accessible name.
+    return this.page.locator('input.pbm-search__input').first();
   }
 
-  /** Filters the queue to a single request so pagination never hides it. */
+  /**
+   * Filters the queue to a single request so pagination never hides it.
+   *
+   * Types real keystrokes. `locator.fill()` sets the value without raising the
+   * key events this application listens for, so the queue was never actually
+   * filtered - it only appeared to work while the backlog was short enough for
+   * the wanted row to sit on page one. With a 16-page queue that silently broke
+   * every isInQueue() check.
+   */
   async search(payerName: string): Promise<void> {
     Logger.step(`Searching approval queue for "${payerName}"`);
     const input = this.searchInput();
-    await input.fill(payerName);
-    await input.press('Enter');
+    await input.click();
+    await input.press('ControlOrMeta+a');
+    await input.press('Delete');
+    await input.pressSequentially(payerName);
     await this.waitForPageReady();
   }
 
@@ -45,16 +56,39 @@ export class ApprovalManagementPage extends BasePage {
     return this.page.getByRole('row').filter({ hasText: payerName }).first();
   }
 
+  /**
+   * Whether a request for this payer is pending, WAITING for the queue to render.
+   * `locator.isVisible()` is avoided on purpose: it ignores its timeout and
+   * reports the state before the search results arrive.
+   */
   async isInQueue(payerName: string): Promise<boolean> {
     await this.search(payerName);
     return this.row(payerName)
-      .isVisible({ timeout: Timeouts.default })
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
       .catch(() => false);
   }
 
+  /**
+   * Waits for a request to appear in the queue, re-running the search each time.
+   *
+   * A single search is not enough: the filter is debounced and a change that was
+   * only just submitted can take a moment to reach the queue, so checking once
+   * asks the question before the answer exists.
+   */
   async expectInQueue(payerName: string): Promise<void> {
-    await this.search(payerName);
-    await expect(this.row(payerName)).toBeVisible({ timeout: Timeouts.default });
+    await expect
+      .poll(
+        async () => {
+          await this.search(payerName);
+          return this.row(payerName)
+            .waitFor({ state: 'visible', timeout: Timeouts.short })
+            .then(() => true)
+            .catch(() => false);
+        },
+        { timeout: Timeouts.default },
+      )
+      .toBe(true);
   }
 
   async expectActionsAvailable(payerName: string): Promise<void> {

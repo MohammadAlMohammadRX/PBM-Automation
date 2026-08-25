@@ -46,15 +46,26 @@ export const DELETE_MESSAGES = {
   /** Shown when a live payer's deletion is staged for approval. */
   stagedAsDraft: 'Saved as draft',
   /**
-   * Dependency-block error required by the user story (TC-002). The live app
-   * currently returns a narrower wording ("...linked to existing plans."), so
-   * this assertion is expected to surface that gap.
+   * Dependency-block error required by the user story (TC-002).
+   *
+   * Verified against the live application on a payer that genuinely carries a
+   * linked network: the toast matches this string exactly. An earlier note here
+   * claimed the app returned a narrower wording - that was wrong, and it came
+   * from a test that was acting on the wrong record.
    */
   dependencyBlockedEn:
     'Payer cannot be deleted because it is linked to existing networks, facilities, or authorization rules.',
-  /** Arabic dependency-block error required by the user story (TC-003). */
+  /**
+   * Arabic dependency-block error, taken from the running application and
+   * confirmed by the product owner.
+   *
+   * The user story carries an older translation that refers to a payer as
+   * "الدافع"; the application uses "جهة التغطية", which is the term
+   * shown everywhere else in the Arabic UI, with matching gender agreement.
+   * The application text is the correct one - the story is what is stale.
+   */
   dependencyBlockedAr:
-    'لا يمكن حذف الدافع لأنه مرتبط بشبكات أو منشآت أو قواعد تفويض قائمة',
+    'لا يمكن حذف جهة التغطية لأنها مرتبطة بشبكات طبية أو منشآت أو قواعد تفويض قائمة',
 } as const;
 
 /**

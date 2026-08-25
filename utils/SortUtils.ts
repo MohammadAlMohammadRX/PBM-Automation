@@ -8,9 +8,6 @@
 
 export type SortDirection = 'asc' | 'desc';
 
-/** Where blank values sit inside a sorted column. */
-export type BlankPlacement = 'none' | 'first' | 'last' | 'scattered';
-
 /**
  * Text comparison used for every alphabetical assertion.
  *
@@ -22,8 +19,8 @@ export type BlankPlacement = 'none' | 'first' | 'last' | 'scattered';
  */
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
-/** Cell contents the list uses to mean "no value". */
-export const BLANK_MARKERS = ['', '-', '—', '–', 'N/A'] as const;
+/** Cell contents the list uses to mean "no value" (observed in the live app). */
+export const BLANK_MARKERS = ['', '—'] as const;
 
 export function isBlank(value: string): boolean {
   return (BLANK_MARKERS as readonly string[]).includes(value.trim());
@@ -62,23 +59,19 @@ export function isGrouped(values: string[]): boolean {
 }
 
 /**
- * Where the blank cells ended up. A correct sort puts them all at one end;
- * "scattered" means they were interleaved with real values, which is the
- * failure TC-042 looks for.
+ * True when the blank cells sit together at one end rather than being
+ * interleaved with real values - the failure TC-042 looks for. A column with no
+ * blanks, or nothing but blanks, is trivially grouped.
  */
-export function blankPlacement(values: string[]): BlankPlacement {
+export function blanksAreGrouped(values: string[]): boolean {
   const blanks = values.map(isBlank);
-  if (!blanks.includes(true)) return 'none';
-  if (!blanks.includes(false)) return 'first';
-
   const firstValue = blanks.indexOf(false);
+  if (firstValue === -1) return true;                 // all blank
   const lastValue = blanks.lastIndexOf(false);
-  if (blanks.slice(firstValue, lastValue + 1).includes(true)) return 'scattered';
-
-  const hasLeading = firstValue > 0;
-  const hasTrailing = lastValue < blanks.length - 1;
-  if (hasLeading && hasTrailing) return 'scattered';
-  return hasLeading ? 'first' : 'last';
+  // No blank may appear between the first and last real value, and the real
+  // values must not be bracketed by blanks on both sides.
+  if (blanks.slice(firstValue, lastValue + 1).includes(true)) return false;
+  return firstValue === 0 || lastValue === blanks.length - 1;
 }
 
 /** Values that appear more than once - used to prove a sort duplicated no row. */

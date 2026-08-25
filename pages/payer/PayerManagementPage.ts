@@ -21,7 +21,7 @@ import {
 import { NO_RESULTS_TEXT, SEARCH_UI } from '../../data/payers/searchPayer.data';
 import { SortMenu } from './SortMenu';
 import {
-  blankPlacement,
+  blanksAreGrouped,
   duplicates,
   isGrouped,
   isSorted,
@@ -94,20 +94,22 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
-   * The search box's accessible name is localized (English "Search" / Arabic),
-   * so it is located structurally instead - it is the list toolbar's only free
-   * text input. This keeps the bilingual tests working in either language.
+   * The toolbar search box. Located by the application's own class rather than
+   * by accessible name, because the name is localized and would not match while
+   * the UI is in Arabic.
    */
   protected override searchInput(): Locator {
-    // Prefer the accessible name (English UI); fall back to the toolbar's first
-    // text input, because the name is localized when the UI is in Arabic.
-    return this.page
-      .getByRole('textbox', { name: 'Search' })
-      .or(this.page.locator('input[type="text"]').first())
-      .first();
+    return this.page.locator('input.pbm-search__input').first();
   }
 
-  /** Search that first makes sure we are actually on the payer list. */
+  /**
+   * Finds a row quickly so a following action can act on it: fills the box and
+   * presses Enter. This is a NAVIGATION helper.
+   *
+   * The search behaviour itself is exercised by `typeInSearch`, which types real
+   * keystrokes - do not merge the two. Both touch the same input, but only one
+   * of them is the thing under test.
+   */
   override async search(term: string): Promise<void> {
     await this.ensureListOpen();
     await super.search(term);
@@ -116,10 +118,6 @@ export class PayerManagementPage extends ListPageBase {
   // =====================================================================
   // Search Payers by Name or Code
   // =====================================================================
-
-  private searchBox(): Locator {
-    return this.page.locator('input.pbm-search__input').first();
-  }
 
   private searchControl(label: 'Clear' | 'Filters'): Locator {
     return this.page.locator(`.pbm-search button[aria-label="${label}"]`);
@@ -133,7 +131,7 @@ export class PayerManagementPage extends ListPageBase {
    */
   async typeInSearch(term: string): Promise<void> {
     Logger.step(`Searching for "${term}" (real-time)`);
-    const input = this.searchBox();
+    const input = this.searchInput();
     await input.click();
     await input.press('ControlOrMeta+a');
     await input.press('Delete');
@@ -145,12 +143,12 @@ export class PayerManagementPage extends ListPageBase {
   async clearSearchBox(): Promise<void> {
     Logger.step('Clearing the search box');
     await this.searchControl('Clear').first().click();
-    await expect(this.searchBox()).toHaveValue('', { timeout: Timeouts.default });
+    await expect(this.searchInput()).toHaveValue('', { timeout: Timeouts.default });
     await this.waitForPageReady();
   }
 
   async getSearchBoxValue(): Promise<string> {
-    return this.searchBox().inputValue();
+    return this.searchInput().inputValue();
   }
 
   /** Opens the Advanced Search panel from the search box. */
@@ -232,7 +230,7 @@ export class PayerManagementPage extends ListPageBase {
   /** Asserts the search UI exposes all of its expected controls. */
   async expectSearchUiPresent(): Promise<void> {
     await expect(this.page.locator('.pbm-search i.pi-search')).toBeVisible();
-    await expect(this.searchBox()).toHaveAttribute('placeholder', SEARCH_UI.placeholder);
+    await expect(this.searchInput()).toHaveAttribute('placeholder', SEARCH_UI.placeholder);
     await expect(this.searchControl('Filters')).toBeVisible();
   }
 
@@ -321,26 +319,23 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
-   * The ordering verdict for a column, as a readable string so a failure names
-   * the offending order instead of just reporting `false`.
+   * The ordering verdict for a column: `'ordered'`, `'no rows'`, or the offending
+   * values, so a failure names the actual order instead of reporting `false`.
    *
-   * Blank cells are removed before the alphabetical comparison and checked
+   * Blank cells are removed before an alphabetical comparison and checked
    * separately by `expectBlanksGrouped`: the application sorts them as the
-   * lowest value, so leaving them in would mask a genuine ordering defect in
-   * the descending direction.
+   * lowest value, so leaving them in would mask an ordering defect when
+   * descending.
    */
-  private async orderingVerdict(column: SortColumnKey, direction: SortDirection): Promise<string> {
-    const spec = sortColumn(column);
-    const values = await this.getColumnValues(column);
-    if (values.length === 0) return 'no rows';
+  private async ordering(column: SortColumnKey, direction: SortDirection): Promise<string> {
+    const grouped = sortColumn(column).comparison === 'grouped';
+    const rows = await this.getColumnValues(column);
+    if (rows.length === 0) return 'no rows';
 
-    const comparable = spec.comparison === 'grouped' ? values : withoutBlanks(values);
-    if (comparable.length < 2) return 'ordered';
-
-    const ordered = spec.comparison === 'grouped'
-      ? isGrouped(comparable)
-      : isSorted(comparable, direction);
-    return ordered ? 'ordered' : `out of order: ${comparable.join(' | ')}`;
+    const values = grouped ? rows : withoutBlanks(rows);
+    if (values.length < 2) return 'ordered';
+    const ok = grouped ? isGrouped(values) : isSorted(values, direction);
+    return ok ? 'ordered' : values.join(' | ');
   }
 
   /**
@@ -349,17 +344,17 @@ export class PayerManagementPage extends ListPageBase {
    */
   async expectColumnSorted(column: SortColumnKey, direction: SortDirection): Promise<void> {
     await expect
-      .poll(() => this.orderingVerdict(column, direction), { timeout: Timeouts.default })
+      .poll(() => this.ordering(column, direction), { timeout: Timeouts.default })
       .toBe('ordered');
   }
 
   /** Asserts a sort left the column's blank cells together at one end. */
   async expectBlanksGrouped(column: SortColumnKey): Promise<void> {
     await expect
-      .poll(() => this.getColumnValues(column).then(blankPlacement), {
+      .poll(() => this.getColumnValues(column).then(blanksAreGrouped), {
         timeout: Timeouts.default,
       })
-      .not.toBe('scattered');
+      .toBe(true);
   }
 
   /** Asserts the sort indicator names this column and direction. */
@@ -435,11 +430,6 @@ export class PayerManagementPage extends ListPageBase {
       .poll(() => this.sortMenu().optionLabels(), { timeout: Timeouts.default })
       .toEqual(expected);
     expect(expected, 'seven columns x two directions').toHaveLength(SORT_MENU_OPTION_COUNT);
-  }
-
-  /** Number of data rows currently rendered. */
-  async getRowCount(): Promise<number> {
-    return this.page.locator('table tbody tr').count();
   }
 
   /**
@@ -518,12 +508,55 @@ export class PayerManagementPage extends ListPageBase {
         async () => {
           const rows = await this.getRowCount();
           if (rows === 0) return 'ordered';
-          return this.orderingVerdict(column, direction);
+          return this.ordering(column, direction);
         },
         { timeout: Timeouts.default },
       )
       .toBe('ordered');
     await expect(this.page.getByRole('table')).toBeVisible();
+  }
+
+  /**
+   * Asserts how many networks the list reports for a payer. The Networks column
+   * is the payer's live dependency count, so this is how a dependency test
+   * PROVES its precondition instead of assuming a seeded record has one.
+   */
+  async expectNetworkCount(payerName: string, expected: number): Promise<void> {
+    await this.search(payerName);
+    await expect
+      .poll(
+        async () => {
+          const shown = (await this.getRowCellValue(payerName, 'Networks')).trim();
+          return shown === '' || shown === '—' ? 0 : Number(shown);
+        },
+        { timeout: Timeouts.default },
+      )
+      .toBe(expected);
+  }
+
+  /**
+   * Whether the last delete attempt was refused because the payer carries
+   * dependencies. Cleanup asks this so it stops retrying a record the
+   * application will never let it remove - the dependency tests create exactly
+   * such a payer on purpose.
+   *
+   * Matches either language, since the Arabic test hits the same path.
+   */
+  async wasDeletionBlockedByDependency(): Promise<boolean> {
+    return this.page
+      .locator('.p-toast-message')
+      .filter({ hasText: /cannot be deleted|لا يمكن حذف/ })
+      .first()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /** Searches for a term and reports whether a matching row came back. Used by
+   *  cleanup, which must be able to tell "removed" from "never found". */
+  async isRowVisibleAfterSearch(term: string): Promise<boolean> {
+    await this.search(term);
+    return this.isRowVisible(term);
   }
 
   /** Asserts both list filters still hold the selections the test applied. */
@@ -534,7 +567,7 @@ export class PayerManagementPage extends ListPageBase {
 
   /** Asserts the search box still holds the term the test typed. */
   async expectSearchTerm(term: string): Promise<void> {
-    await expect(this.searchBox()).toHaveValue(term, { timeout: Timeouts.default });
+    await expect(this.searchInput()).toHaveValue(term, { timeout: Timeouts.default });
   }
 
   /** Asserts exactly one payer remains listed, and it is the expected one. */
@@ -552,7 +585,7 @@ export class PayerManagementPage extends ListPageBase {
   async expectListStateAfterReload(): Promise<void> {
     await this.reopen();
     await this.expectFiltersAtDefault();
-    await expect(this.searchBox()).toHaveValue('', { timeout: Timeouts.default });
+    await expect(this.searchInput()).toHaveValue('', { timeout: Timeouts.default });
     await this.expectSortIndicator(DEFAULT_SORT.column, DEFAULT_SORT.direction);
     await this.expectColumnSorted(DEFAULT_SORT.column, DEFAULT_SORT.direction);
   }
@@ -606,12 +639,6 @@ export class PayerManagementPage extends ListPageBase {
     const labels = (await options.allInnerTexts()).map((text) => text.trim());
     await this.page.keyboard.press('Escape');
     return labels;
-  }
-
-  /** Every value currently shown in a given column of the visible rows. */
-  private async columnValues(columnIndex: number): Promise<string[]> {
-    const cells = this.page.locator('table tbody tr').locator(`td:nth-child(${columnIndex + 1})`);
-    return (await cells.allInnerTexts()).map((text) => text.trim());
   }
 
   async getVisiblePayerTypes(): Promise<string[]> {

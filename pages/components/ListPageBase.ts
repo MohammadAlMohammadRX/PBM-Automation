@@ -36,11 +36,6 @@ export abstract class ListPageBase extends BasePage {
     await this.waitForPageReady();
   }
 
-  async clearSearch(): Promise<void> {
-    await this.searchInput().fill('');
-    await this.waitForPageReady();
-  }
-
   protected addButton(): Locator {
     return this.page.getByRole('button', { name: this.addButtonLabel, exact: true });
   }
@@ -61,9 +56,18 @@ export abstract class ListPageBase extends BasePage {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * Whether a row for `entityName` is on screen, WAITING for it to appear.
+   *
+   * `locator.isVisible()` is deliberately not used here: it reports the current
+   * state and ignores its timeout, so a check made right after a search runs
+   * before the table has re-rendered and answers "no". That race is what made
+   * fixture cleanup skip records silently and leak them into the environment.
+   */
   async isRowVisible(entityName: string): Promise<boolean> {
     return this.rowByText(entityName)
-      .isVisible({ timeout: Timeouts.short })
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
       .catch(() => false);
   }
 
@@ -124,5 +128,20 @@ export abstract class ListPageBase extends BasePage {
 
   async getVisibleRowCount(): Promise<number> {
     return this.page.getByRole('table').getByRole('row').count();
+  }
+
+  /** Number of data rows currently rendered (header row excluded). */
+  async getRowCount(): Promise<number> {
+    return this.page.locator('table tbody tr').count();
+  }
+
+  /**
+   * Every value currently shown in a given zero-based column of the visible rows.
+   * Generic to any list module, so it lives here rather than being re-implemented
+   * per page.
+   */
+  protected async columnValues(columnIndex: number): Promise<string[]> {
+    const cells = this.page.locator('table tbody tr').locator(`td:nth-child(${columnIndex + 1})`);
+    return (await cells.allInnerTexts()).map((text) => text.trim());
   }
 }

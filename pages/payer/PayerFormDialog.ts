@@ -34,12 +34,6 @@ export class PayerFormDialog extends EntityWizardDialog {
     super(page, 'payer-dialog');
   }
 
-  /** Scope the wizard to the payer drawer specifically (the app also renders a
-   *  navigation <complementary> that the base selector would otherwise match). */
-  protected override panel(): Locator {
-    return this.page.locator('.pbm-form-drawer');
-  }
-
   async waitForOpen(): Promise<void> {
     await expect(this.panel()).toBeVisible({ timeout: Timeouts.default });
   }
