@@ -3,9 +3,14 @@ import { Timeouts } from '../constants/Timeouts';
 import { Logger } from './Logger';
 
 /**
- * Common selectors used by loading/busy indicators across the PBM app
- * (PrimeNG-based). Kept as a list (rather than one guess) so waitForIdle()
- * stays resilient if the exact spinner implementation differs per module.
+ * Busy-indicator selectors, by CSS class rather than by id.
+ *
+ * This is deliberate and is the one place in the framework that cannot be
+ * id-based: the application documents no GLOBAL loading id. Loading state is
+ * exposed per screen instead (`{screen}-table-loading`, `dashboard-loading`),
+ * and this helper is module-agnostic - it is called from BasePage before the
+ * screen is even known. Callers that DO know their screen use its own loading
+ * id; see BasePage.ensureTableView().
  */
 const LOADING_INDICATOR_SELECTORS = [
   '.p-progressspinner',

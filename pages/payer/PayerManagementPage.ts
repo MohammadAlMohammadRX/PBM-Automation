@@ -21,6 +21,14 @@ import {
 import { NO_RESULTS_TEXT, SEARCH_UI } from '../../data/payers/searchPayer.data';
 import { SortMenu } from './SortMenu';
 import {
+  GLOBAL,
+  PAYER_COLUMN,
+  SCREEN,
+  TOAST,
+  buttonSelector,
+  type PayerColumnKey,
+} from '../../constants/ElementIds';
+import {
   blanksAreGrouped,
   duplicates,
   isGrouped,
@@ -39,12 +47,13 @@ import {
   type SortColumnKey,
 } from '../../data/payers/sortPayer.data';
 
-/** Columns exposed by the payer list table (verified against the live app). */
-const COLUMN = {
-  code: 'Code',
-  status: 'Status',
-  approvalStatus: 'Approval Status',
-} as const;
+/**
+ * Columns this class reads, as the model-property keys the table's cell ids are
+ * built from. These replaced the English header captions the old implementation
+ * matched on ("Code", "Approval Status"), which had to be looked up against the
+ * rendered header row and therefore only worked in English.
+ */
+const COLUMN = PAYER_COLUMN;
 
 /**
  * Page Object for the Payer Management module (`/payer-management`).
@@ -55,7 +64,7 @@ const COLUMN = {
  */
 export class PayerManagementPage extends ListPageBase {
   constructor(page: Page) {
-    super(page, 'Add Payer');
+    super(page, SCREEN.payerList);
   }
 
 
@@ -69,7 +78,7 @@ export class PayerManagementPage extends ListPageBase {
 
   async open(): Promise<void> {
     await this.goto(AppRoutes.payerManagement);
-    await this.ensureTableView();
+    await this.ensureTableView(this.screen);
   }
 
   /** Navigates to the module WITHOUT asserting the table renders - used by the
@@ -84,8 +93,7 @@ export class PayerManagementPage extends ListPageBase {
    * and every list assertion should be able to stand on its own.
    */
   private async ensureListOpen(): Promise<void> {
-    const onList = await this.page
-      .getByRole('table')
+    const onList = await this.table()
       .isVisible({ timeout: Timeouts.short })
       .catch(() => false);
     if (!onList) {
@@ -94,12 +102,13 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
-   * The toolbar search box. Located by the application's own class rather than
-   * by accessible name, because the name is localized and would not match while
-   * the UI is in Arabic.
+   * The toolbar search box. Inherited unchanged from ListPageBase, which builds
+   * it from the screen namespace (`payer-list-search-input`) - the id is the
+   * same in English and Arabic, so the localized-accessible-name problem that
+   * forced a CSS-class lookup here no longer exists.
    */
   protected override searchInput(): Locator {
-    return this.page.locator('input.pbm-search__input').first();
+    return super.searchInput();
   }
 
   /**
@@ -119,8 +128,15 @@ export class PayerManagementPage extends ListPageBase {
   // Search Payers by Name or Code
   // =====================================================================
 
-  private searchControl(label: 'Clear' | 'Filters'): Locator {
-    return this.page.locator(`.pbm-search button[aria-label="${label}"]`);
+  /**
+   * The two controls inside the search box: the inline clear (x) and the funnel
+   * that opens Advanced Search. Previously matched by localized `aria-label`.
+   */
+  private searchControl(control: 'Clear' | 'Filters'): Locator {
+    const id = control === 'Clear'
+      ? `${this.screen}-search-clear-icon`
+      : `${this.screen}-search-filter-button`;
+    return this.btn(id);
   }
 
   /**
@@ -162,12 +178,12 @@ export class PayerManagementPage extends ListPageBase {
 
   /** Every payer name currently listed. */
   async getVisiblePayerNames(): Promise<string[]> {
-    return this.columnValues(0);
+    return this.columnValues(COLUMN.payerName);
   }
 
   /** Every licence number currently listed. */
   async getVisibleLicenseNumbers(): Promise<string[]> {
-    return this.columnValues(5);
+    return this.columnValues(COLUMN.licenseNumber);
   }
 
   /** Asserts every listed payer's name contains the term (case-insensitive). */
@@ -202,7 +218,7 @@ export class PayerManagementPage extends ListPageBase {
    */
   async expectAllPayerCodes(code: string): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(2), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.code), { timeout: Timeouts.default })
       .toBe(code);
   }
 
@@ -223,13 +239,13 @@ export class PayerManagementPage extends ListPageBase {
   /** Asserts a search returned at least one row. */
   async expectResultsFound(): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(0), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.payerName), { timeout: Timeouts.default })
       .not.toBe(PayerManagementPage.NO_ROWS);
   }
 
   /** Asserts the search UI exposes all of its expected controls. */
   async expectSearchUiPresent(): Promise<void> {
-    await expect(this.page.locator('.pbm-search i.pi-search')).toBeVisible();
+    await expect(this.byId(`${this.screen}-search`)).toBeVisible();
     await expect(this.searchInput()).toHaveAttribute('placeholder', SEARCH_UI.placeholder);
     await expect(this.searchControl('Filters')).toBeVisible();
   }
@@ -245,12 +261,11 @@ export class PayerManagementPage extends ListPageBase {
    * is not offered to them.
    */
   async expectSearchAccessRestricted(): Promise<void> {
-    const onModule = await this.page
-      .getByRole('table')
+    const onModule = await this.table()
       .isVisible({ timeout: Timeouts.short })
       .catch(() => false);
     if (!onModule) {
-      await expect(this.page.getByRole('table')).toHaveCount(0, { timeout: Timeouts.default });
+      await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
       return;
     }
     await expect(this.searchControl('Filters')).toHaveCount(0, { timeout: Timeouts.default });
@@ -261,8 +276,8 @@ export class PayerManagementPage extends ListPageBase {
    * rendered and interactive after an injection-style search term.
    */
   async expectNoUnexpectedDialog(): Promise<void> {
-    await expect(this.page.locator('.p-dialog')).toHaveCount(0, { timeout: Timeouts.short });
-    await expect(this.page.getByRole('table')).toBeVisible({ timeout: Timeouts.default });
+    await expect(this.byId('pbm-dialog')).toHaveCount(0, { timeout: Timeouts.short });
+    await expect(this.table()).toBeVisible({ timeout: Timeouts.default });
   }
 
   /** Outcome of a search that may legitimately match nothing. */
@@ -310,12 +325,18 @@ export class PayerManagementPage extends ListPageBase {
   async sortBy(column: SortColumnKey, direction: SortDirection): Promise<void> {
     await this.ensureListOpen();
     await this.withListRefresh(() => this.sortMenu().select(column, direction));
-    await expect(this.page.getByRole('table')).toBeVisible({ timeout: Timeouts.default });
+    await expect(this.table()).toBeVisible({ timeout: Timeouts.default });
   }
 
-  /** Every value currently rendered in a sortable column. */
+  /**
+   * Every value currently rendered in a sortable column.
+   *
+   * Addressed by the column's model-property key rather than by its `td`
+   * position, so inserting or reordering a column can no longer silently point
+   * an ordering assertion at a different column's data.
+   */
   async getColumnValues(column: SortColumnKey): Promise<string[]> {
-    return this.columnValues(sortColumn(column).columnIndex);
+    return this.columnValues(PAYER_COLUMN[column as PayerColumnKey]);
   }
 
   /**
@@ -393,13 +414,19 @@ export class PayerManagementPage extends ListPageBase {
    * attribute or a clickable control inside the header cell.
    */
   private async headersWithSortAffordance(): Promise<string[]> {
-    const headers = this.page.getByRole('table').getByRole('columnheader');
+    // Headers by id prefix, so this cannot drift onto another table's cells.
+    // The `aria-sort` / inner-button probe below is a genuine question about the
+    // element's SORT AFFORDANCE, which no id can answer - that is the point of
+    // the case.
+    const headers = this.page.locator(`th[id^="${this.screen}-table-th-"]`);
     const total = await headers.count();
     const sortable: string[] = [];
     for (let index = 0; index < total; index += 1) {
       const header = headers.nth(index);
       const label = (await header.innerText()).replace(/\s+/g, ' ').trim();
       const exposesState = (await header.getAttribute('aria-sort')) !== null;
+      // locator-exception: asks whether the header CONTAINS a control at all -
+      // that is the sort-affordance question under test, not an identity lookup.
       const exposesControl = (await header.getByRole('button').count()) > 0;
       if (exposesState || exposesControl) sortable.push(label);
     }
@@ -417,7 +444,7 @@ export class PayerManagementPage extends ListPageBase {
   /** Reloads the module - a fresh load, with no sort chosen in the session. */
   async reopen(): Promise<void> {
     await this.reload();
-    await this.ensureTableView();
+    await this.ensureTableView(this.screen);
   }
 
   /** Asserts the Sort By menu offers all seven columns in both directions. */
@@ -447,7 +474,7 @@ export class PayerManagementPage extends ListPageBase {
    * sort itself duplicated a record.
    */
   async expectNoDuplicateRows(): Promise<void> {
-    const rows = (await this.page.locator('table tbody tr').allInnerTexts()).map((text) =>
+    const rows = (await this.rows().allInnerTexts()).map((text) =>
       text.replace(/\s+/g, ' ').trim(),
     );
     expect(duplicates(rows), 'the sort must not duplicate rows').toEqual([]);
@@ -513,7 +540,7 @@ export class PayerManagementPage extends ListPageBase {
         { timeout: Timeouts.default },
       )
       .toBe('ordered');
-    await expect(this.page.getByRole('table')).toBeVisible();
+    await expect(this.table()).toBeVisible();
   }
 
   /**
@@ -526,12 +553,106 @@ export class PayerManagementPage extends ListPageBase {
     await expect
       .poll(
         async () => {
-          const shown = (await this.getRowCellValue(payerName, 'Networks')).trim();
+          const shown = await this.getCellValue(payerName, COLUMN.networks);
           return shown === '' || shown === '—' ? 0 : Number(shown);
         },
         { timeout: Timeouts.default },
       )
       .toBe(expected);
+  }
+
+  /**
+   * A payer that already carries at least one linked network, identified by its
+   * ROW ID rather than its name.
+   *
+   * A payer's dependencies are its linked NETWORKS and its POLICIES - either
+   * one, or both, blocks deletion. Only the network count is exposed on the
+   * list, so that is what this scans; a payer carrying only policies is an
+   * equally valid subject for the rule, just not discoverable from this screen.
+   *
+   * The row id is what makes this safe. Payer names are NOT unique - the seeded
+   * data holds two records called "Al Dawaa", one a draft with no networks and
+   * one published with one - so acting by name silently targets whichever the
+   * search returns first. Doing that here discarded the wrong record instead of
+   * testing the rule. Every action below therefore addresses the exact row.
+   *
+   * The Networks column is read by its column key, so this behaves identically
+   * in English and Arabic - which is what lets the bilingual case find its
+   * subject after switching locale rather than carrying a translated name.
+   *
+   * The page cap spans the whole list rather than the first few pages. Ordering
+   * differs by language - the Arabic list sorts by the Arabic name - so a payer
+   * that sits on page 1 in English can sit well beyond it in Arabic. A low cap
+   * made this pass in one language and fail in the other for no real reason.
+   * The walk stops at the first match, so the common case still costs one page.
+   */
+  async findPayerWithNetworkDependency(
+    maxPages = 25,
+  ): Promise<{ name: string; rowId: string; networks: number }> {
+    await this.ensureListOpen();
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const rows = await this.rows().evaluateAll((elements) =>
+        elements.map((element) => (element as HTMLElement).id),
+      );
+
+      for (const rowId of rows) {
+        const shown = await this.byId(`${rowId}-cell-${COLUMN.networks}`)
+          .innerText()
+          .catch(() => '');
+        const networks = Number(shown.trim());
+        if (Number.isInteger(networks) && networks > 0) {
+          const name = (
+            await this.byId(`${rowId}-cell-${COLUMN.payerName}`).innerText()
+          ).trim();
+          Logger.step(`Using "${name}" (${rowId}) - it carries ${networks} linked network(s)`);
+          return { name, rowId, networks };
+        }
+      }
+
+      const hasMore = await this.nextPageButton().isEnabled().catch(() => false);
+      if (page === maxPages || !hasMore) break;
+      await this.withListRefresh(() => this.goToNextPage());
+    }
+
+    throw new Error(
+      `[PayerManagementPage] No payer with a linked network found in the first ${maxPages} `
+        + 'page(s). This story needs one seeded record whose Networks count is at least 1 - '
+        + 'link a network to any payer in Network Management to restore it.',
+    );
+  }
+
+  /** A cell of an already-resolved row, without re-searching by name. */
+  private cellOfRow(rowId: string, columnKey: string): Locator {
+    return this.byId(`${rowId}-cell-${columnKey}`);
+  }
+
+  /** The approval-status label ("v9 · Published") of an already-resolved row. */
+  async getVersionLabelOfRow(rowId: string): Promise<string> {
+    return (await this.cellOfRow(rowId, COLUMN.approvalStatus).innerText()).trim();
+  }
+
+  /**
+   * Clicks Delete on one specific row and confirms the prompt.
+   *
+   * Deliberately takes a row id, not a name: this story's subject is a payer
+   * whose name it shares with another record, and the whole point is to act on
+   * the one carrying the dependency.
+   */
+  async deleteRowAndConfirm(rowId: string): Promise<void> {
+    Logger.step(`Deleting row ${rowId}`);
+    await this.btn(`${rowId}-delete`).click();
+    const dialog = this.confirmDialog();
+    await dialog.waitForVisible();
+    await dialog.confirm();
+    await this.waitForPageReady();
+  }
+
+  /** Asserts a resolved row still shows the version it had before an attempt. */
+  async expectRowVersionUnchanged(rowId: string, versionBefore: string): Promise<void> {
+    await expect(this.cellOfRow(rowId, COLUMN.approvalStatus)).toHaveText(versionBefore, {
+      timeout: Timeouts.default,
+    });
   }
 
   /**
@@ -543,10 +664,7 @@ export class PayerManagementPage extends ListPageBase {
    * Matches either language, since the Arabic test hits the same path.
    */
   async wasDeletionBlockedByDependency(): Promise<boolean> {
-    return this.page
-      .locator('.p-toast-message')
-      .filter({ hasText: /cannot be deleted|لا يمكن حذف/ })
-      .first()
+    return this.toastWithText(/cannot be deleted|لا يمكن حذف/)
       .waitFor({ state: 'visible', timeout: Timeouts.short })
       .then(() => true)
       .catch(() => false);
@@ -595,23 +713,23 @@ export class PayerManagementPage extends ListPageBase {
   // =====================================================================
 
   /**
-   * The two list filters. They are PrimeNG selects rendered side by side in the
-   * toolbar - Payer Type first, Status second - and neither carries a stable id,
-   * so they are addressed by position within the toolbar.
+   * The two list filters, each by its own id.
+   *
+   * These were the framework's most fragile selectors: the filters carried no id
+   * and were addressed as `getByRole('combobox').nth(0 | 1)`, i.e. "the first and
+   * second combobox anywhere on the page". Any other combobox rendering earlier
+   * in the DOM - a drawer left mounted, a new toolbar control - silently shifted
+   * both filters onto the wrong elements.
    */
   private filterSelect(which: 'type' | 'status'): Locator {
-    return this.page.getByRole('combobox').nth(which === 'type' ? 0 : 1);
+    return this.byId(`${this.screen}-filter-${which}-select`);
   }
 
   /** Selects a value in one of the list filters and waits for the list to settle. */
   private async applyFilter(which: 'type' | 'status', option: string): Promise<void> {
     Logger.step(`Filtering payer list by ${which} = "${option}"`);
     await this.filterSelect(which).click();
-    await this.page
-      .getByRole('option', { name: option, exact: true })
-      .filter({ visible: true })
-      .first()
-      .click();
+    await this.chooseOption(option);
     await this.waitForPageReady();
     await expect(this.filterSelect(which)).toHaveText(option, { timeout: Timeouts.default });
   }
@@ -642,11 +760,11 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   async getVisiblePayerTypes(): Promise<string[]> {
-    return this.columnValues(1);
+    return this.columnValues(COLUMN.payerType);
   }
 
   async getVisibleStatuses(): Promise<string[]> {
-    return this.columnValues(8);
+    return this.columnValues(COLUMN.status);
   }
 
   /** Marker returned when the filtered list has no rows. */
@@ -657,8 +775,8 @@ export class PayerManagementPage extends ListPageBase {
    * re-fetches asynchronously after a filter changes, so every filter assertion
    * polls this instead of reading the table once.
    */
-  private async distinctColumn(columnIndex: number): Promise<string> {
-    const values = await this.columnValues(columnIndex);
+  private async distinctColumn(columnKey: string): Promise<string> {
+    const values = await this.columnValues(columnKey);
     if (values.length === 0 || values.some((value) => value.includes(EMPTY_STATE_TEXT))) {
       return PayerManagementPage.NO_ROWS;
     }
@@ -668,14 +786,14 @@ export class PayerManagementPage extends ListPageBase {
   /** Asserts every visible row reports the expected Payer Type. */
   async expectAllRowsOfType(expectedType: string): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(1), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.payerType), { timeout: Timeouts.default })
       .toBe(expectedType);
   }
 
   /** Asserts every visible row reports the expected Status. */
   async expectAllRowsOfStatus(expectedStatus: string): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(8), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.status), { timeout: Timeouts.default })
       .toBe(expectedStatus);
   }
 
@@ -685,7 +803,7 @@ export class PayerManagementPage extends ListPageBase {
    */
   async expectStatusFilterOutcome(expectedStatus: string): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(8), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.status), { timeout: Timeouts.default })
       .toMatch(new RegExp(`^(${PayerManagementPage.NO_ROWS}|${expectedStatus})$`));
   }
 
@@ -698,7 +816,8 @@ export class PayerManagementPage extends ListPageBase {
     const empty = `${PayerManagementPage.NO_ROWS}|${PayerManagementPage.NO_ROWS}`;
     await expect
       .poll(
-        async () => `${await this.distinctColumn(1)}|${await this.distinctColumn(8)}`,
+        async () =>
+          `${await this.distinctColumn(COLUMN.payerType)}|${await this.distinctColumn(COLUMN.status)}`,
         { timeout: Timeouts.default },
       )
       .toMatch(
@@ -712,7 +831,7 @@ export class PayerManagementPage extends ListPageBase {
    */
   async expectMixedPayerTypes(): Promise<void> {
     await expect
-      .poll(() => this.distinctColumn(1), { timeout: Timeouts.default })
+      .poll(() => this.distinctColumn(COLUMN.payerType), { timeout: Timeouts.default })
       .toContain(',');
   }
 
@@ -737,12 +856,15 @@ export class PayerManagementPage extends ListPageBase {
     });
   }
 
-  /** Asserts the list shows its empty state rather than an error or stale rows. */
+  /**
+   * Asserts the list shows its empty state rather than an error or stale rows.
+   * The empty state is its own element now, rather than page text that happened
+   * to read "No results found." - so this can no longer be satisfied by that
+   * phrase appearing anywhere else on screen.
+   */
   async expectEmptyState(): Promise<void> {
-    await expect(this.page.getByText(EMPTY_STATE_TEXT, { exact: false }).first()).toBeVisible({
-      timeout: Timeouts.default,
-    });
-    await expect(this.page.getByRole('table')).toBeVisible();
+    await expect(this.emptyState()).toBeVisible({ timeout: Timeouts.default });
+    await expect(this.table()).toBeVisible();
   }
 
   // ---- Pagination / result-count helpers (TC-014) ---------------------------
@@ -753,24 +875,34 @@ export class PayerManagementPage extends ListPageBase {
    * `hasText` regex, because the rendered label carries surrounding whitespace
    * that an anchored pattern would never match.
    */
+  /**
+   * Highest page number the pager offers - i.e. how many pages of results.
+   *
+   * Read from the pager's own page-button ids instead of scanning every button
+   * on the page for one whose text parses as a number. That old approach had to
+   * trim whitespace out of rendered labels and would have counted any unrelated
+   * numeric button; the ids carry the page number directly.
+   */
   async getPageCount(): Promise<number> {
-    // The pager renders after the rows, so wait for it before reading labels.
-    await this.page
-      .getByRole('button', { name: 'Next page' })
+    // The pager renders after the rows, so wait for it before reading ids.
+    await this.nextPageButton()
       .waitFor({ state: 'visible', timeout: Timeouts.default })
       .catch(() => undefined);
-    const labels = (await this.page.getByRole('button').allInnerTexts())
-      .map((text) => Number(text.trim()))
+    const ids = await this.page
+      .locator(`[id^="${this.screen}-table-pager-page-"]`)
+      .evaluateAll((buttons) => buttons.map((button) => (button as HTMLElement).id));
+    const numbers = ids
+      .map((id) => Number(id.split('-').pop()))
       .filter((value) => Number.isInteger(value) && value > 0);
-    return labels.length === 0 ? 1 : Math.max(...labels);
+    return numbers.length === 0 ? 1 : Math.max(...numbers);
   }
 
   private previousPageButton(): Locator {
-    return this.page.getByRole('button', { name: 'Previous page' });
+    return this.prevPageButton();
   }
 
   async goToPage(pageNumber: number): Promise<void> {
-    await this.page.getByRole('button', { name: String(pageNumber), exact: true }).first().click();
+    await this.pageButton(pageNumber).click();
     await this.waitForPageReady();
   }
 
@@ -790,7 +922,7 @@ export class PayerManagementPage extends ListPageBase {
   /** Opens the module with extra query parameters appended (TC-013). */
   async openWithQuery(query: string): Promise<void> {
     await this.goto(`${AppRoutes.payerManagement}?${query}`);
-    await this.ensureTableView();
+    await this.ensureTableView(this.screen);
   }
 
   /** Opens the "Add New Payer" wizard and returns its Page Object. */
@@ -878,27 +1010,31 @@ export class PayerManagementPage extends ListPageBase {
    * module itself is not reachable, or its filter controls are absent.
    */
   async expectFilterControlsRestricted(): Promise<void> {
-    const onModule = await this.page
-      .getByRole('table')
+    const onModule = await this.table()
       .isVisible({ timeout: Timeouts.short })
       .catch(() => false);
     if (!onModule) {
       // The module is not accessible at all, which satisfies the rule.
-      await expect(this.page.getByRole('table')).toHaveCount(0, { timeout: Timeouts.default });
+      await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
       return;
     }
-    await expect(this.page.getByRole('combobox')).toHaveCount(0, { timeout: Timeouts.default });
+    // The named filters specifically, rather than "any combobox on the page".
+    await expect(this.filterSelect('type')).toHaveCount(0, { timeout: Timeouts.default });
+    await expect(this.filterSelect('status')).toHaveCount(0, { timeout: Timeouts.default });
   }
 
-  /** Asserts no payer row offers an Edit action to the current (restricted) user. */
+  /**
+   * Asserts no payer row offers an Edit action to the current (restricted) user.
+   * Matched on the row-action id rather than a localized `title` attribute.
+   */
   async expectEditActionDenied(): Promise<void> {
-    await expect(this.page.locator('table button[title="Edit"]')).toHaveCount(0, {
-      timeout: Timeouts.default,
-    });
+    await expect(
+      this.page.locator(`[id^="${this.screen}-table-row-"][id$="-edit"]`),
+    ).toHaveCount(0, { timeout: Timeouts.default });
   }
 
-  private addButtonInternal() {
-    return this.page.getByRole('button', { name: 'Add Payer', exact: true });
+  private addButtonInternal(): Locator {
+    return this.addButton();
   }
 
   // ---- Duplicate detection (TC-015) ----------------------------------------
@@ -908,6 +1044,10 @@ export class PayerManagementPage extends ListPageBase {
    * inline flag mentioning "duplicate"). Per the user story, a duplicate must
    * not be accepted silently. If the app shows nothing, this fails - which is
    * the intended signal that duplicate detection is missing (file a defect).
+   *
+   * Deliberately still a page-wide text match: the point is to catch a warning
+   * WHEREVER the app might choose to surface one, so narrowing this to a known
+   * id would defeat it.
    */
   async expectDuplicateWarning(): Promise<void> {
     await expect(this.page.getByText(/duplicate/i).first()).toBeVisible({
@@ -919,9 +1059,22 @@ export class PayerManagementPage extends ListPageBase {
   async sendForApproval(payerName: string): Promise<void> {
     Logger.step(`Sending "${payerName}" for approval`);
     await this.search(payerName);
+    // Every sibling method waits for the row after searching; this one did not,
+    // and clicked into a list that had not finished filtering. The submitted
+    // record then never reached the approval queue, which surfaced much later as
+    // a fixture that "could not provision a published payer".
+    await this.waitForRowVisible(payerName);
     await this.sendRowForApproval(payerName);
     await this.confirmDialog().confirm('Send for Approval');
     await this.waitForPageReady();
+
+    // Verify the submission actually took effect. A submit that silently fails -
+    // the confirm dialog dismissed without the request being raised - is
+    // invisible here and surfaces much later as "the record is not in the
+    // approval queue", which points at the wrong screen entirely and cost two
+    // rounds of investigation. Asserting the transition means a failed submit is
+    // reported where it happens, naming this step.
+    await this.expectApprovalStatusContains(payerName, 'Pending Approval');
   }
 
   // ---- Column reads (each searches first so the row is unambiguous) ---------
@@ -929,34 +1082,44 @@ export class PayerManagementPage extends ListPageBase {
   async getApprovalStatus(payerName: string): Promise<string> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    return this.getRowCellValue(payerName, COLUMN.approvalStatus);
+    return this.getCellValue(payerName, COLUMN.approvalStatus);
   }
 
   async getPayerCode(payerName: string): Promise<string> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    return this.getRowCellValue(payerName, COLUMN.code);
+    return this.getCellValue(payerName, COLUMN.code);
   }
 
   async getLifecycleStatus(payerName: string): Promise<string> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    return this.getRowCellValue(payerName, COLUMN.status);
+    return this.getCellValue(payerName, COLUMN.status);
   }
 
-  private codeCell(payerName: string): Locator {
-    return this.rowByText(payerName).getByRole('cell').nth(2);
+  /**
+   * The Payer Code and lifecycle Status cells.
+   *
+   * Both used to be addressed by cell position - `getByRole('cell').nth(2)` and
+   * `.nth(8)` - with the column order written out in a comment that had to be
+   * kept in step with the app. They are now keyed on the column's model
+   * property, so the table can grow a column without moving these assertions
+   * onto the wrong data.
+   */
+  private codeCell(payerName: string): Promise<Locator> {
+    return this.cell(payerName, COLUMN.code);
   }
 
-  private lifecycleStatusCell(payerName: string): Locator {
-    // Column order: Name,Type,Code,Networks,Members,License,Email,Phone,Status,...
-    return this.rowByText(payerName).getByRole('cell').nth(8);
+  private lifecycleStatusCell(payerName: string): Promise<Locator> {
+    return this.cell(payerName, COLUMN.status);
   }
 
   async expectLifecycleStatus(payerName: string, status: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(this.lifecycleStatusCell(payerName)).toHaveText(status, { timeout: Timeouts.default });
+    await expect(await this.lifecycleStatusCell(payerName)).toHaveText(status, {
+      timeout: Timeouts.default,
+    });
   }
 
   async expectApprovalStatusContains(payerName: string, expected: string): Promise<void> {
@@ -967,13 +1130,17 @@ export class PayerManagementPage extends ListPageBase {
   async expectNoPayerCode(payerName: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(this.codeCell(payerName)).toHaveText(/^(—|-|\s*)$/, { timeout: Timeouts.default });
+    await expect(await this.codeCell(payerName)).toHaveText(/^(—|-|\s*)$/, {
+      timeout: Timeouts.default,
+    });
   }
 
   async expectPayerCodeAssigned(payerName: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(this.codeCell(payerName)).toHaveText(/PAY-\d+/, { timeout: Timeouts.default });
+    await expect(await this.codeCell(payerName)).toHaveText(/PAY-\d+/, {
+      timeout: Timeouts.default,
+    });
   }
 
   /**
@@ -989,10 +1156,11 @@ export class PayerManagementPage extends ListPageBase {
     await this.search(payerName);
     const row = this.rowByText(payerName);
     await expect(row).toContainText(approvalStatus, { timeout: Timeouts.default });
+    const code = await this.codeCell(payerName);
     if (expectPayerCode) {
-      await expect(this.codeCell(payerName)).toHaveText(/PAY-\d+/, { timeout: Timeouts.default });
+      await expect(code).toHaveText(/PAY-\d+/, { timeout: Timeouts.default });
     } else {
-      await expect(this.codeCell(payerName)).toHaveText(/^(—|-|\s*)$/, { timeout: Timeouts.default });
+      await expect(code).toHaveText(/^(—|-|\s*)$/, { timeout: Timeouts.default });
     }
   }
 
@@ -1001,8 +1169,10 @@ export class PayerManagementPage extends ListPageBase {
   async expectPublishedWithStatus(payerName: string, lifecycleStatus: string): Promise<void> {
     await this.search(payerName);
     await expect(this.rowByText(payerName)).toBeVisible({ timeout: Timeouts.default });
-    await expect(this.codeCell(payerName)).toHaveText(/PAY-\d+/, { timeout: Timeouts.default });
-    await expect(this.lifecycleStatusCell(payerName)).toHaveText(lifecycleStatus, {
+    await expect(await this.codeCell(payerName)).toHaveText(/PAY-\d+/, {
+      timeout: Timeouts.default,
+    });
+    await expect(await this.lifecycleStatusCell(payerName)).toHaveText(lifecycleStatus, {
       timeout: Timeouts.default,
     });
   }
@@ -1051,20 +1221,19 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
-   * Row action located by its `title` attribute, which is what the application
-   * localizes (the accessible name changes with the UI language). Keeping this
-   * here means the delete/discard flows work in English and Arabic alike.
+   * Opens the delete confirmation prompt for a payer.
+   *
+   * The row's delete action has one id in every language, so the `language`
+   * parameter no longer takes part in FINDING the control - it is kept because
+   * callers still use it to assert the localized dialog text. This replaced a
+   * lookup on the localized `title` attribute, which needed the Arabic caption
+   * to be exactly right or the click silently found nothing.
    */
-  private localizedRowAction(payerName: string, title: string): Locator {
-    return this.rowByText(payerName).locator(`button[title="${title}"]`);
-  }
-
-  /** Opens the delete confirmation prompt for a payer, in the given language. */
-  async clickDelete(payerName: string, language: AppLanguage = 'en'): Promise<ConfirmDialog> {
+  async clickDelete(payerName: string, _language: AppLanguage = 'en'): Promise<ConfirmDialog> {
     Logger.step(`Clicking "Delete" for "${payerName}"`);
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await this.localizedRowAction(payerName, DELETE_UI[language].deleteAction).click();
+    await this.deleteRow(payerName);
     const dialog = this.confirmDialog();
     await dialog.waitForVisible();
     return dialog;
@@ -1073,10 +1242,12 @@ export class PayerManagementPage extends ListPageBase {
   /** Asserts the confirmation prompt names the payer being deleted (TC-005). */
   async expectDeleteConfirmationPrompt(payerName: string, language: AppLanguage = 'en'): Promise<void> {
     const dialog = await this.clickDelete(payerName, language);
-    await expect(this.page.locator('.p-dialog')).toContainText(DELETE_UI[language].dialogTitle, {
+    // The localized TEXT is still the thing under test here - only the elements
+    // it is read from are now addressed by id.
+    await expect(this.byId('pbm-dialog-title')).toContainText(DELETE_UI[language].dialogTitle, {
       timeout: Timeouts.default,
     });
-    await expect(this.page.locator('.p-dialog')).toContainText(payerName, {
+    await expect(this.byId('pbm-dialog-message')).toContainText(payerName, {
       timeout: Timeouts.default,
     });
     // Cancel leaves the payer untouched.
@@ -1143,16 +1314,25 @@ export class PayerManagementPage extends ListPageBase {
     if ((await this.rowByText(payerName).count()) === 0) {
       return; // The draft is not visible at all, which satisfies the rule.
     }
-    await expect(this.localizedRowAction(payerName, DELETE_UI.en.deleteAction)).toHaveCount(0, {
+    await expect(await this.rowActionButton(payerName, 'delete')).toHaveCount(0, {
       timeout: Timeouts.default,
     });
   }
 
   /** Asserts the page surfaced a "not found" style error rather than crashing. */
   async expectRecordNotFound(): Promise<void> {
+    // Scoped to the toast, which is where the application actually reports this.
+    // It previously also looked at an `app-message` element that does not exist,
+    // so only the toast half of the check was ever live.
+    //
+    // The wording is the app's own: asking for a missing payer answers "The
+    // supplied payer Id is invalid." - so "invalid" belongs in the pattern.
+    // Without it this assertion could not pass even against the right element.
     await expect(
-      this.page.getByText(/not found|does not exist|already deleted|no longer/i).first(),
-    ).toBeVisible({ timeout: Timeouts.default });
+      this.byId(TOAST.summary).or(this.byId(TOAST.detail)).first(),
+    ).toContainText(/not found|does not exist|already deleted|no longer|invalid/i, {
+      timeout: Timeouts.default,
+    });
   }
 
   // =====================================================================
@@ -1164,8 +1344,8 @@ export class PayerManagementPage extends ListPageBase {
    * where N is the version of the LIVE record and Status describes any pending
    * change on top of it.
    */
-  private approvalStatusCell(payerName: string): Locator {
-    return this.rowByText(payerName).getByRole('cell').nth(9);
+  private approvalStatusCell(payerName: string): Promise<Locator> {
+    return this.cell(payerName, COLUMN.approvalStatus);
   }
 
   /** The approval state text only (e.g. "Published"), without the version part. */
@@ -1178,7 +1358,7 @@ export class PayerManagementPage extends ListPageBase {
   async getVersionLabel(payerName: string): Promise<string> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    return (await this.approvalStatusCell(payerName).innerText()).trim();
+    return (await (await this.approvalStatusCell(payerName)).innerText()).trim();
   }
 
   /** Parses the numeric version out of the "v<N> · <Status>" label. */
@@ -1195,12 +1375,9 @@ export class PayerManagementPage extends ListPageBase {
   async expectVersionAndStatus(payerName: string, version: number, status: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(this.approvalStatusCell(payerName)).toContainText(`v${version}`, {
-      timeout: Timeouts.default,
-    });
-    await expect(this.approvalStatusCell(payerName)).toContainText(status, {
-      timeout: Timeouts.default,
-    });
+    const cell = await this.approvalStatusCell(payerName);
+    await expect(cell).toContainText(`v${version}`, { timeout: Timeouts.default });
+    await expect(cell).toContainText(status, { timeout: Timeouts.default });
   }
 
   // =====================================================================
@@ -1261,7 +1438,9 @@ export class PayerManagementPage extends ListPageBase {
   async expectPayerCodeEquals(payerName: string, expectedCode: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(this.codeCell(payerName)).toHaveText(expectedCode, { timeout: Timeouts.default });
+    await expect(await this.codeCell(payerName)).toHaveText(expectedCode, {
+      timeout: Timeouts.default,
+    });
   }
 
   /**
@@ -1288,11 +1467,11 @@ export class PayerManagementPage extends ListPageBase {
     await this.expectRowNotVisible(candidateName);
   }
 
-  /** Reads a value shown on the payer's row, by column header. */
-  async expectRowCellEquals(payerName: string, columnHeader: string, expected: string): Promise<void> {
+  /** Reads a value shown on the payer's row, by column key. */
+  async expectRowCellEquals(payerName: string, columnKey: string, expected: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    const actual = await this.getRowCellValue(payerName, columnHeader);
+    const actual = await this.getCellValue(payerName, columnKey);
     expect(actual).toBe(expected);
   }
 }

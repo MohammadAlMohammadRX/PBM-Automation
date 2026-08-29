@@ -5,16 +5,24 @@ import { DELETE_MESSAGES } from '../../../data/payers/deletePayer.data';
  * User story: Delete Payer with/without Dependency Validation.
  * Dependency checking - a payer carrying dependencies must never be deleted.
  *
- * These two cases build their own dependency instead of trusting seeded data.
- * From the payer's detail page, Linked Networks -> "Assign Network" submits the
- * link for approval; only once a reviewer approves it does the dependency exist.
- * The precondition is then PROVEN by reading the list's Networks column before
- * the deletion is attempted.
+ * A payer's dependencies are its linked NETWORKS and its POLICIES; either one,
+ * or both, blocks deletion. These cases act on a payer that ALREADY carries a
+ * network, located by reading the list's Networks column.
  *
- * This replaces an earlier version that acted on a pre-seeded payer named
- * "Al Dawaa". Two payers share that name and the first match had zero linked
- * networks, so the test was deleting a payer with no dependency at all and its
- * "deletion was not blocked" result was meaningless.
+ * They previously built the dependency themselves - assign a network, send for
+ * approval, approve - which was slow, permanently consumed one of a finite pool
+ * of assignable networks, and left behind a payer that cleanup could never
+ * remove, since a payer with a dependency cannot be deleted. Acting on an
+ * existing record removes all three problems, and destroys nothing: the
+ * deletion under test is precisely the one the application refuses.
+ *
+ * The subject is addressed by ROW ID throughout. Payer names are not unique -
+ * the data holds two records named "Al Dawaa", one a draft with no networks -
+ * so acting by name targets whichever the search happens to return first.
+ *
+ * Finding the subject is `critical`: if no payer with a network could be located,
+ * the deletion under test was never attempted, so the assertions below would
+ * report a failure about the application that was never observed.
  *
  * TC-008 (zero-versus-one dependency boundary) was withdrawn at the product
  * owner's request; those paths are covered by TC-001 and TC-002.
@@ -22,58 +30,67 @@ import { DELETE_MESSAGES } from '../../../data/payers/deletePayer.data';
 test.describe('Delete Payer with/without Dependency Validation - Dependency checks', () => {
   test('TC-002: should block the deletion and show the dependency error when the payer is linked to a network', async ({
     payerManagementPage,
-    approvalManagementPage,
-    publishedPayer,
+    steps,
   }) => {
-    // Give the live payer a real network dependency, through approval.
-    const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-    await detail.assignNetwork();
+    let subject!: Awaited<ReturnType<typeof payerManagementPage.findPayerWithNetworkDependency>>;
+    let versionBefore = '';
 
-    await payerManagementPage.open();
-    await payerManagementPage.sendForApproval(publishedPayer.nameEn);
-    await approvalManagementPage.open();
-    await approvalManagementPage.approve(publishedPayer.nameEn);
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-    // Precondition proven rather than assumed: the payer now carries 1 network.
-    await payerManagementPage.open();
-    await payerManagementPage.expectNetworkCount(publishedPayer.nameEn, 1);
-    const versionBefore = await payerManagementPage.getVersionLabel(publishedPayer.nameEn);
+    // Subject chosen for the property under test, not by name.
+    await steps.critical('Find a payer that carries at least one network', async () => {
+      subject = await payerManagementPage.findPayerWithNetworkDependency();
+      versionBefore = await payerManagementPage.getVersionLabelOfRow(subject.rowId);
+    });
 
-    await payerManagementPage.deleteAndConfirm(publishedPayer.nameEn);
+    await steps.critical('Attempt to delete that payer and confirm the prompt', () =>
+      payerManagementPage.deleteRowAndConfirm(subject.rowId));
 
     // Blocked immediately, with the message defined by the user story.
-    await payerManagementPage.expectToastContains(DELETE_MESSAGES.dependencyBlockedEn);
-    // The payer record itself is untouched.
-    await payerManagementPage.expectApprovalStatusContains(publishedPayer.nameEn, versionBefore);
+    await steps.step('The dependency error defined by the user story is shown', () =>
+      payerManagementPage.expectToastContains(DELETE_MESSAGES.dependencyBlockedEn));
+
+    // The payer record itself is untouched - same version, still listed.
+    await steps.step('The payer is untouched - same version, still listed', () =>
+      payerManagementPage.expectRowVersionUnchanged(subject.rowId, versionBefore));
   });
 
   test('TC-003: should display the dependency error in Arabic right-to-left when the UI language is Arabic', async ({
     payerManagementPage,
-    approvalManagementPage,
-    publishedPayer,
+    steps,
   }) => {
-    // Same dependency, built in English before switching language.
-    const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-    await detail.assignNetwork();
+    let subject!: Awaited<ReturnType<typeof payerManagementPage.findPayerWithNetworkDependency>>;
 
-    await payerManagementPage.open();
-    await payerManagementPage.sendForApproval(publishedPayer.nameEn);
-    await approvalManagementPage.open();
-    await approvalManagementPage.approve(publishedPayer.nameEn);
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-    await payerManagementPage.open();
-    await payerManagementPage.expectNetworkCount(publishedPayer.nameEn, 1);
+    // The UI language is restored in `finally`: it is stored with the session, so
+    // leaving it in Arabic would change the language for every later test.
+    try {
+      await steps.critical('Switch the UI language to Arabic', () =>
+        payerManagementPage.language().switchTo('ar'));
 
-    await payerManagementPage.language().switchTo('ar');
-    await payerManagementPage.language().expectRightToLeft();
+      await steps.step('The page is rendered right-to-left', () =>
+        payerManagementPage.language().expectRightToLeft());
 
-    // Addressed by its Arabic name: the list renders Arabic names in this locale.
-    await payerManagementPage.deleteAndConfirm(publishedPayer.nameAr, 'ar');
+      // Re-open the list in Arabic and find the subject the same way. The Networks
+      // column is addressed by its column key, so the search does not depend on
+      // the language, and the row id it returns is language-independent too.
+      await steps.critical('Reopen the list in Arabic and find a payer with a network', async () => {
+        await payerManagementPage.open();
+        subject = await payerManagementPage.findPayerWithNetworkDependency();
+      });
 
-    // Exact Arabic wording required by the user story, rendered RTL.
-    await payerManagementPage.expectToastContains(DELETE_MESSAGES.dependencyBlockedAr);
-    await payerManagementPage.language().expectRightToLeft();
+      await steps.critical('Attempt to delete that payer and confirm the prompt', () =>
+        payerManagementPage.deleteRowAndConfirm(subject.rowId));
 
-    await payerManagementPage.language().switchTo('en');
+      // Exact Arabic wording required by the user story, rendered RTL.
+      await steps.step('The dependency error is shown in the exact Arabic wording', () =>
+        payerManagementPage.expectToastContains(DELETE_MESSAGES.dependencyBlockedAr));
+
+      await steps.step('The message is rendered right-to-left', () =>
+        payerManagementPage.language().expectRightToLeft());
+    } finally {
+      await payerManagementPage.language().switchTo('en');
+    }
   });
 });

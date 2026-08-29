@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { Timeouts } from '../../constants/Timeouts';
+import { PAYER_SORT_FIELD, SCREEN, buttonSelector } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
 import type { SortDirection } from '../../utils/SortUtils';
 import {
@@ -14,49 +15,48 @@ import {
 /**
  * The list toolbar's "Sort By" menu.
  *
- * Structure verified against the live app:
- *   div.pbm-sort[.is-open]
- *     button.pbm-sort__trigger[aria-haspopup="menu"][aria-expanded]
- *       span.pbm-sort__label      -> "Sort By" / "ترتيب حسب"
- *     div.pbm-sort__menu[role="menu"]
- *       span.pbm-sort__group-label
- *       button.pbm-sort__item[role="menuitemradio"][aria-checked][.is-active]
+ * Ids (verified live):
+ *   payer-list-sort                        the control
+ *   payer-list-sort-trigger                the button that opens the menu
+ *   payer-list-sort-menu                   the panel - only in the DOM while open
+ *   payer-list-sort-option-{field}-{dir}   one option, e.g. `payernameen-asc`
  *
- * Options are selected by their position in the menu rather than by label,
- * because the position is fixed (7 columns x 2 directions, in a known order)
- * while the label is localized. The label is then asserted separately, which is
- * exactly the "sort indicator names the active column and direction" check.
+ * Options are now addressed by their sort EXPRESSION rather than by their
+ * position in the menu. That was the last positional selector in this class: it
+ * relied on the menu listing 7 columns x 2 directions in a fixed order, so
+ * adding or reordering a sortable column would have silently pointed every
+ * selection at the wrong option. The sort key is built from the column name and
+ * direction, so it is identical in English and Arabic - the option's localized
+ * label is still asserted separately, which is the "sort indicator names the
+ * active column and direction" requirement.
  */
 export class SortMenu {
   constructor(private readonly page: Page) {}
 
-  private root(): Locator {
-    return this.page.locator('div.pbm-sort').first();
-  }
-
   trigger(): Locator {
-    return this.root().locator('button.pbm-sort__trigger');
+    return this.page.locator(buttonSelector(`${SCREEN.payerList}-sort-trigger`)).first();
   }
 
   private menu(): Locator {
-    return this.root().locator('div.pbm-sort__menu[role="menu"]');
+    return this.page.locator(`#${SCREEN.payerList}-sort-menu`);
   }
 
+  /** Every option in the menu, in menu order. */
   private items(): Locator {
-    return this.menu().locator('button[role="menuitemradio"]');
+    return this.page.locator(`[id^="${SCREEN.payerList}-sort-option-"]`);
   }
 
-  /** The menu item for a column/direction pair, addressed by menu position. */
+  /** The option for a column/direction pair, by its sort expression. */
   private item(column: SortColumnKey, direction: SortDirection): Locator {
-    const index = sortColumn(column).menuOrder * SORT_DIRECTIONS.length
-      + SORT_DIRECTIONS.indexOf(direction);
-    return this.items().nth(index);
+    const field = PAYER_SORT_FIELD[column];
+    return this.page
+      .locator(buttonSelector(`${SCREEN.payerList}-sort-option-${field}-${direction}`))
+      .first();
   }
 
   private async isOpen(): Promise<boolean> {
-    return this.trigger()
-      .getAttribute('aria-expanded')
-      .then((value) => value === 'true')
+    return this.menu()
+      .isVisible({ timeout: Timeouts.short })
       .catch(() => false);
   }
 
@@ -115,6 +115,20 @@ export class SortMenu {
     return label;
   }
 
+  /**
+   * The sort expression currently applied, e.g. `payernameen-asc`.
+   *
+   * Language independent, unlike `activeOptionLabel` - useful for asserting the
+   * applied sort without depending on the rendered text.
+   */
+  async activeOptionKey(): Promise<string> {
+    await this.open();
+    const checked = this.items().and(this.page.locator('[aria-checked="true"]'));
+    const id = (await checked.count()) === 0 ? null : await checked.first().getAttribute('id');
+    await this.close();
+    return id?.replace(`${SCREEN.payerList}-sort-option-`, '') ?? '<none>';
+  }
+
   /** Asserts the indicator names exactly this column and direction. */
   async expectActive(
     column: SortColumnKey,
@@ -154,5 +168,11 @@ export class SortMenu {
       timeout: Timeouts.default,
     });
     await expect(this.trigger()).toHaveAttribute('aria-haspopup', 'menu');
+  }
+
+  /** Kept so callers can still reason in menu positions if they need to. */
+  static optionOrder(column: SortColumnKey, direction: SortDirection): number {
+    return sortColumn(column).menuOrder * SORT_DIRECTIONS.length
+      + SORT_DIRECTIONS.indexOf(direction);
   }
 }

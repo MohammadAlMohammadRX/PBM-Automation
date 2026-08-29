@@ -5,6 +5,8 @@ import { buildUniquePayer } from '../data/payers/payer.data';
 import type { PayerData } from '../data/payers/payerTypes';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../utils/Logger';
+import { PAYER_COLUMN } from '../constants/ElementIds';
+import { blockedByPrecondition } from './testStatus.fixture';
 
 /**
  * Payer-state fixtures.
@@ -64,7 +66,7 @@ async function purgePayer(
     // The approval queue lists payers by NAME and has no Payer Code column, so
     // the current name is read before deleting - a test may have renamed it.
     const currentName = (await payerPage
-      .getRowCellValue(identifier, 'Payer Name')
+      .getCellValue(identifier, PAYER_COLUMN.payerName)
       .catch(() => '')).trim();
 
     // Deleting a live payer does not remove it: the record becomes a DRAFT
@@ -108,12 +110,19 @@ async function purgePayer(
 }
 
 export const test = base.extend<PayerStateFixtures>({
-  draftPayer: async ({ page }, use) => {
+  draftPayer: async ({ page }, use, testInfo) => {
     const payerPage = new PayerManagementPage(page);
     const approvalPage = new ApprovalManagementPage(page);
     const data = buildUniquePayer();
     Logger.step(`[fixture] Provisioning draft payer "${data.nameEn}"`);
-    await createDraft(payerPage, data);
+
+    try {
+      await createDraft(payerPage, data);
+    } catch (error) {
+      // Clean up whatever was half-created before reporting BLOCKED.
+      await purgePayer(payerPage, approvalPage, data.nameEn).catch(() => undefined);
+      blockedByPrecondition(testInfo, `a draft payer ("${data.nameEn}")`, error);
+    }
 
     await use(data);
 
@@ -122,23 +131,32 @@ export const test = base.extend<PayerStateFixtures>({
     await purgePayer(payerPage, approvalPage, data.nameEn);
   },
 
-  publishedPayer: async ({ page }, use) => {
+  publishedPayer: async ({ page }, use, testInfo) => {
     const payerPage = new PayerManagementPage(page);
     const approvalPage = new ApprovalManagementPage(page);
     // Effective in the past so the approved payer is immediately live/Active.
     const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
 
     Logger.step(`[fixture] Provisioning published payer "${data.nameEn}"`);
-    await createDraft(payerPage, data);
-    await payerPage.sendForApproval(data.nameEn);
-    await approvalPage.open();
-    await approvalPage.approve(data.nameEn);
 
-    // Capture the Payer Code now: it is issued at publish time and is immutable,
-    // whereas the NAME is not - several edit tests rename the payer, which would
-    // leave a name-based cleanup unable to find the record afterwards.
-    await payerPage.open().catch(() => undefined);
-    const code = await payerPage.getPayerCode(data.nameEn).catch(() => '');
+    let code = '';
+    try {
+      await createDraft(payerPage, data);
+      await payerPage.sendForApproval(data.nameEn);
+      await approvalPage.open();
+      await approvalPage.approve(data.nameEn);
+
+      // Capture the Payer Code now: it is issued at publish time and is
+      // immutable, whereas the NAME is not - several edit tests rename the
+      // payer, which would leave a name-based cleanup unable to find the record
+      // afterwards.
+      await payerPage.open().catch(() => undefined);
+      code = await payerPage.getPayerCode(data.nameEn).catch(() => '');
+    } catch (error) {
+      // Clean up the half-published record before reporting BLOCKED.
+      await purgePayer(payerPage, approvalPage, data.nameEn).catch(() => undefined);
+      blockedByPrecondition(testInfo, `a published payer ("${data.nameEn}")`, error);
+    }
 
     await use(data);
 

@@ -11,21 +11,37 @@ import { NetworkUtils } from '../../../utils/NetworkUtils';
 /**
  * User story: Create New Payer Organization Record.
  * Mandatory-field enforcement during creation.
+ *
+ * The pattern throughout: reaching the state under test is `critical`, and each
+ * verification of that state is a `step`, so one failing assertion still lets
+ * the next one report.
  */
 test.describe('Create New Payer Organization Record - Mandatory field validation', () => {
   test('TC-009: should block saving and show a required-field error when mandatory data is missing', async ({
     payerManagementPage,
+    steps,
   }) => {
-    await payerManagementPage.open();
-    const form = await payerManagementPage.openCreateForm();
+    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
+
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    await steps.critical('Open the Create New Payer form', async () => {
+      form = await payerManagementPage.openCreateForm();
+    });
 
     // Attempt to advance the very first step with everything blank.
-    await form.clickNext();
+    await steps.critical('Attempt to advance the first step with every field blank', () =>
+      form.clickNext());
 
-    await form.expectFieldRequired('Payer Name', VALIDATION_MESSAGES.required);
-    await form.expectFieldRequired('Payer Type', VALIDATION_MESSAGES.required);
+    await steps.step('"Payer Name" shows a required-field error', () =>
+      form.expectFieldRequired('Payer Name', VALIDATION_MESSAGES.required));
+
+    await steps.step('"Payer Type" shows a required-field error', () =>
+      form.expectFieldRequired('Payer Type', VALIDATION_MESSAGES.required));
+
     // The wizard did not advance and nothing was saved as Draft.
-    await form.waitForOpen();
+    await steps.step('The wizard did not advance, so nothing was saved as a Draft', () =>
+      form.waitForOpen());
   });
 
   // TC-017: checklist test - one iteration per mandatory field, each proving the
@@ -33,15 +49,26 @@ test.describe('Create New Payer Organization Record - Mandatory field validation
   for (const field of MANDATORY_FIELDS) {
     test(`TC-017: should reject saving when the mandatory "${field.label}" field is left blank`, async ({
       payerManagementPage,
+      steps,
     }) => {
       const data = buildUniquePayer();
+      let form!: Awaited<ReturnType<typeof payerManagementPage.attemptCreateOmitting>>;
 
-      await payerManagementPage.open();
-      const form = await payerManagementPage.attemptCreateOmitting(data, field);
+      await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-      await form.expectFieldRequired(field.label, VALIDATION_MESSAGES.required);
+      await steps.critical(
+        `Fill every field except "${field.label}" and attempt to save`,
+        async () => {
+          form = await payerManagementPage.attemptCreateOmitting(data, field);
+        },
+      );
+
+      await steps.step(`"${field.label}" shows a required-field error`, () =>
+        form.expectFieldRequired(field.label, VALIDATION_MESSAGES.required));
+
       // Record was never saved - the wizard is still open on the failing step.
-      await form.waitForOpen();
+      await steps.step('The wizard is still open, so the record was never saved', () =>
+        form.waitForOpen());
     });
   }
 });
@@ -58,21 +85,35 @@ test.describe('Create New Payer Organization Record - Mandatory field validation
 test.describe('Create New Payer Organization Record - Field format validation', () => {
   test('TC-010: should reject an invalid email format and block saving until it is corrected', async ({
     payerManagementPage,
+    steps,
   }) => {
     const data = buildUniquePayer({ email: INVALID_FIELD_VALUES.email });
+    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
 
-    await payerManagementPage.open();
-    const form = await payerManagementPage.openCreateForm();
-    await form.fillBasicInformation(data);
-    await form.clickNext();
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    await steps.critical('Open the Create New Payer form', async () => {
+      form = await payerManagementPage.openCreateForm();
+    });
+
+    await steps.critical('Fill Basic Information and advance', async () => {
+      await form.fillBasicInformation(data);
+      await form.clickNext();
+    });
 
     // Everything on Contact Information is valid except the malformed email.
-    await form.fillContactInformation(data);
-    await form.clickNext();
+    await steps.critical(
+      `Fill Contact Information with the malformed email "${INVALID_FIELD_VALUES.email}"`,
+      () => form.fillContactInformation(data),
+    );
 
-    await form.expectFieldError('Email Address', VALIDATION_MESSAGES.invalidEmail);
+    await steps.critical('Attempt to advance past Contact Information', () => form.clickNext());
+
+    await steps.step('"Email Address" shows an invalid-format error', () =>
+      form.expectFieldError('Email Address', VALIDATION_MESSAGES.invalidEmail));
+
     // The wizard did not advance past Contact Information - nothing was saved.
-    await form.waitForOpen();
+    await steps.step('The wizard did not advance, so nothing was saved', () => form.waitForOpen());
   });
 });
 
@@ -91,16 +132,24 @@ test.describe('Create New Payer Organization Record - Duplicate detection', () =
     payerManagementPage,
     approvalManagementPage,
     cleanup,
+    steps,
   }) => {
     // 1) Establish an approved payer (real PayerCode) to duplicate.
     const original = buildUniquePayer({ effectiveDate: DateUtils.pastDate(10) });
     cleanup.register(() => payerManagementPage.deletePayer(original.nameEn));
 
-    await payerManagementPage.open();
-    await payerManagementPage.createDraftPayer(original);
-    await payerManagementPage.sendForApproval(original.nameEn);
-    await approvalManagementPage.open();
-    await approvalManagementPage.approve(original.nameEn);
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    await steps.critical('Create the original payer as a Draft', () =>
+      payerManagementPage.createDraftPayer(original));
+
+    await steps.critical('Send the original payer for approval', () =>
+      payerManagementPage.sendForApproval(original.nameEn));
+
+    await steps.critical('Open the approval queue', () => approvalManagementPage.open());
+
+    await steps.critical('Approve the original payer so it holds a real PayerCode', () =>
+      approvalManagementPage.approve(original.nameEn));
 
     // 2) Attempt to create a second payer with identical identifying details.
     const duplicate = buildUniquePayer({
@@ -109,11 +158,20 @@ test.describe('Create New Payer Organization Record - Duplicate detection', () =
       email: original.email,
     });
 
-    await payerManagementPage.open();
-    await payerManagementPage.createDraftPayer(duplicate);
+    await steps.critical('Return to the payer list', () => payerManagementPage.open());
+
+    // Deliberately NOT critical. If the app does flag the duplicate, it does so
+    // by refusing the save - so this step failing is a possible expected outcome,
+    // and the check below is what tells the two apart. Making it critical would
+    // suppress the only step that answers the question this case asks.
+    await steps.step(
+      'Attempt to create a second payer with identical name, licence and email',
+      () => payerManagementPage.createDraftPayer(duplicate),
+    );
 
     // 3) The system must warn/flag the duplicate rather than accept it silently.
-    await payerManagementPage.expectDuplicateWarning();
+    await steps.step('The system flags the potential duplicate rather than accepting it', () =>
+      payerManagementPage.expectDuplicateWarning());
   });
 });
 
@@ -131,28 +189,47 @@ test.describe('Create New Payer Organization Record - Save failure handling', ()
     payerManagementPage,
     uniquePayer,
     cleanup,
+    steps,
   }) => {
     // If, despite the injected failure, a record somehow persists, clean it up.
     cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
 
-    await payerManagementPage.open();
+    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
 
-    // Fault injection: fail every mutating (non-GET) request so the save cannot
-    // complete, while leaving read traffic (the list, lookups) working.
-    await NetworkUtils.failMutatingRequests(page);
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-    const form = await payerManagementPage.openCreateForm();
-    await form.fillBasicInformation(uniquePayer);
-    await form.clickNext();
-    await form.fillContactInformation(uniquePayer);
-    await form.clickNext();
-    await form.fillEffectivePeriod(uniquePayer);
-    await form.save();
+    // The injected route is removed in `finally` so the network is restored even
+    // if a step aborts the rest of the test - otherwise the cleanup hook would
+    // run against a page that cannot save.
+    try {
+      // Fault injection: fail every mutating (non-GET) request so the save cannot
+      // complete, while leaving read traffic (the list, lookups) working.
+      await steps.critical('Fail every mutating request so the save cannot complete', () =>
+        NetworkUtils.failMutatingRequests(page));
 
-    // Restore the network, close the wizard (discarding), and confirm the failed
-    // save left no partial/duplicate record behind - no page navigation needed.
-    await NetworkUtils.restore(page);
-    await form.closeAndDiscard();
-    await payerManagementPage.expectRowNotVisible(uniquePayer.nameEn);
+      await steps.critical('Open the Create New Payer form', async () => {
+        form = await payerManagementPage.openCreateForm();
+      });
+
+      await steps.critical('Fill the wizard and attempt to save', async () => {
+        await form.fillBasicInformation(uniquePayer);
+        await form.clickNext();
+        await form.fillContactInformation(uniquePayer);
+        await form.clickNext();
+        await form.fillEffectivePeriod(uniquePayer);
+        await form.save();
+      });
+    } finally {
+      // Restore the network before anything else touches the page.
+      await NetworkUtils.restore(page);
+    }
+
+    // Close the wizard (discarding) and confirm the failed save left no partial
+    // or duplicate record behind - no page navigation needed.
+    await steps.critical('Close the wizard, discarding the failed save', () =>
+      form.closeAndDiscard());
+
+    await steps.step('No partial or duplicate payer record was left behind', () =>
+      payerManagementPage.expectRowNotVisible(uniquePayer.nameEn));
   });
 });

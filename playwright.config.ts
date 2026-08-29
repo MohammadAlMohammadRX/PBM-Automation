@@ -49,11 +49,18 @@ export default defineConfig({
     timeout: Timeouts.expect,
   },
 
-  // Tests are independent, but the current suites share a single admin account
-  // and hit a load-sensitive app, so they must run serially. fullyParallel stays
-  // on (tests remain parallel-safe by design), while workers defaults to 1 so a
-  // teammate or CI without WORKERS set still runs serially instead of colliding.
-  fullyParallel: true,
+  // Parallelism is at FILE level, not test level.
+  //
+  // Tests within one user story share workflow state - a record moves through
+  // draft, submit and approve across several cases - and the application is
+  // load-sensitive, so running cases from one file concurrently produces
+  // failures that do not reproduce serially. Keeping each file serial while
+  // letting different files run side by side gives most of the speedup with
+  // none of that noise. At WORKERS=1 this setting changes nothing.
+  //
+  // Measured: 1 worker ~75m, 2 workers ~41m, 3 workers ~28m. Beyond 3 there is
+  // no gain - the edit story alone is 28m and becomes the critical path.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
 
   // Retries hide flakiness if used to mask real defects - kept conservative

@@ -18,8 +18,12 @@
     "report:email": "node scripts/emailReport.js",
     "codegen": "playwright codegen %BASE_URL%",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
-    "install:browsers": "playwright install"
+    "lint": "tsc --noEmit && node scripts/checkLocators.js",
+    "install:browsers": "playwright install",
+    "lint:locators": "node scripts/checkLocators.js",
+    "report:failures": "node scripts/classifyFailures.js",
+    "report:status": "node scripts/classifyFailures.js",
+    "report:doc": "node scripts/buildReport.js"
   },
   "keywords": [
     "playwright",

@@ -1,57 +1,72 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { Timeouts } from '../../constants/Timeouts';
+import { buttonSelector } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
 
 /**
  * The "Assign Network" side drawer, opened from the Linked Networks section of a
  * payer's detail page.
  *
- * Verified against the live app:
- *   div.pbm-form-drawer  (PrimeNG p-drawer, right)
- *     "Assign Network"
- *     Networks  ->  a single combobox, placeholder "Select networks to assign"
- *     Cancel | Assign
+ * The drawer now has its own id (`payer-detail-assign-drawer`), which removes
+ * the previous need to disambiguate it by title text: the payer module keeps
+ * several form-drawer shells mounted at once, so "the first visible drawer"
+ * could resolve to the wrong one and report its fields as hidden.
  *
  * The drawer itself states that "Assigning or removing a network is submitted
  * for approval and takes effect once a reviewer approves it", so assigning is a
  * maker-checker operation like every other change to a live payer.
  */
 export class AssignNetworkDrawer {
+  private readonly prefix = 'payer-detail-assign-drawer';
+
   constructor(private readonly page: Page) {}
 
+  private title(): Locator {
+    return this.page.locator(`#${this.prefix}-title`);
+  }
+
   /**
-   * Scoped by the drawer's own title, not by position: the payer module keeps
-   * other `.pbm-form-drawer` shells in the DOM, so "the first visible drawer"
-   * can resolve to the wrong one and its fields report as hidden.
+   * The Networks multi-select.
+   *
+   * `#{prefix}-networks-multiselect` is where the id lands, but PrimeNG puts it
+   * on a HIDDEN input and renders the interactive surface as a styled sibling -
+   * so the id identifies the widget while the click has to go to the visible
+   * `.p-multiselect` wrapper that contains it. Verified live: the id is on an
+   * `<input>` that cannot be clicked.
    */
-  private panel(): Locator {
+  private networksControl(): Locator {
+    // Anchored ON the id: PrimeNG puts the id on a hidden <input>, so the click
+    // has to land on the widget WRAPPING it. Walking up from the id is exact -
+    // the previous form ("any multiselect inside the drawer") would silently
+    // pick a different control if the drawer ever gained one.
     return this.page
-      .locator('.pbm-form-drawer')
-      .filter({ hasText: 'Assign Network' })
-      .filter({ visible: true })
+      .locator(`#${this.prefix}-networks-multiselect`)
+      .locator(
+        'xpath=ancestor::*[contains(@class,"p-multiselect") or contains(@class,"p-select")][1]',
+      )
       .first();
   }
 
   /**
-   * The clickable Networks control. PrimeNG puts role="combobox" on a HIDDEN
-   * input and renders the interactive element as a styled div, so the widget
-   * class is targeted first and the role is only a fallback.
+   * The drawer's primary action. Note the id is `-confirm-button`, not
+   * `-assign-button` - the shared form-drawer names its primary action
+   * generically regardless of the verb shown on it.
    */
-  private networksControl(): Locator {
-    return this.panel()
-      .locator('.p-multiselect, .p-select, .p-dropdown, [role="combobox"]')
-      .filter({ visible: true })
-      .first();
+  private assignButton(): Locator {
+    return this.page.locator(buttonSelector(`${this.prefix}-confirm-button`)).first();
+  }
+
+  private cancelButton(): Locator {
+    return this.page.locator(buttonSelector(`${this.prefix}-cancel-button`)).first();
   }
 
   async waitForOpen(): Promise<void> {
-    await expect(this.panel()).toBeVisible({ timeout: Timeouts.default });
-    // Wait on the Assign button: it is reliably visible, unlike the multiselect's
-    // hidden inner input.
-    await expect(this.panel().getByRole('button', { name: 'Assign', exact: true })).toBeVisible({
-      timeout: Timeouts.default,
-    });
+    // The drawer host is zero-size while closed, so assert on its title.
+    await expect(this.title()).toBeVisible({ timeout: Timeouts.default });
+    // The Assign button is reliably visible, unlike the multiselect's hidden
+    // inner input.
+    await expect(this.assignButton()).toBeVisible({ timeout: Timeouts.default });
   }
 
   /**
@@ -67,7 +82,7 @@ export class AssignNetworkDrawer {
 
     // PrimeNG renders an empty list as a single "No results found" option. Taking
     // it would leave nothing selected, Assign disabled, and the click would time
-    // out 15 seconds later with no clue why - so fail here, with the reason.
+    // out later with no clue why - so fail here, with the reason.
     const first = (await options.first().innerText()).replace(/\s+/g, ' ').trim();
     expect(
       first,
@@ -85,7 +100,7 @@ export class AssignNetworkDrawer {
     // The control is a multi-select, so the overlay stays open after a pick.
     // Dismiss it by clicking the drawer's own title: Escape closes the DRAWER
     // itself once the overlay has gone, which loses the whole form.
-    await this.panel().getByText('Assign Network').first().click();
+    await this.title().click();
     await this.page
       .getByRole('option')
       .first()
@@ -93,9 +108,7 @@ export class AssignNetworkDrawer {
       .catch(() => undefined);
 
     // Assign only enables once a real selection is held - proof the pick landed.
-    await expect(
-      this.panel().getByRole('button', { name: 'Assign', exact: true }),
-    ).toBeEnabled({ timeout: Timeouts.default });
+    await expect(this.assignButton()).toBeEnabled({ timeout: Timeouts.default });
 
     Logger.step(`Selected network "${chosen}" to assign`);
     return chosen;
@@ -103,12 +116,12 @@ export class AssignNetworkDrawer {
 
   async assign(): Promise<void> {
     Logger.step('Submitting the network assignment');
-    await this.panel().getByRole('button', { name: 'Assign', exact: true }).click();
-    await expect(this.panel()).toBeHidden({ timeout: Timeouts.default });
+    await this.assignButton().click();
+    await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
   }
 
   async cancel(): Promise<void> {
-    await this.panel().getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(this.panel()).toBeHidden({ timeout: Timeouts.short });
+    await this.cancelButton().click();
+    await expect(this.title()).toBeHidden({ timeout: Timeouts.short });
   }
 }

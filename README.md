@@ -2,7 +2,7 @@
 
 Playwright + TypeScript UI automation **framework scaffold** for the **PBM (Pharmacy Benefit Management System)** application, built around Page Object Model, reusable fixtures, centralized configuration, and CI/CD-ready reporting.
 
-> **Status: scaffold only.** This repository currently contains the framework architecture - configuration, fixtures, utilities, and folder structure - with **no Page Objects and no test cases yet**. Page Objects and specs will be added incrementally as user stories/feature specs are provided. See [Adding New Page Objects](#adding-new-page-objects) and [Adding New Test Cases](#adding-new-test-cases) for the pattern to follow.
+> **Status: payer module complete.** 14 Page Objects and 17 spec files covering **128 test cases across 6 payer user stories**. Every locator is built from the application's element ids and enforced by `npm run lint` - see [Locator Strategy](#locator-strategy). Further modules are added incrementally; see [Adding New Page Objects](#adding-new-page-objects) and [Adding New Test Cases](#adding-new-test-cases) for the pattern.
 
 ## Table of Contents
 
@@ -12,6 +12,7 @@ Playwright + TypeScript UI automation **framework scaffold** for the **PBM (Phar
 - [Installation](#installation)
 - [Environment Setup](#environment-setup)
 - [Browser Configuration](#browser-configuration)
+- [Locator Strategy](#locator-strategy)
 - [Authentication](#authentication)
 - [Running Tests](#running-tests)
 - [Debugging](#debugging)
@@ -49,6 +50,7 @@ PBM-Automation/
 │   ├── BrowserConfig.ts        # Supported browsers, viewport, launch args, project builder
 │   ├── EnvironmentConfig.ts    # Typed wrapper around .env / process.env
 │   ├── AppRoutes.ts            # Relative application routes (add one entry per new module)
+│   ├── ElementIds.ts           # THE element-id map: every selector in the suite derives from here
 │   ├── Paths.ts                # Framework-internal filesystem paths (auth storage state)
 │   └── Timeouts.ts             # Centralized timeout values
 ├── pages/                  # Page Object Model
@@ -151,6 +153,87 @@ npm run test:headed                       # shortcut for the above
 ```
 
 Viewport, launch arguments, and per-action/navigation timeouts are all defined once in `BrowserConfig.ts` (`DEFAULT_VIEWPORT`, `BROWSER_LAUNCH_ARGS`, `browserExecutionSettings`) and consumed by every project automatically.
+
+## Locator Strategy
+
+The application carries an HTML `id` on **every** interactive element (see the QA
+Manual's `ID-CONVENTIONS.md`), and **every locator in this suite is built from
+those ids**. `constants/ElementIds.ts` is the single source of truth - screen
+namespaces, column keys, sort keys, the wizard's label→id map and the dialog
+action keys all live there, so a selector is never spelled out inside a Page
+Object.
+
+Ids are derived from route paths, entity ids, model field names and translation
+*keys* - never from rendered text - which is why the same selector matches in
+English and Arabic. That property removed a whole class of bilingual fragility
+from this framework: row actions used to be found by their localized `title`
+attribute, the delete dialog by its translated button label, and the wizard's
+Arabic name field by a caption the app had already renamed once.
+
+### The rule is enforced, not just documented
+
+`npm run lint` runs the type-checker **and** `scripts/checkLocators.js`, which fails the build on any selector not built from an element id. It scans `pages/ utils/ fixtures/ tests/ data/ constants/` and applies two rules:
+
+- **Named strategies are banned:** `getByPlaceholder`, `getByLabel`, `getByTitle`, `getByAltText`, `[title=]`, `[aria-label=]`, `locator('.some-class')`, `getByRole('button'|'textbox'|'cell'|'row'|…)`, and `.nth(n)`.
+- **A page-rooted locator must name an id:** anything identifying an element from scratch has to use `#id`, or `id^=` / `id$=` / `id*=` for the dynamic, record-keyed ones. So `page.locator('table tbody tr')` fails while `page.locator('tr[id^="payer-list-table-row-"]')` passes. A *chained* `.locator('button')` is fine - it narrows inside an already id-scoped locator, which is how the `pbm-button` host/inner-button pair is reached.
+
+When the application genuinely exposes no id, say so on the line or directly above it and the check allows it:
+
+```ts
+// locator-exception: asks whether the header CONTAINS a control at all -
+// that is the sort-affordance question under test, not an identity lookup.
+const exposesControl = (await header.getByRole('button').count()) > 0;
+```
+
+The recurring exceptions - PrimeNG option lists, `aria-checked` state reads, the `.p-dialog-mask` overlay, the `html` element - are allow-listed **once** inside the script with their reasons, rather than repeated at every call site.
+
+This guard exists because the migration was the easy half. Without it, the next change under time pressure reaches for `getByRole('button', { name: 'Save' })`, it works that day, and the suite drifts back to selectors that break on a reworded label or an Arabic run.
+
+### Four DOM quirks that decide whether a locator works
+
+- **`pbm-button` ids sit on the `<p-button>` host, not the `<button>`.** Always
+  go through `BasePage.btn(id)` / `buttonSelector(id)`, which descend to the
+  inner `<button>`. This matters more than it looks: the app disables *every*
+  button while any HTTP request is in flight, and clicking the host element
+  skips Playwright's "wait until enabled" check - so a host click during a
+  pending request is a **silent no-op that reports success**.
+- **`pbm-select` ids sit on the inner `span[role="combobox"]`.** Its option
+  elements get PrimeNG-generated, render-order-dependent ids (`pn_id_30_0`), so
+  choosing an option is the one thing that must still go by visible text -
+  `BasePage.chooseOption()` does this.
+- **Drawer and dialog hosts stay mounted and zero-size while closed**, so they
+  never report as visible. Assert on the `-title` inside them instead.
+- **Everything overlay-shaped renders into `<body>`** - drawers, dialogs, select
+  panels, date-picker calendars - outside the screen's own element, so they are
+  queried from the document root.
+
+### Where the live app differs from the QA Manual
+
+All verified directly against the running application:
+
+- **There is only ONE confirmation dialog.** `pbm-dialog` serves delete,
+  send-for-approval, approve, reject and the dirty-form guard. The manual's
+  `pbm-delete-confirm-dialog` and `pbm-unsaved-changes-dialog` never render.
+- **Its action keys are only `confirm` / `cancel`** - including on Approve and
+  Reject, which the manual describes as `approve` / `reject`. Only the
+  drawer-close guard uses `stay` / `discard`. So "Yes", "نعم", "Approve" and
+  "Send for Approval" are all the same element.
+- **The assign-network drawer's primary action is `-confirm-button`**, not
+  `-assign-button`; the shared drawer names its primary action generically.
+  Its multiselect id is on a *hidden* input, so the click goes to the visible
+  wrapper.
+- **The payer table has an undocumented `versionstatus` column** (the "Approval
+  Status" cell).
+
+### Two behaviours to respect in new tests
+
+- **Lists refetch server-side** for search, sort, filter and paging, and the UI
+  closes its menu and updates its chips *before* the new rows arrive. Reading the
+  table straight after a click sees the previous page of data - use
+  `withListRefresh()`.
+- **Toasts stack and share an id.** A previous action's toast can still be on
+  screen when the next arrives, both as `pbm-toast`. Use `toastWithText()` when
+  the wrong one could match.
 
 ## Authentication
 
@@ -279,8 +362,9 @@ Once connected, you can ask Claude Code to, for example, "navigate to the Payer 
 ## Adding New Page Objects
 
 1. Create `pages/<module>/<Module>Page.ts` (e.g. `pages/payer/PayerManagementPage.ts`).
-2. For a list/search/table screen, extend `pages/components/ListPageBase.ts` - it already provides search, row lookup, row actions, pagination, and column reads.
-3. For a create/edit side-panel wizard, extend `pages/components/EntityWizardDialog.ts` and add only the module-specific `fillXyz()` methods (locate fields by their visible label text via `field(label)` - see the class doc comment for the pattern).
+2. For a list/search/table screen, extend `pages/components/ListPageBase.ts` and pass the screen's **id namespace** (e.g. `payer-list`) to `super()`. It then derives search, row lookup, row actions, pagination and column reads from that one string - no per-screen selectors needed.
+3. For a create/edit side-panel wizard, extend `pages/components/EntityWizardDialog.ts`, passing the drawer's id prefix and a label→field map (see `PAYER_FORM_FIELD` in `constants/ElementIds.ts`). Callers keep addressing fields by their visible label while every locator is built from an id.
+4. Add every new id to `constants/ElementIds.ts` and **verify it against the running application** before committing - the QA Manual is wrong in several places. Then run `npm run lint`, which fails if any new selector is not id-based.
 4. Add the module's route to `constants/AppRoutes.ts` instead of hardcoding a path string.
 5. Only add methods that are genuinely reusable (`createX`, `editX`, `deleteX`, `searchX`, `verifyXDetails`) - don't duplicate what the base class already provides.
 6. Register the new Page Object as a fixture in `fixtures/auth.fixture.ts` (see the pattern documented in that file) so specs can request it instead of constructing it manually.
@@ -312,7 +396,8 @@ Add a new fixture file under `fixtures/`, following the existing pattern (`base.
 
 - **No hardcoded credentials or URLs** - everything comes from `constants/EnvironmentConfig.ts`, backed by `.env`.
 - **No `page.waitForTimeout()`** - use `expect()`, `waitForURL()`, `waitForLoadState()`, or the helpers in `utils/WaitUtils.ts`.
-- **Locator priority**: id → name → `data-testid` → stable class → label/placeholder → XPath (last resort). Verify real locators against the live app (e.g. via MCP or `codegen`) before writing a Page Object rather than guessing.
+- **Locators are ids, full stop.** Add the id to `constants/ElementIds.ts` and build the locator from it; do not reach for a CSS class, an accessible name, a `title` attribute or a cell position. The only sanctioned exceptions are documented in [Locator Strategy](#locator-strategy): picking a dropdown option (PrimeNG option ids are unstable) and reading the stepper's active-step class. Verify a new id against the live app (via MCP or `codegen`) rather than guessing - the manual is wrong in several places.
+- **Never address a cell or a menu item by position.** `nth(2)`, `td:nth-child(n)` and "the second combobox on the page" all silently point at the wrong data the moment the UI grows a column or a control; use the column key or the option key instead.
 - **Independent tests** - every test should build its own unique data (`RandomDataUtils`) and be safe to run in any order or in parallel.
 - **Business logic lives in Page Objects**, not in test files - tests should read as a sequence of intents (`open()`, `createX()`, `verifyXDetails()`), not raw locator interactions.
 - **Fail loudly** - don't swallow errors or over-use retries to mask real defects; `RETRIES` defaults to `0` locally and only a small number on CI.

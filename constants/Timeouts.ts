@@ -16,4 +16,11 @@ export const Timeouts = {
   loadingIndicator: 20_000,
   /** Wait allowed for a toast/notification to appear after an action. */
   toast: 10_000,
+  /**
+   * Wait allowed for a record submitted in one module to appear in another -
+   * currently the approval queue. Longer than `default` on purpose: this is a
+   * back-end propagation delay, not a UI render, and the queue holds a few
+   * hundred pending requests.
+   */
+  queuePropagation: 90_000,
 } as const;

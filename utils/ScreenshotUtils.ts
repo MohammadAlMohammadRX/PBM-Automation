@@ -37,6 +37,45 @@ export class ScreenshotUtils {
   }
 
   /**
+   * Captures the screen AT THE MOMENT A STEP FAILED.
+   *
+   * Far more useful than the end-of-test screenshot: by teardown the drawer has
+   * closed, the toast has expired and the list has re-rendered, so that image
+   * frequently shows a perfectly healthy screen. This one shows the state that
+   * actually produced the failure.
+   *
+   * The step number and name are in the filename so an image can be matched to
+   * its step without opening the report.
+   */
+  static async captureStepFailure(
+    page: Page,
+    testInfo: TestInfo,
+    stepIndex: number,
+    stepName: string,
+  ): Promise<string | undefined> {
+    if (page.isClosed()) return undefined;
+    try {
+      const browserName = testInfo.project.name;
+      const safeTitle = CommonUtils.sanitizeForFilename(testInfo.title);
+      const safeStep = CommonUtils.sanitizeForFilename(stepName).slice(0, 60);
+      const filename = `${safeTitle}_step-${String(stepIndex).padStart(2, '0')}_${safeStep}_${browserName}.png`;
+      const destination = path.join(this.getRunFolder(), filename);
+
+      const buffer = await page.screenshot({ fullPage: true, path: destination });
+      await testInfo.attach(`step-${stepIndex}-failed`, {
+        body: buffer,
+        contentType: 'image/png',
+      });
+
+      Logger.info(`Step ${stepIndex} failure screenshot: ${destination}`);
+      return destination;
+    } catch (error) {
+      Logger.error(`Could not capture a screenshot for step ${stepIndex}`, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Captures a full-page screenshot for a failed test and returns the
    * absolute path written. Also attaches the file to the Playwright HTML
    * report via testInfo.attach so it's visible there too.

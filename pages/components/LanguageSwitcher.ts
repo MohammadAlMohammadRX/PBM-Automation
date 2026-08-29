@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { Timeouts } from '../../constants/Timeouts';
+import { GLOBAL, buttonSelector } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
 
 /** UI languages supported by the PBM application. */
@@ -18,11 +19,21 @@ export class LanguageSwitcher {
   constructor(private readonly page: Page) {}
 
   /**
-   * The single header toggle. Its label is the language it switches TO, so it
-   * reads "عربي" while the UI is English and "EN" while the UI is Arabic.
+   * The single language toggle, by id.
+   *
+   * Its LABEL is the language it switches TO - "عربي" in English, "EN" in
+   * Arabic - so matching on the accessible name meant the selector had to know
+   * both captions and would break on any wording change. The id does not move
+   * with the language.
+   *
+   * Two ids cover it: the authenticated header, and the auth shell on the
+   * unauthenticated screens, which has no app header.
    */
   private toggleButton(): Locator {
-    return this.page.getByRole('button', { name: /^(عربي|EN)$/ }).first();
+    return this.page
+      .locator(buttonSelector(GLOBAL.languageToggle))
+      .or(this.page.locator(buttonSelector(GLOBAL.authLanguageToggle)))
+      .first();
   }
 
   /** The language the UI is currently rendered in. */

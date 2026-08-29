@@ -14,14 +14,28 @@ test.describe('Filter Payer List by Type and Status - Access control', () => {
   test('TC-011: should restrict the payer list and its filter controls when the user is not a System Administrator', async ({
     loginPage,
     payerManagementPage,
+    steps,
   }) => {
-    await loginPage.open();
-    await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+    // BLOCKED, not FAIL: without a non-administrator account the denial this
+    // case exists to prove can never be exercised. Nothing is learned about the
+    // application, so reporting a failure would be a false statement about it.
+    if (!env.nonAdminUsername || !env.nonAdminPassword) {
+      steps.blocked(
+        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, so a '
+          + 'non-administrator session cannot be established.',
+      );
+    }
 
-    await payerManagementPage.navigate();
+    await steps.critical('Sign in as a non-administrator', async () => {
+      await loginPage.open();
+      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+    });
+
+    await steps.critical('Navigate to the payer module', () => payerManagementPage.navigate());
 
     // Either the module is inaccessible, or it is read-only with no usable
     // filter controls - both satisfy the configured RBAC rules.
-    await payerManagementPage.expectFilterControlsRestricted();
+    await steps.step('The payer list and its filter controls are restricted', () =>
+      payerManagementPage.expectFilterControlsRestricted());
   });
 });
