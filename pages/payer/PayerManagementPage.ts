@@ -79,6 +79,12 @@ export class PayerManagementPage extends ListPageBase {
   async open(): Promise<void> {
     await this.goto(AppRoutes.payerManagement);
     await this.ensureTableView(this.screen);
+    // Post-condition: the list is genuinely on screen. Without it `open()` can
+    // return on a page that never rendered its table - the cards-view case - and
+    // the failure then surfaces several steps later against a row locator,
+    // pointing at the wrong thing entirely. Asserting here fails at "Open the
+    // payer list", which is where the problem actually is.
+    await expect(this.tableFor(this.screen)).toBeVisible({ timeout: Timeouts.default });
   }
 
   /** Navigates to the module WITHOUT asserting the table renders - used by the
@@ -196,7 +202,13 @@ export class PayerManagementPage extends ListPageBase {
           if (names.length === 0 || names.some((n) => n.includes(NO_RESULTS_TEXT))) return 'none';
           return names.every((name) => name.toLowerCase().includes(needle)) ? 'all' : 'some';
         },
-        { timeout: Timeouts.default },
+        {
+          timeout: Timeouts.default,
+          message:
+            `Every payer name listed should contain "${term}". `
+            + `"none" below means the search returned no rows at all; "some" means at `
+            + 'least one row did not match.',
+        },
       )
       .toBe('all');
   }
@@ -206,7 +218,10 @@ export class PayerManagementPage extends ListPageBase {
     await expect
       .poll(
         async () => (await this.getVisiblePayerNames()).some((n) => n.includes(payerName)),
-        { timeout: Timeouts.default },
+        {
+          timeout: Timeouts.default,
+          message: `The results should include the payer "${payerName}", and did not.`,
+        },
       )
       .toBe(true);
   }
@@ -365,7 +380,12 @@ export class PayerManagementPage extends ListPageBase {
    */
   async expectColumnSorted(column: SortColumnKey, direction: SortDirection): Promise<void> {
     await expect
-      .poll(() => this.ordering(column, direction), { timeout: Timeouts.default })
+      .poll(() => this.ordering(column, direction), {
+        timeout: Timeouts.default,
+        message:
+          `The ${column} column should be ordered ${direction}. The received value below is `
+          + 'the column as it was actually displayed, in order.',
+      })
       .toBe('ordered');
   }
 
@@ -374,6 +394,9 @@ export class PayerManagementPage extends ListPageBase {
     await expect
       .poll(() => this.getColumnValues(column).then(blanksAreGrouped), {
         timeout: Timeouts.default,
+        message:
+          `Sorting by ${column} should leave every blank cell together at one end of the `
+          + 'list, rather than interleaved with the filled ones.',
       })
       .toBe(true);
   }

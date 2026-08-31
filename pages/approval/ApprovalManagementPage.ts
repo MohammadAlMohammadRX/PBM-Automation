@@ -45,6 +45,12 @@ export class ApprovalManagementPage extends BasePage {
     await this.goto(AppRoutes.approvalManagement);
     // The approval queue shares the module-wide Table/Cards view preference.
     await this.ensureTableView(this.screen);
+    // Post-condition: the list is genuinely on screen. Without it `open()` can
+    // return on a page that never rendered its table - the cards-view case - and
+    // the failure then surfaces several steps later against a row locator,
+    // pointing at the wrong thing entirely. Asserting here fails at "Open the
+    // approval queue", which is where the problem actually is.
+    await expect(this.tableFor(this.screen)).toBeVisible({ timeout: Timeouts.default });
   }
 
   /** The Payer tab of the hub, in case another tab is active. */
@@ -139,7 +145,14 @@ export class ApprovalManagementPage extends BasePage {
             .then(() => true)
             .catch(() => false);
         },
-        { timeout: Timeouts.queuePropagation, intervals: [500, 1_000, 2_000] },
+        {
+          timeout: Timeouts.queuePropagation,
+          intervals: [500, 1_000, 2_000],
+          message:
+            `The approval queue should list "${payerName}" after it was submitted. `
+            + 'The queue was re-searched repeatedly and never returned it, which means the '
+            + 'submission did not reach the queue.',
+        },
       )
       .toBe(true);
   }

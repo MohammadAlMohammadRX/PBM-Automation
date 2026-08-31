@@ -106,7 +106,18 @@ export abstract class EntityWizardDialog {
 
   async fillTextField(label: string, value: string): Promise<void> {
     Logger.step(`Filling "${label}" with "${value}"`);
-    await this.field(label).fill(value);
+    const input = this.field(label);
+    await input.fill(value);
+
+    // Post-condition: something actually landed in the control. Deliberately NOT
+    // an equality check - several fields transform what is typed (the phone
+    // control is digit-masked and drops non-digits, dates are reformatted), so
+    // demanding the exact string back would fail on correct behaviour. What
+    // matters is catching the silent case: a masked or read-only field that
+    // accepted the keystrokes and kept nothing.
+    if (value !== '') {
+      await expect(input).not.toHaveValue('', { timeout: Timeouts.short });
+    }
   }
 
   /**
@@ -126,6 +137,12 @@ export abstract class EntityWizardDialog {
       .filter({ visible: true })
       .first()
       .click();
+
+    // Post-condition: the trigger now shows the chosen option. A PrimeNG select
+    // can swallow a click on a portalled overlay and leave the previous value in
+    // place, which is invisible here and surfaces much later as a saved record
+    // with the wrong data.
+    await expect(this.field(label)).toContainText(optionText, { timeout: Timeouts.short });
   }
 
   async setCheckbox(label: string, checked: boolean): Promise<void> {

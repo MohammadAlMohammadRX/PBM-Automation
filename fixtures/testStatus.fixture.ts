@@ -33,7 +33,27 @@ const outcomes = new Map<string, TestStatusName>();
  * point of use.
  */
 const ANSI = /\u001b\[[0-9;]*m/g;
-const plain = (text: string) => text.replace(ANSI, '').trim();
+const NEWLINE = String.fromCharCode(10);
+
+const plain = (text: string) => {
+  const stripped = text.replace(ANSI, '').trim();
+  // Playwright echoes a poll's `message` option twice - once as the poll's own
+  // header and once inside the assertion error - so the same sentence lands in
+  // the report back to back. Collapse repeats rather than drop the message,
+  // which is the part that explains what was being checked.
+  const seen = new Set<string>();
+  return stripped
+    .split(NEWLINE)
+    .filter((line) => {
+      const key = line.trim();
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(NEWLINE)
+    .trim();
+};
 
 /** `TC-014: should block...` -> `TC-014`. Falls back to the whole title. */
 function caseIdOf(title: string): string {
