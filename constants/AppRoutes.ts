@@ -1,18 +1,24 @@
 /**
- * Centralized application routes (relative to BASE_URL).
- * Keeping these in one place means a URL change only needs one edit, and new
- * modules can be added here without touching any Page Object.
+ * Relative application routes.
  *
- * Add one entry per new module as its Page Object is built - never hardcode a
- * path string inside a Page Object or test.
+ * Every navigation goes through a key here rather than a literal path string,
+ * so a route change is one edit. Paths are relative - BasePage.goto() resolves
+ * them against BASE_URL from .env.
  */
 export const AppRoutes = {
   login: '/login',
   dashboard: '/dashboard',
   payerManagement: '/payer-management',
   approvalManagement: '/approval-management',
-  /** Reference-data (lookup) administration, e.g. /lookup-management/payerType. */
   lookupManagement: '/system-settings/lookup-management',
+
+  /**
+   * Consuming modules of the shared payer selection interface. They are
+   * navigated to only to open THEIR payer dropdown - the cross-module story is
+   * about what that dropdown returns, not about plans or networks.
+   */
+  planManagement: '/plans-management',
+  networkManagement: '/network-management',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

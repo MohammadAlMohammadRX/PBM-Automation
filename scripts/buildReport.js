@@ -21,8 +21,25 @@ const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Resul
 const ANSI = /\[[0-9;]*m/g;
 const clean = (t) => (t || '').replace(ANSI, '').trim();
 
-/** Directory name -> the user story as the QA documents name it. */
+/**
+ * Directory name -> the user story as the QA documents name it.
+ *
+ * Order here is the order of the report. A story directory that is NOT listed
+ * still appears, but lands in an unnamed "Other" bucket - so every new story
+ * folder needs a line here, or its cases lose the requirement they trace to.
+ */
 const STORIES = [
+  ['view-paginated-payer-list-with-metrics', 'View Paginated Payer List with Metrics'],
+  ['display-payer-names-in-the-interface-language', 'Display Payer Names in the Interface Language'],
+  [
+    'return-only-active-payers-in-cross-module-selection',
+    'Return Only Active Payers with Status in Cross-Module Payer Selection',
+  ],
+  ['add-version-history-tab-to-payer-details', 'Add Version History Tab to Payer Details'],
+  [
+    'automatically-discard-unapproved-registrations',
+    'Automatically Discard Unapproved Registrations Past Their Effective Window',
+  ],
   ['create-new-payer-organization-record', 'Create New Payer Organization Record'],
   ['edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
   ['delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],

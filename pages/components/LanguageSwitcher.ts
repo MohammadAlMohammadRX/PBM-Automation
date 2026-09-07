@@ -62,4 +62,18 @@ export class LanguageSwitcher {
       timeout: Timeouts.default,
     });
   }
+
+  /**
+   * Asserts the page is laid out left-to-right (English).
+   *
+   * The counterpart to `expectRightToLeft`, so a bilingual test can check the
+   * layout direction actually SWITCHED BACK rather than only that it once
+   * became RTL - a direction that never reverts is a real defect and would
+   * otherwise go unnoticed.
+   */
+  async expectLeftToRight(): Promise<void> {
+    await expect(this.page.locator('html')).toHaveAttribute('dir', 'ltr', {
+      timeout: Timeouts.default,
+    });
+  }
 }

@@ -354,3 +354,290 @@ export function byId(id: string): string {
 export function rowIdPrefix(screen: string): string {
   return `${screen}-table-row-`;
 }
+
+// ---------------------------------------------------------------------------
+// Payer list dashboard metrics (KPI band)
+// ---------------------------------------------------------------------------
+
+/**
+ * The five KPI counters above the payer list, each an `<article>` carrying a
+ * `-label` and a `-value` child.
+ *
+ * VERIFIED against the live application: the band is `payer-list-kpis` and the
+ * counters are keyed on the metric name, so the ids are identical in English
+ * and Arabic - only the `-label` TEXT is translated ("Total Payers" /
+ * "إجمالي جهات التغطية"). That is what lets the bilingual metric assertions
+ * read the same locator in both languages.
+ */
+export const PAYER_KPI = {
+  total: 'total',
+  active: 'active',
+  pending: 'pending',
+  inactive: 'inactive',
+  expired: 'expired',
+} as const;
+
+export type PayerKpiKey = keyof typeof PAYER_KPI;
+
+/** The KPI band container - present whenever the module has loaded. */
+export const PAYER_KPI_BAND = 'payer-list-kpis';
+
+/**
+ * A KPI counter's element, e.g. `payer-list-kpi-active-value`.
+ * `kind` selects the counter's number or its translated caption.
+ */
+export function payerKpiId(metric: PayerKpiKey, kind: 'label' | 'value'): string {
+  return `payer-list-kpi-${PAYER_KPI[metric]}-${kind}`;
+}
+
+// ---------------------------------------------------------------------------
+// Status badge tone
+// ---------------------------------------------------------------------------
+
+/**
+ * The colour band a status is rendered in, exposed as `data-tone` on every
+ * status badge (`{rowId}-status-badge`, `{cardId}-status-badge`, and the detail
+ * header's badge).
+ *
+ * This attribute - not a CSS class and not a computed colour - is the
+ * application's own declaration of which colour a status maps to, and it is
+ * language-independent: the Arabic UI renders "نشطة" with `data-tone="active"`.
+ * Asserting the tone therefore checks the colour MAPPING the acceptance
+ * criteria are about, without hard-coding pixel values that a theme change
+ * would invalidate and without reading translated text.
+ *
+ * `neutral` is undocumented in the QA Manual but present live: it is the tone
+ * of "Not Live", the status of a payer whose first version has never been
+ * published - a FIFTH status value the manual does not mention.
+ */
+export const STATUS_TONE = {
+  active: 'active',
+  pending: 'pending',
+  inactive: 'inactive',
+  expired: 'expired',
+  neutral: 'neutral',
+  onHold: 'on-hold',
+} as const;
+
+export type StatusTone = (typeof STATUS_TONE)[keyof typeof STATUS_TONE];
+
+/**
+ * A row's or card's LIFECYCLE status badge, whose `data-tone` carries the
+ * colour band.
+ *
+ * Verified vocabulary for this badge: Active/active, Inactive/inactive,
+ * Expired/expired and "Not Live"/neutral. It never shows "Pending" - see
+ * `versionStatusBadgeId`.
+ */
+export function statusBadgeId(ownerId: string): string {
+  return `${ownerId}-status-badge`;
+}
+
+/**
+ * A row's or card's APPROVAL status badge ("v0 · Pending Approval"), which is a
+ * different element from the lifecycle badge and carries its own `data-tone`.
+ *
+ * This distinction matters and is easy to get wrong. The two columns describe
+ * different things:
+ *
+ *   Status          the lifecycle of the currently PUBLISHED version -
+ *                   Active / Inactive / Expired, or "Not Live" when no version
+ *                   has been published yet.
+ *   Approval Status the state of the LATEST version - "v1 · Published"
+ *                   (tone `active`), "v0 · Pending Approval" (tone `pending`),
+ *                   "v1 · Draft" (tone `on-hold`).
+ *
+ * So a payer awaiting approval reads "Not Live" in Status and "Pending
+ * Approval" in Approval Status. The amber PENDING colour band lives on THIS
+ * badge; looking for it on the lifecycle badge finds nothing and wrongly reads
+ * as a missing colour mapping.
+ */
+export function versionStatusBadgeId(ownerId: string): string {
+  return `${ownerId}-version-status`;
+}
+
+// ---------------------------------------------------------------------------
+// Payer cards view
+// ---------------------------------------------------------------------------
+
+/**
+ * The cards view of the payer list.
+ *
+ * A DIFFERENT id namespace from the table (`payer-card-{id}` rather than
+ * `payer-list-table-row-{id}`), with its own field ids and `-button`-suffixed
+ * actions - which is exactly why ListPageBase forces Table view before every
+ * row assertion. The cards are addressed here only because the localized-name
+ * story has to prove the SAME name renders in the list, on the card, and in the
+ * detail header.
+ */
+export const PAYER_CARDS_CONTAINER = 'payer-list-cards';
+export const PAYER_CARD_PREFIX = 'payer-card-';
+
+/** A card's field, by the segment the card id folds in. */
+export const PAYER_CARD_FIELD = {
+  title: 'title',
+  typeTag: 'type-tag',
+  versionStatus: 'version-status',
+  code: 'code',
+  networks: 'networks-count',
+  members: 'members-count',
+  status: 'status',
+  email: 'email',
+  phone: 'phone',
+} as const;
+
+export type PayerCardFieldKey = keyof typeof PAYER_CARD_FIELD;
+
+// ---------------------------------------------------------------------------
+// Payer detail - Version History tab
+// ---------------------------------------------------------------------------
+
+/**
+ * The Version History tab's table; `PAYER_DETAIL_TAB.versions` activates it.
+ *
+ * VERIFIED live: the tab renders a table in the SAME shared shape as every
+ * other list in the application - `{namespace}-table-row-{id}-cell-{key}` - so
+ * the column keys below are model property names, not header captions.
+ *
+ * Note the live tab lists one row per APPROVAL REQUEST, including requests
+ * still in "Pending Approval" - see data/payers/versionHistory.data.ts for what
+ * the acceptance criteria require instead.
+ */
+export const PAYER_VERSIONS_SCREEN = 'payer-detail-versions';
+
+export const PAYER_VERSION_COLUMN = {
+  version: 'version',
+  changeType: 'changetype',
+  status: 'status',
+  requestedBy: 'requestedby',
+  requestedOn: 'requestedon',
+  reviewedBy: 'reviewedby',
+  reviewedOn: 'reviewedon',
+} as const;
+
+export type PayerVersionColumnKey = keyof typeof PAYER_VERSION_COLUMN;
+
+/**
+ * The drawer a version row's View action opens.
+ *
+ * VERIFIED: the drawer HOST element is present but never reports as visible -
+ * it is a PrimeNG `p-drawer` wrapper with no box of its own, and the rendered
+ * panel is its child. Asserting on the host therefore fails on a drawer that is
+ * plainly open on screen, so `-title` is what a test must wait for.
+ */
+export const PAYER_VERSION_DRAWER = 'payer-detail-version-drawer';
+export const PAYER_VERSION_DRAWER_TITLE = 'payer-detail-version-drawer-title';
+
+/**
+ * The payer detail tab strip marks its active tab with a CSS class and exposes
+ * no `aria-selected` or `role="tab"` - verified across all five tabs, before
+ * and after switching.
+ *
+ * So the class is the only signal the application offers for "this tab is
+ * showing", exactly as `PAGER_ACTIVE_CLASS` is for the current page. Reading it
+ * is a sanctioned exception; the tab itself is still located by its id.
+ */
+export const PAYER_DETAIL_ACTIVE_TAB_CLASS = 'is-active';
+
+// ---------------------------------------------------------------------------
+// Payer detail - Audit History tab
+// ---------------------------------------------------------------------------
+
+/**
+ * The Audit History tab is a TIMELINE (a `<ul>` of `<li>`), not a table - so it
+ * carries no `-cell-` ids and is read per entry rather than per column.
+ */
+export const PAYER_AUDIT = {
+  filters: 'payer-detail-audit-filters',
+  actionSelect: 'payer-detail-audit-action-select',
+  dateRangeInput: 'payer-detail-audit-date-range-input',
+  timeline: 'payer-detail-audit-timeline',
+  rowPrefix: 'payer-detail-audit-row-',
+  detailDrawer: 'payer-detail-audit-detail-drawer',
+} as const;
+
+/** Detail-header elements beyond PAYER_DETAIL_FIELD's label-to-id value map. */
+export const PAYER_DETAIL_HEADER = {
+  name: 'payer-detail-name',
+  nameAr: 'payer-detail-overview-payer-name-ar',
+  versionBadge: 'payer-detail-version-badge',
+  typeTag: 'payer-detail-type-tag',
+  statusBadge: 'payer-detail-status-badge',
+  pendingHint: 'payer-detail-pending-hint',
+  tabs: 'payer-detail-tabs',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Cross-module payer selection
+// ---------------------------------------------------------------------------
+
+/**
+ * The shared payer selection control, as each CONSUMING module exposes it.
+ *
+ * Three surfaces were found live, all backed by the same
+ * `GET /api/Payers/GetPayersDropdown` interface:
+ *
+ *   plan-form-drawer-payer-id-select   the Add Plan wizard's Payer field
+ *   plan-list-filter-payer-select      the Plans list's "filter by payer"
+ *   network-list-filter-payer-select   the Networks list's "filter by payer"
+ *
+ * Two independent consumers is what makes the cross-module consistency case
+ * checkable at all.
+ */
+export const PAYER_SELECT = {
+  planForm: 'plan-form-drawer-payer-id-select',
+  planListFilter: 'plan-list-filter-payer-select',
+  networkListFilter: 'network-list-filter-payer-select',
+} as const;
+
+export type PayerSelectSurface = keyof typeof PAYER_SELECT;
+
+/** Consuming list modules that own a payer filter of their own. */
+export const CONSUMING_SCREEN = {
+  planList: 'plan-list',
+  networkList: 'network-list',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Inactivate Payer dialog
+// ---------------------------------------------------------------------------
+
+/**
+ * Inactivating a payer does NOT use the shared confirmation dialog.
+ *
+ * VERIFIED, and it contradicts DIALOG's claim that one dialog serves every
+ * confirmation in the application: the inactivate row action opens a dedicated
+ * right-hand drawer, `payer-inactivate-dialog`, with its own reason select,
+ * free-text details field, impact summary and its own cancel/confirm buttons.
+ * `#pbm-dialog` never renders for this action - so driving it through
+ * ConfirmDialog waits out a full timeout on a dialog that was never coming.
+ *
+ * The impact summary is the reason this is a drawer rather than a dialog: it
+ * previews what inactivating the payer will affect, which is a whole user story
+ * of its own.
+ */
+export const PAYER_INACTIVATE_DIALOG = {
+  root: 'payer-inactivate-dialog',
+  title: 'payer-inactivate-dialog-title',
+  close: 'payer-inactivate-dialog-close',
+  body: 'payer-inactivate-dialog-body',
+  warning: 'payer-inactivate-dialog-warning',
+  impact: 'payer-inactivate-dialog-impact',
+  impactSummary: 'payer-inactivate-dialog-impact-summary',
+  reasonSelect: 'payer-inactivate-dialog-reason-select',
+  detailsInput: 'payer-inactivate-dialog-details-input',
+  cancel: 'payer-inactivate-dialog-cancel-button',
+  confirm: 'payer-inactivate-dialog-confirm-button',
+} as const;
+
+/**
+ * The pager's page buttons collapse beyond seven pages, so "which page is
+ * showing" is read from the active button's class rather than from an
+ * accessible attribute the pager does not expose.
+ *
+ * locator-exception: `is-active` is the only signal the application offers for
+ * the CURRENT page - the buttons carry no `aria-current` - and the page-state
+ * assertions exist precisely to check it. The id prefix still scopes the
+ * lookup, so this can never drift onto another table's pager.
+ */
+export const PAGER_ACTIVE_CLASS = 'is-active';

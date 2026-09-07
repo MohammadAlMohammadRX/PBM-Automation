@@ -2,14 +2,16 @@ import { mergeTests } from '@playwright/test';
 import { test as authTest } from './auth.fixture';
 import { test as testDataTest } from './testData.fixture';
 import { test as payerStateTest } from './payerState.fixture';
+import { test as payerIdentityTest } from './payerIdentity.fixture';
+import { test as discardSeedTest } from './discardSeed.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
 
 /**
  * Single entry point for every test file: merges the auth/Page-Object,
- * test-data, cleanup, failure-screenshot and execution-status fixtures into
- * one `test`.
+ * test-data, payer-state, payer-sampling, discard-seed, cleanup, failure-screenshot and
+ * execution-status fixtures into one `test`.
  *
  * The `steps` fixture from testStatus.fixture provides step-level results plus
  * the BLOCKED and dependency-SKIPPED outcomes - see constants/TestStatus.ts.
@@ -20,6 +22,8 @@ export const test = mergeTests(
   authTest,
   testDataTest,
   payerStateTest,
+  payerIdentityTest,
+  discardSeedTest,
   cleanupTest,
   screenshotTest,
   testStatusTest,

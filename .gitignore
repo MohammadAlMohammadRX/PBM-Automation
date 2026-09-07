@@ -40,3 +40,6 @@ Thumbs.db
 
 # Misc
 *.tmp
+
+# Playwright MCP session output (snapshots, traces)
+/.playwright-mcp/

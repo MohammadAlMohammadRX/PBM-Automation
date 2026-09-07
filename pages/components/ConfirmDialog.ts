@@ -126,6 +126,29 @@ export class ConfirmDialog {
       .click();
   }
 
+  /**
+   * Selects the first reason the dialog offers, when it asks for one.
+   *
+   * Used where a reason is a REQUIRED gate rather than the thing under test -
+   * an inactivation, for instance, cannot be confirmed without one, but which
+   * reason is chosen is immaterial to the behaviour being checked. Taking the
+   * first option avoids hard-coding a label from a configurable lookup
+   * (`payerInactivationReason`), which an administrator can rename or reorder
+   * at any time; a test that named one would then fail for a reason that has
+   * nothing to do with what it checks.
+   *
+   * Where the reason IS the subject - the reviewer's Rejection Reason - use
+   * `selectReasonIfPresent` and name it.
+   */
+  async selectFirstReasonIfPresent(): Promise<void> {
+    const select = this.page.locator(`#${DIALOG.select}`);
+    if ((await select.count()) === 0) return;
+    await select.click();
+    const option = this.page.getByRole('option').filter({ visible: true }).first();
+    await expect(option).toBeVisible({ timeout: Timeouts.default });
+    await option.click();
+  }
+
   /** An action button by its logical key. */
   private action(key: keyof typeof DIALOG_ACTION): Locator {
     return this.page.locator(buttonSelector(DIALOG_ACTION[key])).first();
