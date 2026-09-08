@@ -9,6 +9,8 @@ import { LookupManagementPage } from '../pages/settings/LookupManagementPage';
 import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { LanguageSwitcher } from '../pages/components/LanguageSwitcher';
+import { ExportMenu } from '../pages/components/ExportMenu';
+import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 
 /**
  * Page-Object fixture registry.
@@ -54,6 +56,26 @@ export interface PageObjectFixtures {
    * itself rather than a module.
    */
   languageSwitcher: LanguageSwitcher;
+
+  /**
+   * The list export control - trigger, scope menu and format dialog.
+   *
+   * Registered as its own fixture rather than reached through the payer list,
+   * because exporting is a THREE-part flow across two hosts (a toolbar menu and
+   * the shared dialog) and it produces a download rather than a screen. Folding
+   * that into the list Page Object would put file handling in a class whose
+   * every other method is about rows.
+   */
+  exportMenu: ExportMenu;
+
+  /**
+   * Role Administration, which owns the permission catalogue.
+   *
+   * A payer story needs it because payer permissions are DEFINED on a role, so
+   * what a payer permission is called in Arabic is a question only this screen
+   * can answer.
+   */
+  roleAdministrationPage: RoleAdministrationPage;
 }
 
 export const test = base.extend<PageObjectFixtures>({
@@ -86,5 +108,11 @@ export const test = base.extend<PageObjectFixtures>({
   },
   languageSwitcher: async ({ page }, use) => {
     await use(new LanguageSwitcher(page));
+  },
+  exportMenu: async ({ page }, use) => {
+    await use(new ExportMenu(page));
+  },
+  roleAdministrationPage: async ({ page }, use) => {
+    await use(new RoleAdministrationPage(page));
   },
 });

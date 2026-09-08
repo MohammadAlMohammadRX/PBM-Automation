@@ -210,6 +210,75 @@ export class ApprovalManagementPage extends BasePage {
     });
   }
 
+  /**
+   * Asserts no approve or reject control is offered anywhere in the queue.
+   *
+   * Queue-wide rather than per-row, and deliberately so: a role without the
+   * approval permission may not see the queued requests at all, in which case
+   * there is no row to address. Both outcomes satisfy the rule - the controls
+   * are hidden, or the requests are - so the assertion is that the decision
+   * controls do not exist on this screen for this user.
+   */
+  async expectApprovalActionsDenied(): Promise<void> {
+    for (const action of ['approve', 'reject'] as const) {
+      await expect(
+        this.page.locator(`[id^="${SCREEN.approvalsPayer}-"][id$="-${action}"]`),
+        `A user without the approval permission should be offered no ${action} control`,
+      ).toHaveCount(0, { timeout: Timeouts.default });
+    }
+  }
+
+  /**
+   * The action keys a queued request actually offers, e.g. `['review',
+   * 'reject', 'approve']`.
+   *
+   * Reads what is THERE rather than probing for one action at a time, so a case
+   * asking "is a Withdraw action offered?" can fail with the list of actions
+   * that do exist. "The withdraw button was not found" and "this hub offers
+   * review, reject and approve, and nothing else" are the same result reported
+   * with very different usefulness.
+   */
+  async getRowActionKeys(payerName: string): Promise<string[]> {
+    await this.expectInQueue(payerName);
+    const id = await this.rowId(payerName);
+    return this.page
+      .locator(`[id^="${id}-"]`)
+      .evaluateAll(
+        (elements, rowId) =>
+          elements
+            .filter((element) => {
+              const tag = element.tagName.toLowerCase();
+              return tag === 'button' || tag === 'p-button';
+            })
+            .map((element) => (element as HTMLElement).id.replace(`${rowId}-`, ''))
+            .map((key) => key.replace(/-button$/, '')),
+        id,
+      );
+  }
+
+  /**
+   * Approves a queued request only IF one is queued, and reports whether it did.
+   *
+   * Written for the seeding flows, where a change may or may not need review and
+   * either answer is acceptable. Inactivating a payer is the case in point: it
+   * is a maker-checker change like any other, so it may arrive here as a pending
+   * version or may take effect immediately, and a seeder that assumed one would
+   * break the day the other became true. The caller asserts the END STATE, which
+   * is correct either way.
+   *
+   * Deliberately NOT for use in a test that is checking the approval workflow -
+   * a case asserting a request reaches the queue should call `expectInQueue` and
+   * fail when it does not, rather than silently doing nothing.
+   */
+  async approveIfPending(payerName: string): Promise<boolean> {
+    if (!(await this.isInQueue(payerName))) {
+      Logger.step(`No pending request for "${payerName}" - nothing to approve`);
+      return false;
+    }
+    await this.approve(payerName);
+    return true;
+  }
+
   /** Approves a queued request (ticks the acknowledgement, then confirms). */
   async approve(payerName: string): Promise<void> {
     Logger.step(`Approving "${payerName}"`);

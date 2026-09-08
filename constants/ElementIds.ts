@@ -131,6 +131,17 @@ export const DIALOG_ACTION = {
   /** Dirty-form guard only, raised when closing a drawer with unsaved changes. */
   stay: 'pbm-dialog-action-stay',
   discard: 'pbm-dialog-action-discard',
+  /**
+   * Export format choices. VERIFIED on the live export dialog, which is the
+   * shared `#pbm-dialog` carrying `pbm-dialog-action-csv` and
+   * `pbm-dialog-action-excel` alongside `cancel`.
+   *
+   * These are the reason `DISMISSIVE_ACTIONS` is not enough on its own: this
+   * dialog has TWO non-dismissive actions, so it must be driven by name. See
+   * ConfirmDialog.clickAction.
+   */
+  csv: 'pbm-dialog-action-csv',
+  excel: 'pbm-dialog-action-excel',
 } as const;
 
 /**
@@ -641,3 +652,168 @@ export const PAYER_INACTIVATE_DIALOG = {
  * lookup, so this can never drift onto another table's pager.
  */
 export const PAGER_ACTIVE_CLASS = 'is-active';
+
+// ---------------------------------------------------------------------------
+// List export
+// ---------------------------------------------------------------------------
+
+/**
+ * Exporting is TWO steps, which is easy to get wrong: the toolbar trigger opens
+ * a small menu offering "Selected Export" / "Export All Data", and only then
+ * does the shared `#pbm-dialog` appear asking for a FORMAT (CSV or Excel).
+ *
+ * VERIFIED against the live list. A test that clicks `-export-all` and waits
+ * for a download waits forever, because nothing is downloaded until a format is
+ * chosen. The format dialog is the reason ConfirmDialog needed `clickAction` -
+ * it offers two affirmative actions, so "the first non-dismissive one" picks
+ * CSV when the test asked for Excel.
+ */
+export const PAYER_EXPORT = {
+  root: 'payer-list-export',
+  trigger: 'payer-list-export-trigger',
+  menu: 'payer-list-export-menu',
+  /** Exports only the rows ticked in the table. */
+  selected: 'payer-list-export-selected',
+  /** Exports the whole register, ignoring the current filter. */
+  all: 'payer-list-export-all',
+} as const;
+
+/** The format dialog's action keys, used with ConfirmDialog.clickAction(). */
+export const EXPORT_FORMAT = {
+  csv: 'csv',
+  excel: 'excel',
+} as const;
+
+export type ExportFormat = keyof typeof EXPORT_FORMAT;
+
+/**
+ * Column headers in the exported CSV, exactly as the file writes them.
+ *
+ * Read off a real download rather than assumed from the grid: the export
+ * carries a `Dial Code` column the table does not show, and its header is
+ * "License Number" (US spelling) even where the UI says Licence. Addressing
+ * export columns by name means a reordered export cannot shift an assertion
+ * onto the wrong field.
+ */
+export const PAYER_EXPORT_COLUMN = {
+  code: 'Payer Code',
+  nameEn: 'Payer Name',
+  nameAr: 'Payer Name (Arabic)',
+  payerType: 'Payer Type',
+  email: 'Email',
+  dialCode: 'Dial Code',
+  phone: 'Phone Number',
+  licenseNumber: 'License Number',
+  status: 'Status',
+  effectiveDate: 'Effective Date',
+  expiryDate: 'Expiry Date',
+  networks: 'Linked Networks',
+  members: 'Linked Members',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Approval (version) status vocabulary
+// ---------------------------------------------------------------------------
+
+/**
+ * Every approval-status value the application actually produces, with the
+ * Arabic label it renders.
+ *
+ * WHERE EACH ONE LIVES, because it is not one screen: `pendingApproval`,
+ * `published` and `draft` appear in the payer list's Approval Status cell
+ * (`{row}-version-status`), while `superseded` and `rejected` appear only in a
+ * payer's Version History tab - a payer's CURRENT version is never superseded
+ * by definition, so the list cannot show it.
+ *
+ * `withdrawn` is DELIBERATELY ABSENT. The Arabic-labels story asks for five
+ * statuses including Withdrawn (مسحوب); the live application offers no such
+ * status and no Withdraw action anywhere - not on a list row, not on a version
+ * row, not in the approvals hub. Listing it here as though it existed would
+ * make a test pass against a value the application never emits, so the expected
+ * vocabulary lives in data/payers/approvalStatus.data.ts and is checked AGAINST
+ * this map. That is what turns "Withdrawn is missing" into a reported failure
+ * rather than a silent omission.
+ */
+export const APPROVAL_STATUS = {
+  pendingApproval: { en: 'Pending Approval', ar: 'بانتظار الموافقة', tone: 'pending' },
+  published: { en: 'Published', ar: 'منشور', tone: 'active' },
+  superseded: { en: 'Superseded', ar: 'مُستبدَل', tone: 'on-hold' },
+  rejected: { en: 'Rejected', ar: 'مرفوض', tone: 'expired' },
+  draft: { en: 'Draft', ar: 'مسودة', tone: 'on-hold' },
+} as const;
+
+export type ApprovalStatusKey = keyof typeof APPROVAL_STATUS;
+
+// ---------------------------------------------------------------------------
+// Role administration / permission catalogue
+// ---------------------------------------------------------------------------
+
+/** The role list screen: cards only - this screen has no table view. */
+export const ROLE_LIST = {
+  root: 'role-list',
+  toolbar: 'role-list-toolbar',
+  search: 'role-list-search',
+  searchInput: 'role-list-search-input',
+  cards: 'role-list-cards',
+  addButton: 'role-list-add-button',
+} as const;
+
+/** A role card's id segments, `role-card-{id}-{segment}`. */
+export const ROLE_CARD_FIELD = {
+  name: 'name',
+  description: 'description',
+  edit: 'edit-button',
+  view: 'view-button',
+  delete: 'delete-button',
+} as const;
+
+/**
+ * The two-step role drawer. Step 2, "Privileges", is the permission catalogue.
+ *
+ * `canApproveOwnRequests` is worth naming: it is the maker-checker switch the
+ * permissions story's "submitter cannot approve their own request" case is
+ * about, and it is a property of the ROLE rather than a permission in the tree.
+ */
+export const ROLE_FORM = {
+  root: 'role-form-drawer',
+  title: 'role-form-drawer-title',
+  close: 'role-form-drawer-close',
+  nextButton: 'role-form-drawer-next-button',
+  cancelButton: 'role-form-drawer-cancel-button',
+  englishName: 'role-form-drawer-english-name-input',
+  arabicName: 'role-form-drawer-arabic-name-input',
+  isActive: 'role-form-drawer-is-active-checkbox',
+  hasAssignedPayers: 'role-form-drawer-has-assigned-payers-checkbox',
+  canApproveOwnRequests: 'role-form-drawer-can-approve-own-requests-checkbox',
+  permissionSearch: 'role-form-drawer-permission-search-input',
+} as const;
+
+/**
+ * The permission tree's group headings, as the Privileges step renders them.
+ *
+ * `payers` is the group holding the payer permissions; `payerApprovals` is a
+ * separate group nested under Approval Management, which is where the
+ * approve/reject privilege lives. A test looking for all nine payer
+ * permissions in one group would find eight.
+ */
+export const PERMISSION_GROUP = {
+  payers: 'Payers',
+  payerApprovals: 'Payer Approvals',
+} as const;
+
+/**
+ * locator-exception: the permission tree gives EVERY checkbox the same id.
+ *
+ * VERIFIED: 26+ elements in one drawer all carry
+ * `role-form-drawer-arabic-description-checkbox` - the id is not merely
+ * unhelpful, it is a copy-paste of an unrelated field's id repeated down the
+ * whole tree. An id-addressed locator therefore cannot name a single permission,
+ * and `#...-checkbox` resolves to a strict-mode violation.
+ *
+ * So permission rows are located by their visible LABEL, which is exactly what
+ * the bilingual-names story is about anyway: the label IS the thing under test.
+ * The lookup is scoped to the drawer's id so it cannot drift onto another
+ * screen. This is recorded as a defect - see the change summary - rather than
+ * quietly worked around.
+ */
+export const PERMISSION_ROW_CLASS = 'p-treenode';

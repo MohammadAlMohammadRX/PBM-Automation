@@ -170,4 +170,50 @@ export class NetworkUtils {
     }
     return (await response.json().catch(() => null)) as T | null;
   }
+
+  /**
+   * Captures a response WHATEVER its status, with the status alongside the body.
+   *
+   * `captureJsonResponse` above deliberately waits for a SUCCESSFUL response,
+   * because its job is to inspect a payload the application uses. That makes it
+   * the wrong tool when the failure IS the expected result: a stale payer save
+   * is rejected with 409, `response.ok()` is false, so the predicate never
+   * matches and the helper reports "no response captured" for a request that
+   * plainly happened.
+   *
+   * That distinction matters more than it looks. Without a captured status
+   * there is no way to tell "the save was correctly blocked" from "the save
+   * silently succeeded" - the interface shows the same thing in both cases,
+   * which is exactly the defect the concurrent-edit story reports. So this
+   * helper is what makes the passing half of that story assertable.
+   */
+  static async captureResponse(
+    page: Page,
+    urlFragment: string,
+    action: () => Promise<void>,
+    timeout: number = Timeouts.default,
+  ): Promise<{ status: number; body: unknown; text: string } | null> {
+    const waiting = page
+      .waitForResponse((response: Response) => response.url().includes(urlFragment), { timeout })
+      .catch(() => null);
+
+    await action();
+
+    const response = await waiting;
+    if (!response) {
+      Logger.warn(`No response at all captured for "${urlFragment}"`);
+      return null;
+    }
+    const text = await response.text().catch(() => '');
+    let body: unknown = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      // Not every error response is JSON; the raw text is still returned so a
+      // caller can assert on it rather than losing the evidence entirely.
+      body = null;
+    }
+    Logger.step(`Captured ${response.status()} from "${urlFragment}"`);
+    return { status: response.status(), body, text };
+  }
 }

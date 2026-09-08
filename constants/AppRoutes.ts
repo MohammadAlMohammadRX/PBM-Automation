@@ -13,6 +13,13 @@ export const AppRoutes = {
   lookupManagement: '/system-settings/lookup-management',
 
   /**
+   * The permission catalogue lives here, not under the payer module: payer
+   * permissions are defined on a ROLE, so the bilingual-permission-names story
+   * reads them from Role Administration.
+   */
+  roleAdministration: '/system-settings/role-administration',
+
+  /**
    * Consuming modules of the shared payer selection interface. They are
    * navigated to only to open THEIR payer dropdown - the cross-module story is
    * about what that dropdown returns, not about plans or networks.

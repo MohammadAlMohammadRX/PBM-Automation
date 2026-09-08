@@ -184,6 +184,35 @@ export class PayerVersionHistoryTab {
     return (await this.getEntries()).map((entry) => entry.version);
   }
 
+  /**
+   * Asserts no cell in the table is visually truncated or overflowing.
+   *
+   * `scrollWidth > clientWidth` is the DOM's own statement that content does
+   * not fit its box, which makes "truncated, overlapped or misaligned" a thing
+   * a test can decide. Written for the right-to-left check: Arabic status
+   * labels are longer than their English counterparts, and a column sized for
+   * English is exactly how a correct translation still reads as a defect on
+   * screen. A screenshot comparison would answer the same question less
+   * reliably and would need a baseline per language.
+   */
+  async expectNoTruncatedCells(): Promise<void> {
+    await this.expectTableVisible();
+    const overflowing = await this.rows().evaluateAll((rows) =>
+      rows.flatMap((row) =>
+        Array.from(row.querySelectorAll('[id*="-cell-"]'))
+          .filter((cell) => {
+            const element = cell as HTMLElement;
+            return element.scrollWidth > element.clientWidth + 1;
+          })
+          .map((cell) => `${(cell as HTMLElement).id}: "${(cell as HTMLElement).innerText.trim()}"`),
+      ),
+    );
+    expect(
+      overflowing,
+      'These version-history cells do not fit their column and render truncated',
+    ).toEqual([]);
+  }
+
   private async rowId(versionLabel: string): Promise<string> {
     const row = this.rows().filter({ hasText: versionLabel }).first();
     await expect(row).toBeVisible({ timeout: Timeouts.default });

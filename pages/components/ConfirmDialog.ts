@@ -190,6 +190,43 @@ export class ConfirmDialog {
     await this.waitForHidden();
   }
 
+  /**
+   * Clicks one NAMED action, for the dialogs that offer more than one
+   * affirmative choice.
+   *
+   * `confirm()` above resolves "the action that is not a dismissal", which is
+   * exactly right for delete/approve/submit - they offer one. The export format
+   * dialog offers TWO ("CSV" and "Excel"), so that rule silently picks whichever
+   * the application happened to render first: a test asking for Excel would
+   * download CSV and then assert against a file it never requested. Naming the
+   * key removes the guess.
+   *
+   * Deliberately does NOT wait for the dialog to close. Choosing an export
+   * format starts a DOWNLOAD, and the caller has to be listening for it before
+   * the click - so waiting here would race the caller's own wait.
+   */
+  async clickAction(key: keyof typeof DIALOG_ACTION): Promise<void> {
+    Logger.step(`Choosing dialog action "${key}"`);
+    await this.waitForVisible();
+    await this.acknowledgeIfPresent();
+    await this.action(key).click();
+  }
+
+  /**
+   * The action keys the open dialog offers, in render order.
+   *
+   * Exposed so a test can assert WHICH choices a dialog presents rather than
+   * only that clicking one works - the export checklist is about the offered
+   * formats, not about one of them happening to function.
+   */
+  async getActionKeys(): Promise<string[]> {
+    await this.waitForVisible();
+    const ids = await this.page
+      .locator(`#${DIALOG.actions} [id^="pbm-dialog-action-"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids.map((id) => id.replace('pbm-dialog-action-', ''));
+  }
+
   /** Dismisses the dialog via its cancel action. */
   async cancel(_cancelLabel?: string): Promise<void> {
     await this.action('cancel').click();

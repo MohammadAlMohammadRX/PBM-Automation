@@ -29,23 +29,43 @@ const clean = (t) => (t || '').replace(ANSI, '').trim();
  * folder needs a line here, or its cases lose the requirement they trace to.
  */
 const STORIES = [
-  ['view-paginated-payer-list-with-metrics', 'View Paginated Payer List with Metrics'],
-  ['display-payer-names-in-the-interface-language', 'Display Payer Names in the Interface Language'],
+  ['07-view-paginated-payer-list-with-metrics', 'View Paginated Payer List with Metrics'],
+  ['08-display-payer-names-in-the-interface-language', 'Display Payer Names in the Interface Language'],
   [
-    'return-only-active-payers-in-cross-module-selection',
+    '09-return-only-active-payers-in-cross-module-selection',
     'Return Only Active Payers with Status in Cross-Module Payer Selection',
   ],
-  ['add-version-history-tab-to-payer-details', 'Add Version History Tab to Payer Details'],
+  ['10-add-version-history-tab-to-payer-details', 'Add Version History Tab to Payer Details'],
   [
-    'automatically-discard-unapproved-registrations',
+    '11-automatically-discard-unapproved-registrations',
     'Automatically Discard Unapproved Registrations Past Their Effective Window',
   ],
-  ['create-new-payer-organization-record', 'Create New Payer Organization Record'],
-  ['edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
-  ['delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],
-  ['search-payers-by-name-or-code', 'Search Payers by Name or Code'],
-  ['filter-payer-list-by-type-and-status', 'Filter Payer List by Type and Status'],
-  ['sort-payer-list-by-column-headers', 'Sort Payer List by Column Headers'],
+  [
+    '12-validate-payer-licence-number-length-and-required-entry',
+    'Validate Payer Licence Number Length and Required Entry',
+  ],
+  [
+    '13-detect-and-prevent-overwriting-concurrent-payer-edits',
+    'Detect and Prevent Overwriting Concurrent Payer Edits',
+  ],
+  [
+    '14-refine-automatic-status-transitions-for-expiry-precedence',
+    'Refine Automatic Status Transitions for Expiry Precedence and Recalculation on Edit',
+  ],
+  [
+    '15-provide-arabic-labels-for-all-approval-status-values',
+    'Provide Arabic Labels for All Approval Status Values, Including Withdrawn',
+  ],
+  [
+    '16-define-bilingual-names-for-all-payer-module-permissions',
+    'Define Bilingual Names for All Payer Module Permissions',
+  ],
+  ['01-create-new-payer-organization-record', 'Create New Payer Organization Record'],
+  ['04-edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
+  ['06-delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],
+  ['03-search-payers-by-name-or-code', 'Search Payers by Name or Code'],
+  ['02-filter-payer-list-by-type-and-status', 'Filter Payer List by Type and Status'],
+  ['05-sort-payer-list-by-column-headers', 'Sort Payer List by Column Headers'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];

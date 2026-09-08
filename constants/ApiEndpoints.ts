@@ -53,6 +53,19 @@ export const ApiEndpoints = {
 
   /** The Audit History tab's feed (POST), fired when that tab is activated. */
   payerAuditTrail: '/api/Payers/GetPayerAuditTrail',
+
+  /**
+   * Saving a payer edit (PUT). Named for reason 3 above - the payload IS the
+   * evidence for the concurrent-edit story.
+   *
+   * The application detects a stale save correctly and rejects it with
+   * 409 Conflict Detected, but reports NOTHING in the interface: no toast, no
+   * inline error, and the drawer stays open as though the click never landed.
+   * So the only way to state 'the save was blocked' as distinct from 'the save
+   * silently succeeded' is to read this response. The missing message is then
+   * asserted separately, and fails - which is the point.
+   */
+  payerUpdate: '/api/Payers/UpdatePayer',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

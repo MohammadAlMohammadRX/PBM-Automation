@@ -69,12 +69,27 @@ export default defineConfig({
   // WORKERS in .env overrides this; unset falls back to serial (1).
   workers: env.workers ?? 1,
 
+  /**
+   * `--list` IS A RUN, as far as the reporters are concerned.
+   *
+   * Playwright fires the JSON reporter for a listing too, and it writes the same
+   * file - producing a results.json full of specs with no results, every one
+   * counted as skipped. So a single `npx playwright test --list` silently
+   * overwrites the results of the run before it, and `npm run report:doc` then
+   * builds a report claiming everything was skipped. That happened twice before
+   * it was spotted, once after a 23-minute run.
+   *
+   * So the JSON reporter is attached only when this is NOT a listing. The html
+   * and list reporters are harmless either way and stay unconditional.
+   */
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
     // Machine-readable results consumed by the report scripts. Written to
     // reports/ (not the volatile test-results/, which Playwright wipes each run).
-    ['json', { outputFile: 'reports/results.json' }],
+    ...(process.argv.includes('--list')
+      ? []
+      : [['json', { outputFile: 'reports/results.json' }] as const]),
   ],
 
   use: {

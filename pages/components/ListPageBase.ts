@@ -8,6 +8,7 @@ import {
   statusBadgeId,
   type RowAction,
 } from '../../constants/ElementIds';
+import { assertNotProtected } from '../../constants/ProtectedData';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Logger } from '../../utils/Logger';
 
@@ -211,6 +212,11 @@ export abstract class ListPageBase extends BasePage {
   }
 
   async deleteRow(entityName: string): Promise<void> {
+    // The chokepoint for every deletion in the suite - `deletePayer`, the
+    // fixtures' teardown purge and any `cleanup.register` all reach the row
+    // through here. Guarding it once protects the seeded auto-discard records
+    // from every path at the same time; see constants/ProtectedData.ts.
+    assertNotProtected(entityName, 'delete');
     await this.clickRowAction(entityName, 'delete');
   }
 
@@ -232,10 +238,15 @@ export abstract class ListPageBase extends BasePage {
    * and have it approved.
    */
   async inactivateRow(entityName: string): Promise<void> {
+    // Guarded like deleteRow: inactivating a seeded auto-discard registration
+    // changes the very state its case is waiting to observe, which is as
+    // destructive as deleting it.
+    assertNotProtected(entityName, 'inactivate');
     await this.clickRowAction(entityName, 'inactivate');
   }
 
   async activateRow(entityName: string): Promise<void> {
+    assertNotProtected(entityName, 'activate');
     await this.clickRowAction(entityName, 'activate');
   }
 
@@ -330,6 +341,25 @@ export abstract class ListPageBase extends BasePage {
     expected: string,
   ): Promise<void> {
     await expect(this.cellById(recordId, columnKey)).toHaveText(expected, {
+      timeout: Timeouts.default,
+    });
+  }
+
+  /**
+   * Asserts a cell CONTAINS `expected`, addressed by record id.
+   *
+   * The exact-match version above is right for a cell holding one value, but
+   * several cells are composites: the Approval Status cell reads "v1 · Published",
+   * so asserting the status alone against it fails on a perfectly correct cell.
+   * This is for those - the status is what is under test, the version prefix is
+   * context.
+   */
+  async expectCellByIdContains(
+    recordId: string,
+    columnKey: string,
+    expected: string,
+  ): Promise<void> {
+    await expect(this.cellById(recordId, columnKey)).toContainText(expected, {
       timeout: Timeouts.default,
     });
   }
@@ -599,6 +629,37 @@ export abstract class ListPageBase extends BasePage {
   async getStatusTone(entityName: string): Promise<string> {
     const badge = await this.statusBadge(entityName);
     return (await badge.getAttribute('data-tone')) ?? '';
+  }
+
+  /**
+   * The status TEXT one row displays, e.g. "Inactive".
+   *
+   * The tone above says which colour band the status falls in, which is the
+   * right thing for the colour-coding checks but too coarse for the lifecycle
+   * ones: Inactive and "Not Live" both render `neutral`, so a transition test
+   * built on the tone would accept a payer that had never been approved as
+   * evidence of a manual inactivation. Reading the label distinguishes them.
+   */
+  async getStatusText(entityName: string): Promise<string> {
+    const badge = await this.statusBadge(entityName);
+    return ((await badge.textContent()) ?? '').trim();
+  }
+
+  /**
+   * Asserts a row's status settles on `expected`.
+   *
+   * Polled rather than a single read, because a status change lands via a list
+   * re-query: reading straight after the action that caused it returns the
+   * PREVIOUS value, which is how a correct transition gets reported as a
+   * failure. Same reason `payerSample` waits for the list to settle.
+   */
+  async expectStatusText(entityName: string, expected: string): Promise<void> {
+    await expect
+      .poll(async () => this.getStatusText(entityName), {
+        timeout: Timeouts.default,
+        message: `"${entityName}" should display the status "${expected}".`,
+      })
+      .toBe(expected);
   }
 
   /**

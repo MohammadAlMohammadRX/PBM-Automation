@@ -19,6 +19,7 @@ import {
   type TypeFilterOption,
 } from '../../data/payers/filterPayer.data';
 import { NO_RESULTS_TEXT, SEARCH_UI } from '../../data/payers/searchPayer.data';
+import type { LicenceRule } from '../../data/payers/licenceNumber.data';
 import { SortMenu } from './SortMenu';
 import {
   GLOBAL,
@@ -1309,6 +1310,19 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
+   * The detail Page Object for the record already on screen.
+   *
+   * The companion to `openPayerById`, which navigates but returns nothing.
+   * Needed by the bilingual cases: they cannot use `openDetails(name)` after
+   * switching language, because the Arabic list renders Arabic payer names and
+   * the English name they captured no longer matches anything. Navigating by id
+   * and then taking the detail object keeps them language-independent.
+   */
+  detail(): PayerDetailPage {
+    return new PayerDetailPage(this.page);
+  }
+
+  /**
    * Boundary assertion for the zero-versus-one dependency case: a blocked
    * deletion raises the dependency error and leaves the record in place, while
    * an allowed deletion is accepted without any dependency error. The branch
@@ -1392,6 +1406,142 @@ export class PayerManagementPage extends ListPageBase {
       throw new Error(`[PayerManagementPage] No version found in "${label}" for "${payerName}".`);
     }
     return Number(match[1]);
+  }
+
+  /**
+   * The name of a listed payer whose Approval Status cell contains
+   * `approvalStatus`.
+   *
+   * Name and status are read as PAIRS in one DOM pass. Reading the two columns
+   * separately would let a re-render between them pair a name with another row's
+   * status, which for the bilingual label cases would mean asserting the Arabic
+   * translation of a status the named payer never had.
+   *
+   * Throws rather than returning null: every caller has already asserted that
+   * such a row is on screen, so an absence here is a race, not a data problem,
+   * and it should be loud.
+   */
+  async findPayerWithApprovalStatus(
+    approvalStatus: string,
+  ): Promise<{ name: string; recordId: string }> {
+    await this.waitForRowsRendered();
+    const rows = await this.table()
+      .locator('tr[id^="' + this.screen + '-table-row-"]')
+      .evaluateAll(
+        (elements, columns) =>
+          elements
+            .map((element) => {
+              const read = (key: string): string => {
+                const cell = element.querySelector(`[id$="-cell-${key}"]`);
+                return cell ? (cell as HTMLElement).innerText.trim() : '';
+              };
+              return {
+                recordId: (element as HTMLElement).id,
+                name: read(columns.payerName),
+                status: read(columns.approvalStatus),
+              };
+            })
+            .filter((row) => row.name !== ''),
+        COLUMN,
+      );
+
+    const match = rows.find((row) => row.status.includes(approvalStatus));
+    if (match === undefined) {
+      throw new Error(
+        `[PayerManagementPage] No listed payer shows approval status "${approvalStatus}". `
+          + `Saw: ${JSON.stringify(rows.map((row) => row.status))}`,
+      );
+    }
+    // The ROW ID comes back alongside the name, and callers are expected to use
+    // it. Payer names are NOT unique in this register - it holds several
+    // deliberate duplicates - so re-finding this row by searching its name
+    // returns whichever duplicate the search ranks first, which may carry a
+    // different approval status entirely. That is exactly how the Published
+    // label check read "Pending Approval" from a row it had never looked at.
+    // The id is also stable across a language switch, which the name is not.
+    //
+    // Stripped to the BARE record id, matching `recordIdOf`'s convention -
+    // `cellById` re-adds the `{screen}-table-row-` prefix, so handing back the
+    // full element id builds a doubled selector that matches nothing.
+    return {
+      name: match.name,
+      recordId: match.recordId.slice(`${this.screen}-table-row-`.length),
+    };
+  }
+
+  /**
+   * Listed payer names ordered by version number, highest first.
+   *
+   * Used to pick candidates for "a payer whose history contains a Superseded
+   * version": the more versions a payer has, the more non-current ones it must
+   * hold, so scanning from the top finds one in the first attempt or two rather
+   * than opening a detail screen per row.
+   *
+   * Reads name and version as one DOM snapshot per page, for the same reason
+   * `getRowPairs` does - the register holds duplicate payer names, so a name
+   * paired with another row's version would send the caller to the wrong record.
+   */
+  async listPayersByVersionDescending(limit: number, maxPagesToScan = 4): Promise<string[]> {
+    const seen: { name: string; version: number }[] = [];
+    for (let pageIndex = 0; pageIndex < maxPagesToScan; pageIndex += 1) {
+      await this.waitForRowsRendered();
+      const pairs = await this.getRowPairs(COLUMN.payerName, COLUMN.approvalStatus);
+      for (const pair of pairs) {
+        const found = pair.status.match(/v(\d+)/);
+        if (found !== null && pair.name !== '') {
+          seen.push({ name: pair.name, version: Number(found[1]) });
+        }
+      }
+      const hasNext = await this.nextPageButton()
+        .isEnabled({ timeout: Timeouts.short })
+        .catch(() => false);
+      if (!hasNext) break;
+      await this.goToNextPage();
+    }
+
+    const ordered = [...new Set(
+      seen.sort((a, b) => b.version - a.version).map((entry) => entry.name),
+    )];
+    Logger.step(`Found ${ordered.length} candidate payer(s), highest version first`);
+    return ordered.slice(0, limit);
+  }
+
+  /**
+   * The name of a listed payer carrying at least `minVersions` versions, or
+   * null when the pages scanned hold none.
+   *
+   * Reads name and version label as PAIRS in one DOM pass, then pages forward.
+   * Reading the two columns separately would let a re-render between them pair a
+   * name with another row's version - the same defect `getRowPairs` exists to
+   * avoid - and here that would hand back a payer whose history is empty.
+   *
+   * Scans a bounded number of pages rather than the whole 37-page register: the
+   * question is whether such a payer exists at all, and a record with several
+   * versions is common enough that a few pages settle it. Unbounded paging would
+   * turn a missing precondition into a multi-minute timeout.
+   */
+  async findPayerWithVersionsAtLeast(
+    minVersions: number,
+    maxPagesToScan = 5,
+  ): Promise<string | null> {
+    for (let pageIndex = 0; pageIndex < maxPagesToScan; pageIndex += 1) {
+      await this.waitForRowsRendered();
+      const pairs = await this.getRowPairs(COLUMN.payerName, COLUMN.approvalStatus);
+      const match = pairs.find((pair) => {
+        const found = pair.status.match(/v(\d+)/);
+        return found !== null && Number(found[1]) >= minVersions;
+      });
+      if (match !== undefined) {
+        Logger.step(`Found "${match.name}" at ${match.status}`);
+        return match.name;
+      }
+      const hasNext = await this.nextPageButton()
+        .isEnabled({ timeout: Timeouts.short })
+        .catch(() => false);
+      if (!hasNext) break;
+      await this.goToNextPage();
+    }
+    return null;
   }
 
   /** Asserts the row shows exactly the given version and approval status. */
@@ -1496,5 +1646,109 @@ export class PayerManagementPage extends ListPageBase {
     await this.waitForRowVisible(payerName);
     const actual = await this.getCellValue(payerName, columnKey);
     expect(actual).toBe(expected);
+  }
+
+  /**
+   * Licence-number rule outcome, end to end: creates a payer carrying the
+   * rule's value and asserts what the rule says should happen.
+   *
+   * Branch kept out of the spec, exactly as `expectNameLengthBoundaryOutcome`
+   * does above - the checklist case walks four rules whose outcomes differ, and
+   * a conditional in the test body is how a rule ends up silently asserting
+   * nothing.
+   *
+   * A FRESH WIZARD PER RULE, on purpose. A refused save leaves the drawer dirty
+   * on the step that failed, so reusing it would test the wizard's recovery from
+   * the previous rejection rather than the next rule - and a leftover error
+   * message would satisfy the following rule's assertion for the wrong reason.
+   *
+   * Rule 3 is the one worth reading twice: its constraint is enforced by CAPPING
+   * input at `maxlength`, not by a validation message, so it asserts the cap and
+   * then expects the save to succeed with the truncated value. See
+   * data/payers/licenceNumber.data.ts for why.
+   */
+  /**
+   * Applies new effective/expiry dates to an existing payer and asserts what the
+   * application does with them.
+   *
+   * Branch kept out of the spec, as with the licence rules above. Two outcomes
+   * are possible and both are correct behaviour:
+   *
+   *   - The dates are ACCEPTED: the edit saves and the payer's status is
+   *     recalculated from the new window.
+   *   - The dates are REFUSED: an expiry before today is rejected inline with
+   *     "Expiry date cannot be earlier than today." (verified live), so the edit
+   *     never happens and the status necessarily stays as it was.
+   *
+   * The second outcome is why this method exists rather than a plain "edit and
+   * assert the new status": one of the story's cases asks for an edit the form
+   * will not accept, and asserting the refusal is the only honest way to cover
+   * it. Returning the form would push that branch back into the test.
+   */
+  async expectDateEditOutcome(
+    payerName: string,
+    effectiveDate: string,
+    expiryDate: string,
+    refusedWithMessage: string | undefined,
+    statusBefore: string,
+  ): Promise<void> {
+    const form = await this.openEditForm(payerName);
+    await form.goToStep('Effective Period');
+    await form.fillDateField('Effective Date', effectiveDate);
+    await form.fillDateField('Expiry Date', expiryDate);
+
+    if (refusedWithMessage !== undefined) {
+      await form.expectFieldError('Expiry Date', refusedWithMessage);
+      await form.closeAndDiscard();
+      await this.open();
+      await this.search(payerName);
+      // The status must be exactly as it was: a refused edit that nonetheless
+      // moved the status would be a worse defect than one that was accepted.
+      await this.expectStatusText(payerName, statusBefore);
+      return;
+    }
+
+    await form.save();
+    await form.waitForClosed();
+    await this.open();
+    await this.search(payerName);
+  }
+
+  async expectLicenceRuleOutcome(rule: LicenceRule, payer: PayerData): Promise<void> {
+    await this.open();
+    const form = await this.openCreateForm();
+
+    await form.fillBasicInformation(payer);
+    await form.clickNext();
+    // A blank value is produced by OMITTING the field, not by typing '' into it:
+    // the wizard's filler would otherwise report success having written nothing,
+    // and the distinction matters for the required-field rule.
+    await form.fillContactInformation(payer, rule.value === '' ? 'License Number' : undefined);
+
+    if (rule.expectsCapAt !== undefined) {
+      await form.expectFieldMaxLength('License Number', rule.expectsCapAt);
+      await form.expectFieldValueLength('License Number', rule.expectsCapAt);
+    }
+
+    await form.attemptNext();
+
+    if (rule.expectedError !== undefined) {
+      await form.expectFieldRequired('License Number', rule.expectedError);
+      // The wizard must not have advanced - if it had, the guard under test
+      // would be the API's rather than the form's.
+      await form.expectActiveStep('Contact Information');
+      await form.closeAndDiscard();
+      await this.open();
+      await this.search(payer.nameEn);
+      await this.expectEmptyState();
+      return;
+    }
+
+    await form.fillEffectivePeriod(payer);
+    await form.save();
+    await form.waitForClosed();
+    await this.open();
+    await this.search(payer.nameEn);
+    await this.waitForRowVisible(payer.nameEn);
   }
 }

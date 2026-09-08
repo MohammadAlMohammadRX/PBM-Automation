@@ -18,14 +18,17 @@
     "report:email": "node scripts/emailReport.js",
     "codegen": "playwright codegen %BASE_URL%",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit && node scripts/checkLocators.js",
+    "lint": "tsc --noEmit && node scripts/checkLocators.js && node scripts/checkStepCoverage.js",
     "install:browsers": "playwright install",
     "lint:locators": "node scripts/checkLocators.js",
     "report:failures": "node scripts/classifyFailures.js",
     "report:status": "node scripts/classifyFailures.js",
     "report:doc": "node scripts/buildReport.js",
     "seed:discard": "cross-env SEED_DISCARD=1 playwright test tests/seed/seed-discard-data.spec.ts",
-    "seed:check": "cross-env SEED_CHECK=1 playwright test tests/seed/check-discard-data.spec.ts"
+    "seed:check": "cross-env SEED_CHECK=1 playwright test tests/seed/check-discard-data.spec.ts",
+    "seed:status": "cross-env SEED_STATUS=1 playwright test tests/seed/seed-status-data.spec.ts",
+    "check:status": "cross-env SEED_CHECK_STATUS=1 playwright test tests/seed/check-status-data.spec.ts",
+    "lint:steps": "node scripts/checkStepCoverage.js"
   },
   "keywords": [
     "playwright",

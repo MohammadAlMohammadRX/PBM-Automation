@@ -8,6 +8,22 @@
 export const PAYER_TYPES = ['Government', 'Private'] as const;
 export type PayerType = (typeof PAYER_TYPES)[number];
 
+/**
+ * The Payer Type options as the ARABIC interface renders them.
+ *
+ * Needed because the wizard localizes its dropdown OPTION TEXT, not just its
+ * labels: selecting "Private" in the Arabic form waits out a full action
+ * timeout on an option that does not exist there. The field ids are identical
+ * in both languages, so this is the one part of driving the wizard that the
+ * id-based locators cannot make language-independent.
+ *
+ * Read off the live Arabic wizard.
+ */
+export const PAYER_TYPE_AR: Record<PayerType, string> = {
+  Government: 'حكومي',
+  Private: 'خاص',
+};
+
 /** City options (Step 2). */
 export const CITIES = ['Riyadh', 'Jeddah', 'Dammam'] as const;
 export type City = (typeof CITIES)[number];
