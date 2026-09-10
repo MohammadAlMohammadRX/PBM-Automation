@@ -124,6 +124,9 @@ export const test = base.extend<TestStatusFixtures>({
       }
 
       const started = Date.now();
+      // Watched so a BLOCKED raised INSIDE this step can be told apart from a
+      // failure - see the catch below.
+      const annotationsBefore = testInfo.annotations.length;
       try {
         // Wrapped in test.step so the HTML report and trace show the same
         // structure this recorder reports.
@@ -131,6 +134,27 @@ export const test = base.extend<TestStatusFixtures>({
         add(name, StepStatus.PASS, undefined, Date.now() - started);
       } catch (error) {
         const reason = plain(error instanceof Error ? error.message : String(error));
+
+        // A BLOCKED prerequisite is NOT a failed step, and must not be recorded
+        // as one. `blocked()` and `blockedByPrecondition()` annotate and then
+        // call testInfo.skip, which throws - and that throw landed here, where
+        // it was written down as a failure and given a soft assertion. The soft
+        // assertion is what decides Playwright's verdict, so the test came out
+        // FAILED instead of skipped: eleven cases in the network-assignment
+        // story reported as failures of the application when every one of them
+        // had said, in its own message, "Test is skipped: BLOCKED: ...".
+        //
+        // Detected by the annotation the blocked helpers add immediately before
+        // skipping, rather than by matching Playwright's skip message, so it
+        // cannot drift with a wording change upstream.
+        const blockedHere = testInfo.annotations
+          .slice(annotationsBefore)
+          .some((annotation) => annotation.type === ANNOTATION.blocked);
+        if (blockedHere) {
+          add(name, StepStatus.BLOCKED, reason, Date.now() - started);
+          Logger.warn(`Step "${name}" BLOCKED - ${reason.split('\n')[0]}`);
+          throw error;
+        }
 
         // Taken HERE, before anything else runs, so the image shows the screen
         // that produced the failure rather than whatever teardown leaves behind.

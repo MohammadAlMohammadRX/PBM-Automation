@@ -114,6 +114,68 @@ export class AssignNetworkDrawer {
     return chosen;
   }
 
+  /**
+   * Every network the drawer currently offers, or an empty list when it offers
+   * none.
+   *
+   * `selectNetwork` fails loudly on an empty pool, which is right for a case
+   * that needs to assign one. This ASKS instead, so a fixture can find out
+   * whether the pool needs refilling without taking a failure - and so a case
+   * about the pool's CONTENTS (which networks are eligible) can assert on them.
+   *
+   * PrimeNG renders an empty list as a single "No results found" option, which
+   * is why that string is filtered out rather than counted as a network.
+   */
+  async listAvailableNetworks(): Promise<string[]> {
+    await this.networksControl().click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const labels = (await options.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim());
+    await this.title().click();
+    await this.page
+      .getByRole('option')
+      .first()
+      .waitFor({ state: 'hidden', timeout: Timeouts.short })
+      .catch(() => undefined);
+    return labels.filter((label) => !/No results found/i.test(label));
+  }
+
+  /**
+   * Selects several networks in one submission.
+   *
+   * The control is a MULTI-select, and the assignment story turns on what the
+   * application does with a combined selection - an already-linked network
+   * alongside a new one, or a selection that nets out to no change at all. A
+   * one-at-a-time helper cannot express either.
+   */
+  async selectNetworks(networkNames: readonly string[]): Promise<void> {
+    await this.networksControl().click();
+    for (const name of networkNames) {
+      const option = this.page
+        .getByRole('option')
+        .filter({ visible: true })
+        .filter({ hasText: name })
+        .first();
+      await expect(option, `"${name}" should be offered by the drawer`).toBeVisible({
+        timeout: Timeouts.default,
+      });
+      await option.click();
+    }
+    await this.title().click();
+    await this.page
+      .getByRole('option')
+      .first()
+      .waitFor({ state: 'hidden', timeout: Timeouts.short })
+      .catch(() => undefined);
+  }
+
+  /** Whether the drawer's primary action can be used right now. */
+  async isSubmitEnabled(): Promise<boolean> {
+    return this.assignButton()
+      .isEnabled({ timeout: Timeouts.short })
+      .catch(() => false);
+  }
+
   async assign(): Promise<void> {
     Logger.step('Submitting the network assignment');
     await this.assignButton().click();

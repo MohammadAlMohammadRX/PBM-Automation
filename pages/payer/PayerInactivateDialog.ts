@@ -49,6 +49,46 @@ export class PayerInactivateDialog {
   }
 
   /**
+   * The drawer's warning paragraph - the sentence that explains the cascade.
+   *
+   * Read as text rather than asserted here: the cascade story checks three
+   * separate claims inside one paragraph (the cascade, the restoration, the
+   * draft caveat), and a case that fails should be able to show what the
+   * paragraph actually said.
+   */
+  async getWarningText(): Promise<string> {
+    await this.waitForOpen();
+    const warning = this.page.locator(`#${PAYER_INACTIVATE_DIALOG.warning}`);
+    await expect(warning, 'the drawer should explain what inactivation does').toBeVisible({
+      timeout: Timeouts.default,
+    });
+    return (await warning.innerText()).trim();
+  }
+
+  /**
+   * The impact preview, once it has finished counting.
+   *
+   * The drawer renders "Checking impact..." first and replaces it with the
+   * counts a moment later, so reading immediately returns the placeholder -
+   * which is indistinguishable from a payer that genuinely has nothing to
+   * cascade. This waits for the placeholder to go.
+   */
+  async getImpactSummaryText(): Promise<string> {
+    await this.waitForOpen();
+    const summary = this.impactSummary();
+    await expect(summary, 'the drawer should preview the impact').toBeVisible({
+      timeout: Timeouts.default,
+    });
+    await expect
+      .poll(async () => (await summary.innerText()).trim(), {
+        timeout: Timeouts.default,
+        message: 'the impact preview should finish counting rather than stay on its placeholder',
+      })
+      .toMatch(/\d/);
+    return (await summary.innerText()).trim();
+  }
+
+  /**
    * Picks the first inactivation reason offered.
    *
    * The reason is a required GATE here rather than the thing under test, and
@@ -88,6 +128,187 @@ export class PayerInactivateDialog {
 
   async cancel(): Promise<void> {
     await this.page.locator(buttonSelector(PAYER_INACTIVATE_DIALOG.cancel)).first().click();
+    await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
+  }
+
+  // ---- Guardrail and validation surface -------------------------------------
+  //
+  // Everything below exists for the activation/inactivation guardrail story,
+  // which asks harder questions of this drawer than "stage a change": what the
+  // reason list offers, whether Confirm is gated, what the details field caps
+  // at, and what happens when Confirm is pressed with no reason. The staging
+  // helper above deliberately stays free of those assertions.
+
+  /** Whether the drawer is on screen right now, without waiting for it. */
+  async isOpen(): Promise<boolean> {
+    return this.title()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /** Asserts the drawer is still open - the "confirm was blocked" check. */
+  async expectStillOpen(): Promise<void> {
+    await expect(
+      this.title(),
+      'the inactivation drawer should still be open',
+    ).toBeVisible({ timeout: Timeouts.short });
+  }
+
+  private confirmButton(): Locator {
+    return this.page.locator(buttonSelector(PAYER_INACTIVATE_DIALOG.confirm)).first();
+  }
+
+  private detailsField(): Locator {
+    return this.page.locator(`#${PAYER_INACTIVATE_DIALOG.detailsInput}`);
+  }
+
+  private reasonControl(): Locator {
+    return this.page.locator(`#${PAYER_INACTIVATE_DIALOG.reasonSelect}`);
+  }
+
+  /**
+   * Asserts the drawer offers both inputs the story names: a reason dropdown
+   * and a details field.
+   *
+   * Also asserts the reason control is a DROPDOWN rather than a free-text box,
+   * which is the mechanism that keeps an unmanaged reason from being entered
+   * through the UI at all.
+   */
+  async expectReasonAndDetailsOffered(): Promise<void> {
+    await this.waitForOpen();
+    await expect(
+      this.reasonControl(),
+      'the drawer should offer a reason dropdown',
+    ).toBeVisible({ timeout: Timeouts.default });
+    await expect(
+      this.detailsField(),
+      'the drawer should offer a details field',
+    ).toBeVisible({ timeout: Timeouts.default });
+    // A `p-select` renders a div, not an input. If this were a text box the
+    // managed list would not be the only way in.
+    const tag = await this.reasonControl().evaluate((element) => element.tagName.toLowerCase());
+    expect(tag, 'the reason control should not be a free-text input').not.toBe('input');
+  }
+
+  /** Every reason the managed list currently offers, in the order shown. */
+  async getReasonOptions(): Promise<string[]> {
+    await this.reasonControl().click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const labels = (await options.allInnerTexts()).map((text) => text.trim());
+    await this.page.keyboard.press('Escape');
+    return labels;
+  }
+
+  /** Picks a reason by its exact label. */
+  async selectReason(reason: string): Promise<void> {
+    await this.reasonControl().click();
+    const option = this.page.getByRole('option', { name: reason, exact: true }).first();
+    await expect(option, `the reason "${reason}" should be offered`).toBeVisible({
+      timeout: Timeouts.default,
+    });
+    await option.click();
+  }
+
+  async expectConfirmDisabled(): Promise<void> {
+    await expect(
+      this.confirmButton(),
+      'Confirm should be gated until the drawer has what it needs',
+    ).toBeDisabled({ timeout: Timeouts.default });
+  }
+
+  async expectConfirmEnabled(): Promise<void> {
+    await expect(
+      this.confirmButton(),
+      'Confirm should become available once a reason is chosen',
+    ).toBeEnabled({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Types into the details field and returns what the field KEPT.
+   *
+   * Returns rather than asserts because the two length cases want opposite
+   * things from the same action: exactly 500 must survive intact, and 501 must
+   * not. The field carries `maxlength="500"`, so over-long text is truncated on
+   * entry - which is why the caller reads the length back instead of trusting
+   * what it typed.
+   */
+  async enterDetails(text: string): Promise<string> {
+    await this.detailsField().fill(text);
+    return this.detailsField().inputValue();
+  }
+
+  /** The details field's own cap, as the application declares it. */
+  async getDetailsMaxLength(): Promise<number> {
+    const value = await this.detailsField().getAttribute('maxlength');
+    return value === null ? Number.NaN : Number(value);
+  }
+
+  /**
+   * Every validation message the drawer is showing, in DOM order.
+   *
+   * Read across all of the drawer's `-error` elements rather than one named
+   * field: the drawer is small, and a case that asks 'was the user told
+   * anything at all?' should not have to guess which element the application
+   * chose to put the answer in.
+   */
+  async getValidationMessages(): Promise<string[]> {
+    const texts = await this.page
+      .locator(`[id^="${PAYER_INACTIVATE_DIALOG.root}"][id$="-error"]`)
+      .allInnerTexts();
+    return texts.map((text) => text.trim()).filter((text) => text.length > 0);
+  }
+
+  /** Asserts the details field shows no validation error - the empty-is-fine check. */
+  async expectNoDetailsError(): Promise<void> {
+    expect(
+      await this.getValidationMessages(),
+      'an empty details field should raise no validation error',
+    ).toEqual([]);
+  }
+
+  /**
+   * Presses Confirm even when the button is gated, and reports whether the
+   * drawer stayed open.
+   *
+   * `force` is deliberate: the case exists to prove the confirm is REFUSED, and
+   * a disabled button is one legitimate way to refuse it. Without `force`
+   * Playwright would wait out the actionability timeout and fail with "element
+   * is not enabled", which reads like a broken locator and hides the fact that
+   * the guardrail worked.
+   */
+  async attemptConfirm(): Promise<{ wasGated: boolean; stillOpen: boolean }> {
+    const wasGated = await this.confirmButton().isDisabled();
+    await this.confirmButton().scrollIntoViewIfNeeded();
+    await this.confirmButton().click({ force: true });
+    return { wasGated, stillOpen: await this.isOpen() };
+  }
+
+  /** The required-reason message, or an empty string when none is shown. */
+  async getReasonError(): Promise<string> {
+    return this.page
+      .locator(`#${PAYER_INACTIVATE_DIALOG.reasonError}`)
+      .innerText()
+      .then((text) => text.trim())
+      .catch(() => '');
+  }
+
+  /**
+   * Clicks Confirm several times as fast as the browser will dispatch them.
+   *
+   * The duplicate-submission case. Clicks are fired without awaiting the
+   * drawer's reaction, because awaiting between them is precisely the pause
+   * that lets the application disable the button and makes the test pass
+   * without ever exercising the race.
+   */
+  async confirmRepeatedly(times: number): Promise<void> {
+    Logger.step(`Clicking Confirm ${times} times in rapid succession`);
+    const button = this.confirmButton();
+    await button.scrollIntoViewIfNeeded();
+    await Promise.all(
+      Array.from({ length: times }, () => button.click({ force: true, noWaitAfter: true })),
+    );
     await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
   }
 

@@ -138,6 +138,65 @@ export class PayerVersionHistoryTab {
     return this.page.locator(`tr[id^="${PAYER_VERSIONS_SCREEN}-table-row-"]`);
   }
 
+  /** Whether the empty state is on screen right now, without waiting for it. */
+  async isEmptyStateShown(): Promise<boolean> {
+    return this.emptyState()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /**
+   * The empty state's own words.
+   *
+   * Returned rather than asserted so a case checking the approved copy can
+   * report what the panel actually said. The story's copy is
+   * "No version history exists yet"; if the application words it differently
+   * that is a finding, and a failure message naming both is worth more than a
+   * bare mismatch.
+   */
+  async getEmptyStateText(): Promise<string> {
+    await expect(this.emptyState()).toBeVisible({ timeout: Timeouts.default });
+    return (await this.emptyState().innerText()).replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * How the empty state is STYLED, as its class list and any icon it renders.
+   *
+   * locator-exception: styling has no id, and cannot have one - the question is
+   * whether this panel is dressed as an error (a red banner, a warning icon) or
+   * as information. Scoped to the empty-state element, which IS an id, so it
+   * cannot drift onto another component.
+   */
+  async getEmptyStateAppearance(): Promise<{ classes: string; icons: string[] }> {
+    await expect(this.emptyState()).toBeVisible({ timeout: Timeouts.default });
+    const classes = (await this.emptyState().getAttribute('class')) ?? '';
+    const icons = await this.emptyState()
+      .locator('i, svg')
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute('class') ?? element.tagName),
+      );
+    return { classes, icons };
+  }
+
+  /**
+   * Whether the panel is still showing a loading indicator.
+   *
+   * The empty-state story asks whether the tab RESOLVES or sits on a spinner
+   * forever, which is a different failure from showing the wrong message.
+   */
+  async isStillLoading(): Promise<boolean> {
+    // locator-exception: the loading indicator is a PrimeNG spinner with no id
+    // of its own. Scoped inside the versions screen, which is an id.
+    return this.page
+      .locator(`#${PAYER_VERSIONS_SCREEN} .p-progress-spinner, #${PAYER_VERSIONS_SCREEN} .p-datatable-loading-overlay`)
+      .first()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+
   /** The tab's empty state - its own element, not a row of placeholder text. */
   private emptyState(): Locator {
     return this.page.locator(`#${PAYER_VERSIONS_SCREEN}-table-empty`);
@@ -354,6 +413,42 @@ export class PayerVersionHistoryTab {
   private drawerTitle(): Locator {
     return this.page.locator(`#${PAYER_VERSION_DRAWER_TITLE}`);
   }
+  /**
+   * Which ACTIONS a version row offers, as their id suffixes.
+   *
+   * Read rather than assumed, because the publish-and-revert story turns on
+   * what is there: the sheet expects a Revert action on published versions and
+   * a publish route on pending ones, and a case that clicked blind would fail
+   * with a timeout instead of reporting which controls the row actually has.
+   */
+  async getEntryActions(versionLabel: string): Promise<string[]> {
+    const id = await this.rowId(versionLabel);
+    const ids = await this.page
+      .locator(`[id^="${id}-"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids
+      .map((elementId) => elementId.slice(`${id}-`.length))
+      .filter((suffix) => suffix.length > 0 && !suffix.startsWith('cell-'));
+  }
+
+  /**
+   * Whether a version row offers a usable action, and how it refuses.
+   *
+   * Same three-way answer as the list's row actions - 'absent' | 'disabled' |
+   * 'available' - because the guardrail cases need to distinguish "the control
+   * is withheld" from "the control is there and refuses".
+   */
+  async getEntryActionAvailability(
+    versionLabel: string,
+    action: string,
+  ): Promise<'absent' | 'disabled' | 'available'> {
+    const id = await this.rowId(versionLabel);
+    const button = this.page.locator(buttonSelector(`${id}-${action}`)).first();
+    if ((await button.count()) === 0) return 'absent';
+    return (await button.isEnabled().catch(() => false)) ? 'available' : 'disabled';
+  }
+
+
 
   /** Opens a version entry's detail drawer via its View action. */
   async openEntry(versionLabel: string): Promise<void> {

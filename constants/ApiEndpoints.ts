@@ -66,6 +66,52 @@ export const ApiEndpoints = {
    * asserted separately, and fails - which is the point.
    */
   payerUpdate: '/api/Payers/UpdatePayer',
+
+  /**
+   * Staging an inactivation (POST).
+   *
+   * Named because the guardrail story has to reach it directly: the reason is
+   * a dropdown in the UI, so an UNMANAGED reason - which the sheet asks for
+   * explicitly - can only be submitted as a request. Its payload is
+   * { id, inactivationReasonId, inactivationDetails }.
+   */
+  payerInactivate: '/api/Payers/InactivatePayer',
+
+  /**
+   * Sending a payer for approval (POST).
+   *
+   * Named so the submission story can FAIL it - the case that arms a server
+   * error and checks the interface reports it rather than claiming success.
+   * Failing this one endpoint keeps the navigation that reaches the row
+   * working, which a blanket fault injection would not.
+   */
+  payerSubmit: '/api/Payers/SubmitPayerForApproval',
+
+  /**
+   * Activating a network (POST), payload { id }.
+   *
+   * Named because the network-activation story reaches it directly for the two
+   * cases the UI cannot express: repeating the call on an already-active network,
+   * and calling it with no id at all. Note there is no status FIELD - activation
+   * and deactivation are separate endpoints - so an "invalid status value"
+   * cannot be submitted through this interface at all.
+   */
+  networkSetActive: '/api/Networks/SetNetworkActive',
+
+  /** Deactivating a network (POST), the counterpart of networkSetActive. */
+  networkSetInactive: '/api/Networks/SetNetworkInactive',
+
+  /**
+   * Creating a payer (POST). Named for the same reason as payerUpdate: the
+   * response is the only place some rejections appear.
+   *
+   * A name longer than 255 characters comes back 422 "Form Validation
+   * Failure" while the interface shows nothing at all - no toast, no inline
+   * error, the drawer simply stays open. So "the oversized name was refused"
+   * and "the save silently succeeded" are indistinguishable on screen, and
+   * only the response tells them apart.
+   */
+  payerCreate: '/api/Payers/CreatePayer',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

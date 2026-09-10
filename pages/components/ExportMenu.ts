@@ -52,10 +52,18 @@ export class ExportMenu {
     });
   }
 
-  /** Whether the export control is offered at all - the RBAC question. */
+  /**
+   * Whether the export control is offered at all - the RBAC question.
+   *
+   * Waits for it rather than reading once: `isVisible()` ignores its timeout
+   * option, and a toolbar read the instant a list finishes loading would report
+   * a control that is present as withheld - turning a passing permission into a
+   * reported defect.
+   */
   async isAvailable(): Promise<boolean> {
     return this.trigger()
-      .isVisible({ timeout: Timeouts.short })
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
       .catch(() => false);
   }
 
@@ -65,6 +73,64 @@ export class ExportMenu {
 
   async expectDenied(): Promise<void> {
     await expect(this.trigger()).toHaveCount(0, { timeout: Timeouts.default });
+  }
+
+  /**
+   * The scopes the menu offers, as their logical id suffixes.
+   *
+   * Read rather than assumed, because this is exactly what the export-scope
+   * story disputes: the sheet expects "all" and "filtered", and the menu
+   * offers "selected" and "all". A case that assumed either would report the
+   * wrong thing.
+   */
+  async getOfferedScopes(): Promise<string[]> {
+    const prefix = `${PAYER_EXPORT.root}-`;
+    const ids = await this.page
+      .locator(`#${PAYER_EXPORT.menu} [id^="${prefix}"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids
+      .map((id) => id.slice(prefix.length))
+      .filter((suffix) => suffix.length > 0 && suffix !== 'menu' && suffix !== 'trigger');
+  }
+
+  /** The labels the menu shows for its scope options. */
+  async getScopeLabels(): Promise<string[]> {
+    return (await this.page.locator(`#${PAYER_EXPORT.menu}`).allInnerTexts())
+      .join(String.fromCharCode(10))
+      .split(String.fromCharCode(10))
+      .map((label) => label.trim())
+      .filter((label) => label.length > 0);
+  }
+
+  /**
+   * Closes the scope MENU without choosing anything.
+   *
+   * Not the same as `cancel()`, which dismisses the FORMAT dialog one step
+   * later. The menu has no cancel button of its own - it is a popup, closed
+   * by pressing Escape - and a case about cancelling the prompt has to close
+   * the step it actually opened.
+   */
+  async cancelMenu(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+    await expect(this.page.locator(`#${PAYER_EXPORT.all}`)).toBeHidden({
+      timeout: Timeouts.short,
+    });
+  }
+
+  /**
+   * Runs `action` and reports whether a download started.
+   *
+   * For the cancel case, where the assertion is an ABSENCE. Playwright fires
+   * the download event once and does not replay it, so the listener is armed
+   * before the action rather than polled afterwards.
+   */
+  async expectNoDownloadWhile(action: () => Promise<void>): Promise<boolean> {
+    const waiting = this.page
+      .waitForEvent('download', { timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    await action();
+    return waiting;
   }
 
   /** Chooses a scope, which raises the format dialog. */
@@ -97,6 +163,18 @@ export class ExportMenu {
   async cancel(): Promise<void> {
     await this.dialog.cancel();
   }
+  /**
+   * Clicks one format in the dialog, without waiting for a download.
+   *
+   * `exportAndDownload` arms the download listener around this click, which
+   * is right for a successful export. The failure case needs the click on
+   * its own: it is asserting that NO file arrives, so it cannot be wrapped
+   * in a helper that waits for one.
+   */
+  async clickFormat(format: 'csv' | 'excel'): Promise<void> {
+    await this.dialog.clickAction(format);
+  }
+
   /**
    * Runs a whole export and hands back the downloaded file.
    *

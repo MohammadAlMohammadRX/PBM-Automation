@@ -1,6 +1,9 @@
 import type { Page, Response, Route } from '@playwright/test';
 import { Timeouts } from '../constants/Timeouts';
 import { Logger } from './Logger';
+import { expect } from '@playwright/test';
+import { env } from '../constants/EnvironmentConfig';
+import { ACCESS_TOKEN_KEY } from '../data/payers/lifecycleGuardrails.data';
 
 /**
  * Network fault-injection and response-inspection helpers.
@@ -96,6 +99,79 @@ export class NetworkUtils {
   }
 
   /**
+   * Answers ONE endpoint with a genuinely EMPTY result set, leaving the
+   * response otherwise exactly as the server sent it.
+   *
+   * Written for the version-history empty state, where it is the only way to
+   * reach the state at all: every payer in this environment lists at least its
+   * own version, so "a payer with no history" cannot be provisioned as data.
+   * That is reported by its own case; this lets the remaining cases still
+   * examine the panel the story is about - its wording, its icon, its layout,
+   * and whether it resolves or spins.
+   *
+   * Deliberately NOT a hand-written body. The real response is fetched and only
+   * its lists are emptied (and its totals zeroed), so the envelope the client
+   * unwraps - success flag, message, paging - stays authentic. A fabricated
+   * payload would test the stub's shape rather than the application's handling
+   * of an empty one, and would rot the moment the contract changed.
+   *
+   * This is the counterpart to `failEndpoint`, and keeping them separate is the
+   * point: "there is nothing" and "I could not load it" are different answers,
+   * and a panel that renders them identically is a defect.
+   */
+  static async emptyListEndpoint(page: Page, urlFragment: string): Promise<void> {
+    Logger.step(`Answering requests matching "${urlFragment}" with an empty result set`);
+    const predicate = NetworkUtils.matcher(urlFragment);
+    const handler = async (route: Route): Promise<void> => {
+      const response = await route.fetch().catch(() => null);
+      if (response === null) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [], totalCount: 0 }),
+        });
+        return;
+      }
+      const body = await response.json().catch(() => null);
+      // The status is kept but the ENCODING headers are dropped. The server
+      // answers gzipped; the replacement body is not, so passing the original
+      // `content-encoding` and `content-length` through would hand the browser
+      // a payload it cannot decode - a broken response, which is not what this
+      // helper is for.
+      const headers = { ...response.headers() };
+      delete headers['content-encoding'];
+      delete headers['content-length'];
+      await route.fulfill({
+        status: response.status(),
+        headers,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          body === null ? { data: [], totalCount: 0 } : NetworkUtils.emptied(body),
+        ),
+      });
+    };
+    NetworkUtils.remember(page, urlFragment, predicate, handler);
+    await page.route(predicate, handler);
+  }
+
+  /**
+   * Empties every list inside a response payload and zeroes every count beside
+   * it, at any depth - the envelope may wrap its items one or two levels down
+   * and this must not depend on which.
+   */
+  private static emptied(value: unknown): unknown {
+    if (Array.isArray(value)) return [];
+    if (value === null || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, inner]) => {
+        if (Array.isArray(inner)) return [key, []];
+        if (typeof inner === 'number' && /count|total|records/i.test(key)) return [key, 0];
+        return [key, NetworkUtils.emptied(inner)];
+      }),
+    );
+  }
+
+  /**
    * Aborts one endpoint outright, as an unreachable service rather than an
    * erroring one. Some clients distinguish the two, and "the service is down"
    * is what several cases describe.
@@ -130,9 +206,29 @@ export class NetworkUtils {
     NetworkUtils.installed.get(page)!.delete(urlFragment);
   }
 
-  /** Removes any route interception previously installed by this util. */
+  /**
+   * Removes every route interception previously installed by this util.
+   *
+   * Each remembered handler is unrouted BY ITS OWN PREDICATE. `unroute('**\/*')`
+   * alone does not remove them: Playwright matches an unroute against the
+   * pattern the route was registered with, and `failEndpoint`, `abortEndpoint`
+   * and `emptyListEndpoint` all register a predicate FUNCTION rather than a
+   * glob. So the blanket call silently left them installed, and a case that
+   * broke an endpoint, restored it, and then retried was still talking to the
+   * broken endpoint - which reported as "the retry did not work" when the
+   * retry had never been given a working service to talk to.
+   *
+   * The glob call is kept afterwards for `failMutatingRequests`, which really
+   * does register `'**\/*'`.
+   */
   static async restore(page: Page): Promise<void> {
-    await page.unroute('**/*');
+    const entries = NetworkUtils.installed.get(page);
+    if (entries) {
+      for (const { predicate, handler } of entries.values()) {
+        await page.unroute(predicate, handler).catch(() => undefined);
+      }
+    }
+    await page.unroute('**/*').catch(() => undefined);
     NetworkUtils.installed.delete(page);
   }
 
@@ -215,5 +311,156 @@ export class NetworkUtils {
     }
     Logger.step(`Captured ${response.status()} from "${urlFragment}"`);
     return { status: response.status(), body, text };
+  }
+  /**
+   * The URL of the first request matching `pattern` while `action` runs.
+   *
+   * For the fault-injection cases whose endpoint this framework does not
+   * name. Rather than guess at a path - and fail an endpoint that is never
+   * called, which looks exactly like a feature that cannot fail - a case can
+   * perform the operation once, learn the URL, and then break that.
+   */
+  static async captureRequestUrl(
+    page: Page,
+    pattern: RegExp,
+    action: () => Promise<void>,
+    timeout: number = Timeouts.default,
+  ): Promise<string | null> {
+    const waiting = page
+      .waitForRequest((request) => pattern.test(request.url()), { timeout })
+      .then((request) => request.url())
+      .catch(() => null);
+    await action();
+    const url = await waiting;
+    if (url === null) {
+      Logger.warn(`No request matching ${pattern} was captured`);
+      return null;
+    }
+    const path = url.replace(/^https?:\/\/[^/]+/, '');
+    Logger.step(`Captured request URL "${path}"`);
+    return path;
+  }
+
+  /**
+   * How many times one endpoint is called while `action` runs.
+   *
+   * `captureResponse` above answers "what did the server say"; this answers "how
+   * many times was it asked", which is a different question and the only one
+   * that can settle a double-submission case. Three rapid clicks on a Confirm
+   * button that leaves the end state intact look identical to one click from
+   * the interface - the duplicate is visible only on the wire.
+   *
+   * Counts REQUESTS, not responses, and keeps counting for `settleMs` after the
+   * action returns: a duplicate fired a few milliseconds behind the first is
+   * exactly what this is looking for, and it would be missed by stopping the
+   * moment the click resolved.
+   */
+  static async countRequestsDuring(
+    page: Page,
+    urlFragment: string,
+    action: () => Promise<void>,
+    settleMs = 3_000,
+  ): Promise<number> {
+    let count = 0;
+    const listener = (request: { url(): string; method(): string }): void => {
+      if (request.url().includes(urlFragment) && request.method() !== 'GET') count += 1;
+    };
+    page.on('request', listener);
+    try {
+      await action();
+      await page.waitForTimeout(settleMs);
+    } finally {
+      page.off('request', listener);
+    }
+    Logger.step(`"${urlFragment}" was called ${count} time(s)`);
+    return count;
+  }
+
+  /**
+   * The request BODY one endpoint was called with while `action` ran.
+   *
+   * The other capture helpers read responses, which answer what the server
+   * said. This answers what it was TOLD - needed where the requirement is about
+   * the data reaching the server rather than the outcome: an inactivation's
+   * 500-character details field is written to the record and the interface
+   * offers nowhere to read it back, so the submitted payload is the only
+   * evidence that the text survived intact.
+   */
+  static async captureRequestBody(
+    page: Page,
+    urlFragment: string,
+    action: () => Promise<void>,
+    timeout: number = Timeouts.default,
+  ): Promise<string | null> {
+    const waiting = page
+      .waitForRequest(
+        (request) => request.url().includes(urlFragment) && request.method() !== 'GET',
+        { timeout },
+      )
+      .catch(() => null);
+
+    await action();
+
+    const request = await waiting;
+    if (!request) {
+      Logger.warn(`No request captured for "${urlFragment}"`);
+      return null;
+    }
+    return request.postData();
+  }
+
+
+  /**
+   * POSTs to the application API as the SIGNED-IN user.
+   *
+   * A test asserts against the interface, not the API - but three cases in this
+   * suite ask for something the interface cannot express (a reason outside a
+   * dropdown, a repeated call the button prevents, a request with a field left
+   * out), and the sheets name a direct request as the way to reach them.
+   *
+   * The bearer token is read from the page's own localStorage rather than by
+   * signing in again. The request MUST arrive with the same identity as the UI
+   * session: without it every call comes back 401, which is indistinguishable
+   * from the validation rejection these cases are looking for. That is not
+   * hypothetical - the first attempt at this used the context cookies alone and
+   * got exactly that.
+   */
+  static async postAsSession(
+    page: Page,
+    path: string,
+    data: unknown,
+  ): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    const token = await page.evaluate(
+      (key) => window.localStorage.getItem(key),
+      ACCESS_TOKEN_KEY,
+    );
+    expect(
+      token,
+      `no "${ACCESS_TOKEN_KEY}" in localStorage - the request would be unauthenticated, and a `
+        + '401 would be indistinguishable from the rejection under test',
+    ).not.toBeNull();
+
+    const response = await page.request.post(`${env.baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: data as Record<string, unknown>,
+      failOnStatusCode: false,
+    });
+    const text = await response.text();
+    Logger.step(`POST ${path} returned ${response.status()}`);
+
+    // Field-level problems come back in `ValidationErrors`, each a
+    // { Name, Reason } pair. Flattened to the reasons, which is what a case
+    // asserts on - the Name is the field the SERVER blames, and it does not
+    // always blame the right one.
+    const reasons: string[] = [];
+    try {
+      const body = JSON.parse(text) as { ValidationErrors?: { Reason?: string }[] };
+      for (const entry of body.ValidationErrors ?? []) {
+        if (entry.Reason !== undefined) reasons.push(entry.Reason);
+      }
+    } catch {
+      // A non-JSON error body is still returned as text to assert on.
+    }
+    return { status: response.status(), text, validationErrors: reasons };
   }
 }

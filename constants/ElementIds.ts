@@ -26,6 +26,15 @@ export const SCREEN = {
   payerDetail: 'payer-detail',
   payerForm: 'payer-form-drawer',
   approvalsPayer: 'approvals-payer',
+  /**
+   * The Network tab of the same approvals hub.
+   *
+   * Every tab of the hub is the SAME component under a module-named namespace -
+   * verified: `approvals-network` renders the identical toolbar, search input,
+   * table, columns and row actions as `approvals-payer`. That is what lets one
+   * Page Object serve both, given the namespace as a parameter.
+   */
+  approvalsNetwork: 'approvals-network',
   lookupItems: 'lookup-items',
   lookupItemForm: 'lookup-item-form-drawer',
 } as const;
@@ -607,11 +616,114 @@ export type PayerSelectSurface = keyof typeof PAYER_SELECT;
 export const CONSUMING_SCREEN = {
   planList: 'plan-list',
   networkList: 'network-list',
+  /**
+   * The Policies module. It owns no payer filter of its own, so it is not a
+   * consumer in the cross-module sense - it is listed here because the
+   * cascade story has to read a payer's policies to see whether inactivating
+   * the payer carried them with it.
+   */
+  policyList: 'policy-list',
+} as const;
+
+/**
+ * The Plan list's columns, as its cell ids carry them.
+ *
+ * Read off the live table. Note "plancode" where the network list says "code":
+ * the id conventions are per module, not global, so each list needs its own
+ * map. A key borrowed from a neighbouring module reads every cell as empty,
+ * which does not fail - it quietly answers "no such record".
+ */
+export const PLAN_COLUMN = {
+  name: 'name',
+  code: 'plancode',
+  payer: 'payer',
+  formulary: 'formulary',
+  approvalStatus: 'versionstatus',
+  effectiveDate: 'effectivedate',
+  status: 'status',
+} as const;
+
+/** The Policy list's columns, as its cell ids carry them. */
+export const POLICY_COLUMN = {
+  name: 'name',
+  number: 'number',
+  type: 'type',
+  plan: 'plan',
+  payer: 'payer',
+  holder: 'holder',
+  status: 'status',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  members: 'members',
+  approvalStatus: 'versionstatus',
+} as const;
+
+/**
+ * The Network list's columns, as the model-property keys its cell ids carry.
+ *
+ * Read off the live table, where each cell id is the row id plus "-cell-" plus
+ * the key below. They are SHORTER than the payer list's and shorter than the
+ * payer detail screen's own Linked Networks table, which spells the same
+ * columns out in full (networkname, networkcode) - so the two tables cannot
+ * share one set of keys, and a key guessed from the other table reads every
+ * cell as empty rather than failing. That is exactly how a status sample came
+ * back "no network in the environment displays Inactive" while three did.
+ *
+ * The network-activation story needs the Payer column as well as the Status
+ * one - its whole question is whether the two are independent.
+ */
+export const NETWORK_COLUMN = {
+  networkName: 'name',
+  code: 'code',
+  payer: 'payer',
+  networkType: 'type',
+  status: 'status',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  facilities: 'facilities',
+  linkedPolicies: 'policies',
+  approvalStatus: 'versionstatus',
+} as const;
+
+/**
+ * The payer detail screen's Linked Networks table.
+ *
+ * A different table from the Network list, with its own row prefix, and the
+ * only place the payer-to-network link is visible. It carries the network
+ * status AND the assignment state, which are separate things: a network can be
+ * Active while its assignment is still Pending Addition.
+ */
+export const PAYER_LINKED_NETWORKS = {
+  rowPrefix: 'payer-detail-networks-table-row-',
+  nameCell: 'networkname',
+  codeCell: 'networkcode',
+  statusCell: 'status',
+  assignmentStateCell: 'assignmentstate',
 } as const;
 
 // ---------------------------------------------------------------------------
-// Inactivate Payer dialog
+// Inactivate Payer / Network drawers
 // ---------------------------------------------------------------------------
+
+/**
+ * The Inactivate NETWORK drawer - a different element from the payer one, with
+ * different field ids. Verified live: the reason select is -reason-id-select
+ * (not -reason-select) and the affirmative action is -save-button (not
+ * -confirm-button), so the two drawers cannot share one set of ids.
+ *
+ * Note also that only INACTIVATION uses a drawer. Activating a network raises
+ * the shared #pbm-dialog instead.
+ */
+export const NETWORK_INACTIVATE_DIALOG = {
+  root: 'network-inactivate-dialog',
+  title: 'network-inactivate-dialog-title',
+  close: 'network-inactivate-dialog-close',
+  reasonSelect: 'network-inactivate-dialog-reason-id-select',
+  detailsInput: 'network-inactivate-dialog-details-input',
+  cancel: 'network-inactivate-dialog-cancel-button',
+  save: 'network-inactivate-dialog-save-button',
+} as const;
+
 
 /**
  * Inactivating a payer does NOT use the shared confirmation dialog.
@@ -636,6 +748,8 @@ export const PAYER_INACTIVATE_DIALOG = {
   impact: 'payer-inactivate-dialog-impact',
   impactSummary: 'payer-inactivate-dialog-impact-summary',
   reasonSelect: 'payer-inactivate-dialog-reason-select',
+  /** The required-reason message, which appears only after a blocked confirm. */
+  reasonError: 'payer-inactivate-dialog-reason-error',
   detailsInput: 'payer-inactivate-dialog-details-input',
   cancel: 'payer-inactivate-dialog-cancel-button',
   confirm: 'payer-inactivate-dialog-confirm-button',

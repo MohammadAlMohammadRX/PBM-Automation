@@ -1,12 +1,14 @@
 import { test as base } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
+import { PayerInactivateDialog } from '../pages/payer/PayerInactivateDialog';
 import { buildUniquePayer } from '../data/payers/payer.data';
 import type { PayerData } from '../data/payers/payerTypes';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../utils/Logger';
 import { PAYER_COLUMN } from '../constants/ElementIds';
 import { blockedByPrecondition } from './testStatus.fixture';
+import { LIFECYCLE_STATUS } from '../data/payers/statusTransition.data';
 
 /**
  * Payer-state fixtures.
@@ -23,6 +25,10 @@ export interface PayerStateFixtures {
   draftPayer: PayerData;
   /** A payer taken all the way through approval - live/published at v1. */
   publishedPayer: PayerData;
+  /** A second live/published payer, for the cases that need two. */
+  secondPublishedPayer: PayerData;
+  /** A live payer whose status has been moved to Inactive and approved. */
+  inactivePayer: PayerData;
 }
 
 async function createDraft(page: PayerManagementPage, data: PayerData): Promise<void> {
@@ -109,6 +115,37 @@ async function purgePayer(
   Logger.cleanup(`"${identifier}" still present after 4 passes - record left behind`);
 }
 
+/**
+ * Creates a payer, sends it for approval and approves it - the whole route to
+ * a LIVE payer - and returns its immutable Payer Code.
+ *
+ * Shared by `publishedPayer` and `secondPublishedPayer` so the two cannot
+ * drift apart. The code is captured here rather than by the caller because it
+ * is issued at publish time and the NAME is not stable: several edit cases
+ * rename their payer, which would leave a name-based cleanup unable to find the
+ * record afterwards.
+ */
+async function provisionPublishedPayer(
+  payerPage: PayerManagementPage,
+  approvalPage: ApprovalManagementPage,
+  data: PayerData,
+  testInfo: Parameters<typeof blockedByPrecondition>[0],
+): Promise<string> {
+  try {
+    await createDraft(payerPage, data);
+    await payerPage.sendForApproval(data.nameEn);
+    await approvalPage.open();
+    await approvalPage.approve(data.nameEn);
+    await payerPage.open().catch(() => undefined);
+    return await payerPage.getPayerCode(data.nameEn).catch(() => '');
+  } catch (error) {
+    // Clean up the half-published record before reporting BLOCKED.
+    await purgePayer(payerPage, approvalPage, data.nameEn).catch(() => undefined);
+    blockedByPrecondition(testInfo, `a published payer ("${data.nameEn}")`, error);
+  }
+  return '';
+}
+
 export const test = base.extend<PayerStateFixtures>({
   draftPayer: async ({ page }, use, testInfo) => {
     const payerPage = new PayerManagementPage(page);
@@ -139,6 +176,59 @@ export const test = base.extend<PayerStateFixtures>({
 
     Logger.step(`[fixture] Provisioning published payer "${data.nameEn}"`);
 
+    const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
+
+    await use(data);
+
+    // The record is live at v1, so the maker's delete only stages a Delete
+    // change - purgePayer approves it so the payer really leaves the module.
+    await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+  },
+  /**
+   * A payer that is live and INACTIVE, provisioned rather than sampled.
+   *
+   * The activation cases need an inactive payer they may actually activate, and
+   * the environment's inactive payers cannot be used for that: activating one
+   * takes it out of the pool every other status-dependent case draws from, and
+   * the change is permanent once approved.
+   *
+   * Getting there costs two maker-checker round trips - publish the payer, then
+   * stage and approve its inactivation - because confirming the drawer only
+   * saves a draft. That is the whole reason this is a fixture: the cost is paid
+   * once per test that needs it, in a place where a failure reports BLOCKED
+   * (the precondition could not be built) rather than a spurious FAIL.
+   */
+  /**
+   * A SECOND published payer, for the cases that need two.
+   *
+   * The network-assignment story turns on one network and two payers competing
+   * for it - "assign it here, then approve it there, and watch the first
+   * request fail" - which cannot be expressed with a single fixture instance.
+   *
+   * Provisioned by the same helper as `publishedPayer`, so the two cannot drift
+   * apart, and torn down the same way.
+   */
+  secondPublishedPayer: async ({ page }, use, testInfo) => {
+    const payerPage = new PayerManagementPage(page);
+    const approvalPage = new ApprovalManagementPage(page);
+    const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+
+    Logger.step(`[fixture] Provisioning a second published payer "${data.nameEn}"`);
+    const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
+
+    await use(data);
+
+    await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+  },
+
+  inactivePayer: async ({ page }, use, testInfo) => {
+    const payerPage = new PayerManagementPage(page);
+    const approvalPage = new ApprovalManagementPage(page);
+    const inactivateDialog = new PayerInactivateDialog(page);
+    const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+
+    Logger.step(`[fixture] Provisioning inactive payer "${data.nameEn}"`);
+
     let code = '';
     try {
       await createDraft(payerPage, data);
@@ -146,22 +236,33 @@ export const test = base.extend<PayerStateFixtures>({
       await approvalPage.open();
       await approvalPage.approve(data.nameEn);
 
-      // Capture the Payer Code now: it is issued at publish time and is
-      // immutable, whereas the NAME is not - several edit tests rename the
-      // payer, which would leave a name-based cleanup unable to find the record
-      // afterwards.
-      await payerPage.open().catch(() => undefined);
+      await payerPage.open();
       code = await payerPage.getPayerCode(data.nameEn).catch(() => '');
+
+      // Stage the inactivation, then approve it - the status does not move until
+      // a checker has.
+      await payerPage.findAndInactivateRow(data.nameEn);
+      await inactivateDialog.inactivateWithFirstReason('Inactivated to provision a fixture.');
+      await payerPage.open();
+      await payerPage.sendForApproval(data.nameEn);
+      await approvalPage.open();
+      await approvalPage.expectInQueue(data.nameEn);
+      await approvalPage.approve(data.nameEn);
+
+      // Confirm the precondition actually holds. Without this a fixture that
+      // silently failed to move the status would hand the test an ACTIVE payer,
+      // and the test would report "activation was refused" - true, but for the
+      // wrong reason entirely.
+      await payerPage.open();
+      await payerPage.search(data.nameEn);
+      await payerPage.expectLifecycleStatus(data.nameEn, LIFECYCLE_STATUS.inactive.en);
     } catch (error) {
-      // Clean up the half-published record before reporting BLOCKED.
-      await purgePayer(payerPage, approvalPage, data.nameEn).catch(() => undefined);
-      blockedByPrecondition(testInfo, `a published payer ("${data.nameEn}")`, error);
+      await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn).catch(() => undefined);
+      blockedByPrecondition(testInfo, `a live payer in the Inactive state ("${data.nameEn}")`, error);
     }
 
     await use(data);
 
-    // The record is live at v1, so the maker's delete only stages a Delete
-    // change - purgePayer approves it so the payer really leaves the module.
     await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
   },
 });

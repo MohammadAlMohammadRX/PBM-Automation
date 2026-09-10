@@ -10,7 +10,7 @@ import { AppRoutes } from '../../constants/AppRoutes';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 import type { MandatoryFieldSpec, PayerData } from '../../data/payers/payerTypes';
-import { DELETE_UI, DELETE_MESSAGES } from '../../data/payers/deletePayer.data';
+import { DELETE_UI, DELETE_MESSAGES, DELETE_TOASTS } from '../../data/payers/deletePayer.data';
 import {
   ALL_STATUSES,
   ALL_TYPES,
@@ -20,7 +20,14 @@ import {
 } from '../../data/payers/filterPayer.data';
 import { NO_RESULTS_TEXT, SEARCH_UI } from '../../data/payers/searchPayer.data';
 import type { LicenceRule } from '../../data/payers/licenceNumber.data';
+import {
+  NAME_ACCEPTED_STATUS,
+  NAME_LENGTH_REJECTION,
+} from '../../data/payers/payerNameFields.data';
 import { SortMenu } from './SortMenu';
+import { ApiEndpoints } from '../../constants/ApiEndpoints';
+import { NetworkUtils } from '../../utils/NetworkUtils';
+import { ACCESS_TOKEN_KEY } from '../../data/payers/lifecycleGuardrails.data';
 import {
   GLOBAL,
   PAYER_COLUMN,
@@ -1013,6 +1020,9 @@ export class PayerManagementPage extends ListPageBase {
     await this.editRow(payerName);
     const form = this.form();
     await form.waitForOpen();
+    // An EDIT form is not ready when its title appears - it is ready when the
+    // record has been loaded into it. See PayerFormDialog.waitForPopulated.
+    await form.waitForPopulated();
     return form;
   }
 
@@ -1098,6 +1108,34 @@ export class PayerManagementPage extends ListPageBase {
     // approval queue", which points at the wrong screen entirely and cost two
     // rounds of investigation. Asserting the transition means a failed submit is
     // reported where it happens, naming this step.
+    await this.expectApprovalStatusContains(payerName, 'Pending Approval');
+  }
+
+  /**
+   * Sends a staged change for approval, confirming the modal only if one is
+   * raised.
+   *
+   * `sendForApproval` above always expects the confirmation dialog, which is
+   * right for a draft payer - that flow raises one every time. A staged NETWORK
+   * REMOVAL does not always: the row action submitted the change directly and
+   * no dialog appeared, so the unconditional wait timed out on a dialog that
+   * was never coming and the fixture reported "a network could not be freed"
+   * for a removal that had in fact gone through.
+   *
+   * The postcondition is the same either way, and it is what makes this safe to
+   * be lenient about: the payer must end up Pending Approval.
+   */
+  async submitStagedChange(payerName: string): Promise<void> {
+    Logger.step(`Submitting the staged change on "${payerName}"`);
+    await this.search(payerName);
+    await this.waitForRowVisible(payerName);
+    await this.sendRowForApproval(payerName);
+
+    const dialog = this.confirmDialog();
+    if (await dialog.isVisible()) {
+      await dialog.confirm('Send for Approval');
+    }
+    await this.waitForPageReady();
     await this.expectApprovalStatusContains(payerName, 'Pending Approval');
   }
 
@@ -1585,7 +1623,12 @@ export class PayerManagementPage extends ListPageBase {
     // Confirm the app actually persisted the edit before moving on; without this
     // a silently-rejected save would surface later as a confusing status
     // mismatch instead of a clear "the edit did not save" failure.
-    await this.expectToastContains(DELETE_MESSAGES.stagedAsDraft);
+    // Matched in EITHER language: this helper is used by the bilingual
+    // stories too, and the Arabic toast ("تم الحفظ كمسودة") is correct -
+    // asserting the English string there failed a save that had worked.
+    await this.expectLocalizedToast(
+      new RegExp(`${DELETE_TOASTS.en.stagedAsDraft}|${DELETE_TOASTS.ar.stagedAsDraft}`),
+    );
     await form.waitForClosed();
     // The list is not re-fetched when the drawer closes, so reload it to make
     // the saved draft visible to any assertion that follows.
@@ -1714,6 +1757,93 @@ export class PayerManagementPage extends ListPageBase {
     await this.search(payerName);
   }
 
+  /**
+   * Completes a creation whose name field holds `value` and asserts whether a
+   * record results.
+   *
+   * Branch kept out of the spec. The character-set cases split both ways - an
+   * opposite-script value is refused, a '#' or an emoji is not - and this
+   * asserts the sheet's own criterion ("the form is not saved") rather than a
+   * wizard-step position, which is a mechanism that was never verified.
+   *
+   * The refused path deliberately does NOT try to save. A value the field has
+   * already flagged cannot reach the server, so driving the wizard to its last
+   * step would only exercise the wizard's own guard; abandoning the form and
+   * proving no record appeared is the honest check, and it leaves nothing
+   * half-created on a shared environment.
+   */
+  async expectCharacterSetSaveOutcome(
+    payer: PayerData,
+    label: string,
+    value: string,
+    expectRejected: boolean,
+    serverRejects: boolean,
+  ): Promise<void> {
+    const form = this.form();
+
+    if (expectRejected) {
+      await form.closeAndDiscard();
+      await this.open();
+      await this.search(payer.nameEn);
+      await this.expectEmptyState();
+      return;
+    }
+
+    // Accepted: carry the value through to a saved record and read it back.
+    await form.goToStepContaining(label);
+    await form.expectFieldValue(label, value);
+    // Payer Type is the one step-1 field the caller has not filled - it holds
+    // only the two name fields plus this. Without it the wizard refuses to
+    // advance, which reads as "the accepted value could not be saved" when the
+    // real cause is an unrelated empty field.
+    await form.selectDropdownOption('Payer Type', payer.type);
+
+    // The record is found by the name the FORM is holding, not by the name the
+    // caller generated. An English-field case has just overwritten `nameEn`
+    // with its own value, so searching the generated name looks for a record
+    // that was never created - which reports "the accepted value was not saved"
+    // about a save that worked perfectly.
+    const savedName = await form.getFieldValue('Payer Name');
+
+    await form.clickNext();
+    await form.fillContactInformation(payer);
+    await form.clickNext();
+    await form.fillEffectivePeriod(payer);
+
+    // The CREATE RESPONSE is the evidence, not the drawer closing. The drawer
+    // shuts a few seconds after a successful save and occasionally lingers past
+    // the wait, which failed two cases on saves the server had accepted with
+    // 200. Asserting the response says the same thing deterministically - and
+    // says more, because a 422 is caught here rather than surfacing later as a
+    // mysteriously missing row.
+    const outcome = await form.saveNewAndCaptureOutcome();
+    expect(outcome, `the create for "${savedName}" should have reached the server`).not.toBeNull();
+
+    // THE SERVER GETS THE LAST WORD, and it does not always agree with the
+    // form. `صندوق #1` passes the Arabic field's own validation and is then
+    // refused with 422, while `Health Fund #1` passes both and saves. So this
+    // branch is not redundant with the inline check above - it is the only
+    // place the disagreement is visible, and the interface never shows it.
+    if (serverRejects) {
+      expect(outcome!.status).toBe(NAME_LENGTH_REJECTION.status);
+      // The drawer is still open and still DIRTY after a 422 - the application
+      // shows nothing, so nothing has cleared the form. Navigating away then
+      // trips the unsaved-changes guard and the goto aborts with
+      // `net::ERR_ABORTED`, which reads like the server dropped the connection.
+      // Discarding first is what a user would have to do too.
+      await form.closeAndDiscard();
+      await this.open();
+      await this.search(savedName);
+      await this.expectEmptyState();
+      return;
+    }
+
+    expect(outcome!.status).toBe(NAME_ACCEPTED_STATUS);
+    await this.open();
+    await this.search(savedName);
+    await this.waitForRowVisible(savedName);
+  }
+
   async expectLicenceRuleOutcome(rule: LicenceRule, payer: PayerData): Promise<void> {
     await this.open();
     const form = await this.openCreateForm();
@@ -1751,4 +1881,90 @@ export class PayerManagementPage extends ListPageBase {
     await this.search(payer.nameEn);
     await this.waitForRowVisible(payer.nameEn);
   }
+  // ---- Lifecycle guardrails -------------------------------------------------
+
+  /**
+   * Opens the activation confirmation prompt for a payer and returns it.
+   *
+   * Returns the dialog rather than confirming, because the activation story
+   * asks what the prompt SAYS - it is the sentence "Do you want to reactivate
+   * this payer?" that shows Activate and Reactivate are one control - and
+   * because the expired-payer cases must read the prompt and then walk away
+   * without staging anything.
+   */
+  async openActivationPrompt(payerName: string): Promise<ConfirmDialog> {
+    await this.findAndActivateRow(payerName);
+    const dialog = this.confirmDialog();
+    await dialog.waitForVisible();
+    return dialog;
+  }
+
+  /** The shared confirmation dialog, for the flows that need to read it. */
+  dialog(): ConfirmDialog {
+    return this.confirmDialog();
+  }
+
+  /**
+   * Sends an inactivation request DIRECTLY, bypassing the drawer.
+   *
+   * The reason field is a dropdown, so an unmanaged reason cannot be typed into
+   * the UI at all - and the sheet says as much, allowing "an API call or
+   * manipulated request" for that case. This is that call, and it is the only
+   * place in the suite that talks to the API instead of the interface.
+   *
+   * Authentication is NetworkUtils.postAsSession's business - see the note
+   * there on why the call has to carry the UI session's own token.
+   */
+  async submitInactivationRequest(
+    payerId: string,
+    reasonId: string,
+    details: string,
+  ): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    return NetworkUtils.postAsSession(this.page, ApiEndpoints.payerInactivate, {
+      id: payerId,
+      inactivationReasonId: reasonId,
+      inactivationDetails: details,
+    });
+  }
+
+  /**
+   * The payer id of a row, taken from the row's own element id.
+   *
+   * `getPayerIdFromDetailUrl` answers the same question by NAVIGATING to the
+   * detail screen, which is wasteful when the list is already open and
+   * impossible to use mid-flow without losing the list state. Row ids carry the
+   * id already - `payer-list-table-row-<guid>` - so this reads it in place.
+   */
+  async getPayerId(payerName: string): Promise<string> {
+    const rowId = await this.rowId(payerName);
+    const id = rowId.replace(`${SCREEN.payerList}-table-row-`, '');
+    expect(id, `could not read a payer id out of the row id "${rowId}"`).not.toBe(rowId);
+    return id;
+  }
+  // ---- Network assignment ---------------------------------------------------
+
+  /**
+   * The first network the Assign drawer offers, or null when the pool is empty.
+   *
+   * Looked at THROUGH a named payer, deliberately. Eligibility is a property
+   * of the network - it belongs to nobody - so any payer's drawer lists the
+   * same pool; but "any payer" is not the same as "the first row in the list",
+   * which is what an earlier version used. That row can be a draft, or a
+   * record whose name matches several rows, and opening it fails for reasons
+   * that have nothing to do with the pool. Callers already hold a payer of
+   * their own, so they pass it.
+   *
+   * Opens and cancels, so nothing is staged.
+   */
+  async peekAssignableNetwork(payerName: string): Promise<string | null> {
+    await this.open();
+    const detail = await this.openDetails(payerName);
+    const drawer = await detail.openAssignNetwork();
+    const available = await drawer.listAvailableNetworks();
+    await drawer.cancel();
+    return available[0] ?? null;
+  }
+
+
+
 }

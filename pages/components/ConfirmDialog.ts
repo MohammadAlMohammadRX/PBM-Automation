@@ -41,6 +41,26 @@ export class ConfirmDialog {
     return this.page.locator(`#${DIALOG.root}`);
   }
 
+  /**
+   * Whether the dialog is on screen right now, without waiting for one.
+   *
+   * Used where the ABSENCE is the assertion - a cancelled confirmation, a
+   * dialog that closed after confirming. `waitForHidden` throws on failure,
+   * which is right for a precondition but wrong for a case that wants to
+   * report what it found.
+   */
+  async isVisible(): Promise<boolean> {
+    // WAITS, rather than reading the state at this instant. Playwright ignores
+    // the timeout passed to `locator.isVisible()`, so the earlier form answered
+    // before the dialog could animate in - and a caller that only confirms
+    // "if a dialog appeared" therefore skipped the confirmation and left the
+    // change unsubmitted. That cost a fixture two runs to find.
+    return this.root()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
   async waitForVisible(): Promise<void> {
     await expect(this.root()).toBeVisible({ timeout: Timeouts.default });
   }
@@ -73,7 +93,17 @@ export class ConfirmDialog {
    * enabled and stable" the whole time.
    */
   async waitForHidden(): Promise<void> {
-    await expect(this.root()).toBeHidden({ timeout: Timeouts.default });
+    // The message matters as much as the wait. A dialog that stays open after
+    // its affirmative action has been clicked is the shape several refusals
+    // take in this module - the action is declined server-side and nothing is
+    // said, so the user is left looking at the prompt they just answered. Named
+    // here, that reads as the finding it is instead of a bare locator timeout
+    // in whichever step happened to call confirm().
+    await expect(
+      this.root(),
+      'the dialog should close once its action is confirmed; it is still open, which is how '
+        + 'this application shows an action that was declined without explanation',
+    ).toBeHidden({ timeout: Timeouts.default });
     await expect(this.visibleMasks()).toHaveCount(0, { timeout: Timeouts.default });
   }
 
@@ -188,6 +218,116 @@ export class ConfirmDialog {
     await this.acknowledgeIfPresent();
     await (await this.affirmativeAction()).click();
     await this.waitForHidden();
+  }
+
+  /**
+   * Clicks the affirmative action several times as fast as the browser will
+   * dispatch them.
+   *
+   * The duplicate-submission case for every dialog-driven action. The clicks
+   * are fired WITHOUT awaiting the dialog's reaction, because awaiting between
+   * them is exactly the pause that lets the application disable the button and
+   * makes the test pass without ever exercising the race.
+   */
+  async confirmRepeatedly(times: number): Promise<void> {
+    Logger.step(`Clicking the affirmative action ${times} times in rapid succession`);
+    await this.waitForVisible();
+    await this.acknowledgeIfPresent();
+    const button = await this.affirmativeAction();
+    await button.scrollIntoViewIfNeeded();
+    await Promise.all(
+      Array.from({ length: times }, () => button.click({ force: true, noWaitAfter: true })),
+    );
+    await this.waitForHidden();
+  }
+
+  /**
+   * Whether the affirmative action can be used right now.
+   *
+   * The reject and approve dialogs GATE it: the reason dropdown and the
+   * acknowledgement have to be answered first. A story about "the rejection
+   * is blocked until a reason is given" needs to read that gate rather than
+   * click into a timeout.
+   */
+  async isAffirmativeEnabled(): Promise<boolean> {
+    const button = await this.affirmativeAction();
+    return button.isEnabled().catch(() => false);
+  }
+
+  /**
+   * Asserts the affirmative action becomes usable, waiting for it.
+   *
+   * `isAffirmativeEnabled()` is a ONE-SHOT read - `Locator.isEnabled()` takes
+   * no timeout and does not retry - so reading it straight after choosing a
+   * rejection reason answered before the dialog had re-evaluated its form and
+   * reported the button as gated. Three rejection cases failed that way against
+   * a dialog that does release the button: `reject()` clicks the very same
+   * control successfully, and a click auto-waits for it to be enabled.
+   *
+   * Use this wherever the expected result is "the control is now available";
+   * keep the boolean read for reporting what state something is in.
+   */
+  async expectAffirmativeEnabled(message: string): Promise<void> {
+    await expect(await this.affirmativeAction(), message).toBeEnabled({
+      timeout: Timeouts.default,
+    });
+  }
+
+  /**
+   * Asserts the affirmative action is refused, and stays refused.
+   *
+   * The counterpart above waits for the button to open; this one must not, or
+   * it would report a gate that opened a moment later as a gate that held. The
+   * assertion is web-first in the opposite direction - it fails as soon as the
+   * button becomes enabled within the window.
+   */
+  async expectAffirmativeDisabled(message: string): Promise<void> {
+    await expect(await this.affirmativeAction(), message).toBeDisabled({
+      timeout: Timeouts.default,
+    });
+  }
+
+  /**
+   * Every option the dialog's reason dropdown offers, in the order shown.
+   *
+   * Returned rather than asserted because two stories ask different things of
+   * the same list: one needs a named reason to exist, the other needs to know
+   * that the list is ALL there is - see `hasFreeTextInput`.
+   */
+  async getReasonOptions(): Promise<string[]> {
+    const select = this.page.locator(`#${DIALOG.select}`);
+    if ((await select.count()) === 0) return [];
+    await select.click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const labels = (await options.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim());
+    // Closed by TOGGLING the combobox, not with Escape. Escape inside a PrimeNG
+    // dialog is handled by the dialog as well as the overlay, so it dismissed
+    // the whole Reject dialog - and the next step's click then timed out
+    // against a control that was no longer on screen. Reading the options must
+    // leave the dialog exactly as it found it.
+    await select.click();
+    await expect(options.first()).toBeHidden({ timeout: Timeouts.default });
+    // PrimeNG renders a filter row inside the overlay, which comes back as a
+    // stray entry; only the labels that match a real option are returned.
+    return labels.filter((label) => label.length > 1);
+  }
+
+  /**
+   * Whether the dialog offers anywhere to TYPE a reason.
+   *
+   * The rejection story is largely about free text - minimum length, maximum
+   * length, whitespace-only, a script tag - and none of it applies if the
+   * reason can only be chosen from a managed list. So the absence of a text
+   * input is itself the finding, and it has to be read rather than assumed.
+   */
+  async hasFreeTextInput(): Promise<boolean> {
+    // locator-exception: the question is whether ANY typable control exists
+    // inside the dialog, so it cannot be asked by id - an id-based check
+    // could only confirm the absence of one control this suite happened to
+    // name. Scoped to the dialog root, which is an id.
+    const typable = this.root().locator('textarea, input[type="text"]:not([role="combobox"])');
+    return (await typable.count()) > 0;
   }
 
   /**

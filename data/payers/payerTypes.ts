@@ -32,9 +32,60 @@ export type City = (typeof CITIES)[number];
 export const LANGUAGES = ['English', 'Arabic'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
+/**
+ * Every wizard dropdown OPTION as the Arabic interface renders it.
+ *
+ * WHY THIS IS NEEDED AT ALL. The field ids are identical in both languages -
+ * that is what makes almost every locator in this framework language-neutral -
+ * but the option TEXT inside a dropdown is translated. So asking for "Riyadh"
+ * or "Email" in the Arabic form waits out a full action timeout on an option
+ * that does not exist there, and the failure looks like a broken form rather
+ * than a wrong label. Every value below was read off the live Arabic wizard.
+ *
+ * `الرياضض` is not a typo on this side: the environment's city catalogue really
+ * does contain both "Riyadh" and "Riyadhh". It is deliberately left out of
+ * CITIES - no test should depend on a duplicate that may be cleaned up - but it
+ * is why a city lookup has to match exactly rather than by prefix.
+ */
+export const COUNTRY_AR: Record<string, string> = {
+  Jordan: 'الأردن',
+  'Saudi Arabia': 'المملكة العربية السعودية',
+  'United Arab Emirates': 'الإمارات العربية المتحدة',
+};
+
+/**
+ * The countries the environment offers, in the order the dropdown lists them.
+ *
+ * Only three exist, and `Saudi Arabia` is PRE-SELECTED when the contact step
+ * opens - which contradicts the creation-validation story's expectation that
+ * Country carries no default. Recorded here because a test asserting "no
+ * default" needs to know what the application actually does.
+ */
+export const COUNTRIES = ['Jordan', 'Saudi Arabia', 'United Arab Emirates'] as const;
+export type Country = (typeof COUNTRIES)[number];
+export const DEFAULT_COUNTRY: Country = 'Saudi Arabia';
+
 /** Preferred Contact Method options (Step 2). */
 export const CONTACT_METHODS = ['Email', 'SMS', 'Both'] as const;
 export type ContactMethod = (typeof CONTACT_METHODS)[number];
+
+/** The remaining Arabic option maps - see COUNTRY_AR above for why. */
+export const CITY_AR: Record<City, string> = {
+  Riyadh: 'الرياض',
+  Jeddah: 'جدة',
+  Dammam: 'الدمام',
+};
+
+export const LANGUAGE_AR: Record<Language, string> = {
+  English: 'الإنجليزية',
+  Arabic: 'العربية',
+};
+
+export const CONTACT_METHOD_AR: Record<ContactMethod, string> = {
+  Email: 'البريد الإلكتروني',
+  SMS: 'رسالة نصية',
+  Both: 'كلاهما',
+};
 
 /** Rejection reasons offered by the reviewer's "Reject this request" dialog. */
 export const REJECTION_REASONS = [

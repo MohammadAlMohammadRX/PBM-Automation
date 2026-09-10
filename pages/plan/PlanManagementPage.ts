@@ -4,7 +4,7 @@ import { ListPageBase } from '../components/ListPageBase';
 import { PayerSelectionDropdown } from '../components/PayerSelectionDropdown';
 import { AppRoutes } from '../../constants/AppRoutes';
 import { Timeouts } from '../../constants/Timeouts';
-import { CONSUMING_SCREEN } from '../../constants/ElementIds';
+import { CONSUMING_SCREEN, PLAN_COLUMN } from '../../constants/ElementIds';
 
 /**
  * The Plans module (`/plans-management`) - a CONSUMER of the shared payer
@@ -54,5 +54,36 @@ export class PlanManagementPage extends ListPageBase {
     const field = this.payerField();
     await field.expectPresent();
     return field;
+  }
+  /**
+   * Every rendered plan as (name, payer, status), read in ONE pass.
+   *
+   * One pass for the reason ListPageBase.getRowPairs gives: the list re-queries
+   * asynchronously, so reading the columns separately can pair a plan's name
+   * with another row's payer - and the cascade story turns entirely on which
+   * payer a record belongs to.
+   */
+  async getPlanRows(): Promise<{ name: string; payer: string; status: string }[]> {
+    await this.expectRowsRendered();
+    return this.rows().evaluateAll(
+      (rows, keys) =>
+        rows.map((row) => {
+          const read = (key: string): string => {
+            const cell = row.querySelector(`[id$="-cell-${key}"]`);
+            return cell ? (cell as HTMLElement).innerText.trim() : '';
+          };
+          return { name: read(keys.name), payer: read(keys.payer), status: read(keys.status) };
+        }),
+      { name: PLAN_COLUMN.name, payer: PLAN_COLUMN.payer, status: PLAN_COLUMN.status },
+    );
+  }
+
+  /** The plans belonging to one payer, with the status each displays. */
+  async getPlansOfPayer(payerName: string): Promise<{ name: string; status: string }[]> {
+    await this.openList();
+    const rows = await this.getPlanRows();
+    return rows
+      .filter((row) => row.payer === payerName)
+      .map((row) => ({ name: row.name, status: row.status }));
   }
 }

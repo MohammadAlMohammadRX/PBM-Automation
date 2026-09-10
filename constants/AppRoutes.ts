@@ -26,6 +26,12 @@ export const AppRoutes = {
    */
   planManagement: '/plans-management',
   networkManagement: '/network-management',
+
+  /**
+   * The Policies module. Reached by the cascade story, which has to see whether
+   * a payer's inactivation carried its policies with it.
+   */
+  policyManagement: '/policy-management',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

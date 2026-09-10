@@ -31,6 +31,23 @@ export abstract class BasePage {
    */
   private attachUnexpectedDialogHandler(): void {
     this.page.on('dialog', async (dialog: Dialog) => {
+      // A beforeunload prompt is ACCEPTED; everything else is dismissed.
+      //
+      // Dismissing beforeunload means "stay on this page", which CANCELS the
+      // navigation that triggered it - and Playwright then rejects that
+      // navigation with `net::ERR_ABORTED`. That is how a case ended up failing
+      // on a page.goto after the drawer it had been working in was left dirty
+      // by a refused save: the test asked to leave, the handler said stay, and
+      // the error named the navigation rather than the drawer behind it.
+      //
+      // A test that navigates has decided to leave, so accepting is what it
+      // meant. Dismissal stays the default for every other dialog type, where
+      // the safe answer is "no".
+      if (dialog.type() === 'beforeunload') {
+        Logger.warn('Leaving a page with unsaved changes - accepting the browser prompt');
+        await dialog.accept().catch(() => undefined);
+        return;
+      }
       Logger.warn(`Unexpected native dialog appeared: [${dialog.type()}] ${dialog.message()}`);
       await dialog.dismiss().catch(() => undefined);
     });
@@ -129,6 +146,30 @@ export abstract class BasePage {
   /** Reloads the current page and waits for it to settle. */
   async reload(): Promise<void> {
     await this.page.reload({ timeout: Timeouts.navigation, waitUntil: 'domcontentloaded' });
+    await this.waitForPageReady();
+  }
+
+  /**
+   * Browser Back, then a wait for the destination to settle.
+   *
+   * Exists for the robustness cases, which ask what the application does when
+   * the user leaves a screen by the browser's own controls rather than by its
+   * navigation - a route this suite otherwise never takes. Resolves even when
+   * there is nowhere to go back to, so a case can say what it found instead of
+   * failing on the navigation itself.
+   */
+  async goBack(): Promise<void> {
+    await this.page
+      .goBack({ timeout: Timeouts.navigation, waitUntil: 'domcontentloaded' })
+      .catch(() => null);
+    await this.waitForPageReady();
+  }
+
+  /** Browser Forward, the counterpart of `goBack`. */
+  async goForward(): Promise<void> {
+    await this.page
+      .goForward({ timeout: Timeouts.navigation, waitUntil: 'domcontentloaded' })
+      .catch(() => null);
     await this.waitForPageReady();
   }
 
@@ -292,9 +333,31 @@ export abstract class BasePage {
     return (await toast.innerText()).trim();
   }
 
+  /**
+   * Whether a toast is on screen, WAITING up to `timeout` for one to appear.
+   *
+   * `Locator.isVisible()` accepts a timeout option and ignores it - it is a
+   * single instantaneous read - so this asked "is a toast up right now?" while
+   * pretending to ask "does one appear?". Called straight after an action, that
+   * answers before the toast has animated in, and a caller reporting "no
+   * feedback was shown" would have been reporting its own impatience.
+   */
   async isToastVisible(timeout: number = Timeouts.short): Promise<boolean> {
     return this.toastLocator()
-      .isVisible({ timeout })
+      .waitFor({ state: 'visible', timeout })
+      .then(() => true)
       .catch(() => false);
+  }
+
+  /**
+   * Gives the application a fair chance to say something - see
+   * WaitUtils.settleMessages, which owns the reasoning and is shared with the
+   * form drawer, which is not a BasePage.
+   */
+  protected async settleMessages(
+    snapshot: () => Promise<string[]>,
+    timeout: number = Timeouts.short,
+  ): Promise<string[]> {
+    return WaitUtils.settleMessages(snapshot, timeout);
   }
 }

@@ -7,7 +7,14 @@ import { PAYER_FORM_FIELD, PAYER_FORM_STEPS, SCREEN } from '../../constants/Elem
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import { Logger } from '../../utils/Logger';
 import { NetworkUtils } from '../../utils/NetworkUtils';
-import { PAYER_TYPE_AR, type PayerData } from '../../data/payers/payerTypes';
+import { WaitUtils } from '../../utils/WaitUtils';
+import {
+  CITY_AR,
+  CONTACT_METHOD_AR,
+  LANGUAGE_AR,
+  PAYER_TYPE_AR,
+  type PayerData,
+} from '../../data/payers/payerTypes';
 import { PAYER_NAME_AR_LABEL } from '../../data/payers/payer.data';
 
 /** A named field-filling action, so steps can be filled with one field omitted. */
@@ -42,8 +49,56 @@ export class PayerFormDialog extends EntityWizardDialog {
     await expect(this.title()).toBeVisible({ timeout: Timeouts.default });
   }
 
+  /**
+   * Waits until an EDIT drawer has actually been filled with the record.
+   *
+   * The drawer mounts with empty inputs and is patched when the payer's data
+   * arrives, so `waitForOpen()` - which waits for the title - returns while
+   * every field is still blank. A case that then read a field got '' and
+   * reported the form as not pre-populated, failing in 0.2 seconds against a
+   * form that populated correctly a moment later.
+   *
+   * Payer Name is the signal because every payer has one; it is also the first
+   * step's first field, so it is present whichever step the drawer opens on.
+   */
+  async waitForPopulated(): Promise<void> {
+    await expect(
+      this.field('Payer Name'),
+      'the edit drawer should be populated with the record it opened',
+    ).not.toHaveValue('', { timeout: Timeouts.default });
+  }
+
   async waitForClosed(): Promise<void> {
     await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Reads a field's value, reporting whether it could be read at all.
+   *
+   * For the question "did the refused save keep the user's typing?", which has
+   * three answers and not two: the value is there, the value is gone, or the
+   * field cannot be reached. VERIFIED that the third is what actually happens
+   * after a 409 - the drawer stays open, but the wizard's steps stop responding
+   * and the edited field never becomes readable, so a plain read spends its
+   * full 15-second budget and fails the step with "locator.inputValue: Timeout"
+   * instead of reporting what the user is left looking at.
+   *
+   * A case calling this can therefore state the finding: the edit is neither
+   * kept nor discarded - it is stranded in a drawer that no longer works.
+   */
+  async readFieldIfReachable(
+    label: string,
+  ): Promise<{ reachable: boolean; value: string; reason: string }> {
+    try {
+      const value = await this.getFieldValue(label);
+      return { reachable: true, value, reason: '' };
+    } catch (error) {
+      return {
+        reachable: false,
+        value: '',
+        reason: (error instanceof Error ? error.message : String(error)).split('\n')[0],
+      };
+    }
   }
 
   // ---- Per-step field fillers (single source of truth, keyed by label) ------
@@ -106,6 +161,40 @@ export class PayerFormDialog extends EntityWizardDialog {
     await this.fillTextField('Payer Name', data.nameEn);
     await this.fillTextField(PAYER_NAME_AR_LABEL, data.nameAr);
     await this.selectDropdownOption('Payer Type', PAYER_TYPE_AR[data.type]);
+  }
+
+  /**
+   * Fills step 2 using the option text the ARABIC interface renders.
+   *
+   * The counterpart to `fillBasicInformationInArabic`, and needed for the same
+   * reason: City, Preferred Language and Preferred Contact Method all translate
+   * their options, so the English values would each wait out an action timeout.
+   * Country is left at its default - the application pre-selects Saudi Arabia,
+   * and changing it re-scopes the City list, which would invalidate the city
+   * chosen here.
+   */
+  async fillContactInformationInArabic(data: PayerData): Promise<void> {
+    Logger.step('Filling Contact Information (Arabic interface)');
+    await this.fillTextField('Email Address', data.email);
+    await this.fillTextField('Phone Number', data.phone);
+    await this.fillTextField('License Number', data.licenseNumber);
+    await this.selectDropdownOption('City', CITY_AR[data.city]);
+    await this.selectDropdownOption('Preferred Language', LANGUAGE_AR[data.language]);
+    await this.selectDropdownOption(
+      'Preferred Contact Method',
+      CONTACT_METHOD_AR[data.contactMethod],
+    );
+  }
+
+  /** Creates a payer end to end through the ARABIC interface. */
+  async createPayerInArabic(data: PayerData): Promise<void> {
+    await this.waitForOpen();
+    await this.fillBasicInformationInArabic(data);
+    await this.clickNext();
+    await this.fillContactInformationInArabic(data);
+    await this.clickNext();
+    await this.fillEffectivePeriod(data);
+    await this.save();
   }
 
   async fillContactInformation(data: PayerData, exceptLabel?: string): Promise<void> {
@@ -182,6 +271,24 @@ export class PayerFormDialog extends EntityWizardDialog {
    * with a `discard` action key - not a separate unsaved-changes dialog.
    */
   async closeAndDiscard(): Promise<void> {
+    // WAITS FOR THE DRAWER TO SETTLE FIRST, and the direction of that wait is
+    // the whole point. Several cases attempt a save whose outcome is the thing
+    // under test: it may go through and close the drawer, or be withheld and
+    // leave it open. Tidying up afterwards then raced the closing animation -
+    // "is it open?" answered yes while the panel was still sliding away, the
+    // click found the button mid-flight and then gone, and the step failed on a
+    // click timeout in place of the result the case had already established.
+    //
+    // Waiting for HIDDEN settles that race in the only order that is safe: a
+    // drawer on its way out resolves within the window and there is nothing to
+    // do, while one that is genuinely staying open never resolves and is closed
+    // properly below.
+    const closedItself = await this.title()
+      .waitFor({ state: 'hidden', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (closedItself) return;
+    if ((await this.closeButton().count()) === 0) return;
     await this.clickClose();
     const guard = new ConfirmDialog(this.page);
     if (await guard.isDiscardPromptVisible()) {
@@ -216,6 +323,36 @@ export class PayerFormDialog extends EntityWizardDialog {
   async expectNoFieldError(label: string): Promise<void> {
     await this.goToStepContaining(label);
     await expect(this.fieldError(label)).toHaveCount(0, { timeout: Timeouts.short });
+  }
+
+  /**
+   * Types a value into a field and asserts whether the field REFUSES it.
+   *
+   * Branch kept out of the spec, as the framework does elsewhere. The
+   * character-set story has cases going both ways - Arabic letters in the
+   * English field are refused, a '#' or an emoji is not - and a conditional in
+   * the test body is how one of those ends up asserting nothing at all.
+   *
+   * On the accepting path the VALUE is asserted too, not just the absence of an
+   * error: a field that silently stripped characters would satisfy "no error"
+   * while having quietly changed what the user typed.
+   */
+  async expectCharacterSetOutcome(
+    label: string,
+    value: string,
+    expectRejected: boolean,
+    message: string,
+  ): Promise<void> {
+    await this.goToStepContaining(label);
+    await this.fillTextField(label, value);
+    await this.field(label).blur();
+
+    if (expectRejected) {
+      await expect(this.fieldError(label)).toHaveText(message, { timeout: Timeouts.default });
+      return;
+    }
+    await expect(this.fieldError(label)).toHaveCount(0, { timeout: Timeouts.short });
+    await expect(this.field(label)).toHaveValue(value, { timeout: Timeouts.default });
   }
 
   /**
@@ -281,6 +418,45 @@ export class PayerFormDialog extends EntityWizardDialog {
   /** Current selection shown by a dropdown field. */
   async getDropdownValue(label: string): Promise<string> {
     return (await this.field(label).innerText()).trim();
+  }
+
+  /**
+   * The options a dropdown currently OFFERS, without selecting any.
+   *
+   * Needed by the country/city cascade cases, and it is the only way to state
+   * their real guarantee. The sheet asks to "force a city belonging to another
+   * country onto the form"; there is no such path - City is a closed dropdown
+   * whose options are re-fetched per country, so a mismatched value is
+   * unselectable rather than rejected. Proving the list EXCLUDES it is the same
+   * assurance, reachable through the interface that exists.
+   *
+   * The panel is closed again afterwards, so a caller can chain further reads
+   * without an open overlay swallowing the next click.
+   */
+  async getDropdownOptions(label: string): Promise<string[]> {
+    await this.goToStepContaining(label);
+    await this.field(label).click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const values = await options.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLElement).innerText.trim()).filter((text) => text !== ''),
+    );
+    await this.page.keyboard.press('Escape');
+    return [...new Set(values)];
+  }
+
+  /**
+   * The dial code shown beside the subscriber number.
+   *
+   * Its own control rather than part of the Phone Number field, which is why it
+   * is read separately - and why the creation-validation story can find it
+   * pre-selected as `+966` while the sheet expects it blank.
+   */
+  async getDialCode(): Promise<string> {
+    await this.goToStepContaining('Phone Number');
+    const dialCode = this.page.locator(`#${SCREEN.payerForm}-dial-code-select`);
+    await expect(dialCode).toBeVisible({ timeout: Timeouts.default });
+    return (await dialCode.innerText()).trim();
   }
 
   /**
@@ -367,7 +543,12 @@ export class PayerFormDialog extends EntityWizardDialog {
    */
   async goToStep(stepTitle: WizardStep): Promise<void> {
     Logger.step(`Jumping to wizard step "${stepTitle}"`);
-    await this.stepBullet(this.stepNumber(stepTitle)).click();
+    // Through the animation: the stepper rides the drawer panel, so a bullet is
+    // unclickable while the panel is moving. See clickThroughAnimation.
+    await this.clickThroughAnimation(
+      this.stepBullet(this.stepNumber(stepTitle)),
+      `the stepper bullet for "${stepTitle}"`,
+    );
     await this.waitForStepReady();
   }
 
@@ -417,6 +598,92 @@ export class PayerFormDialog extends EntityWizardDialog {
    * Saves the wizard from wherever it currently is. "Save" only exists on the
    * final step, so the stepper is used to jump there directly.
    */
+  /**
+   * Attempts the save and reports whether the application sent anything.
+   *
+   * This replaced a getSaveAvailability() that read the Save button's
+   * presence on the final step. That answer could not be trusted: jumping to
+   * the last step from a read-only probe does not reliably move this wizard,
+   * so an untouched form and a dirty one both came back "absent" - which
+   * would have reported a working save as broken.
+   *
+   * What the callers actually want to know is whether a save HAPPENS, so that
+   * is what this returns: null when no update request left the browser, and
+   * the response when one did. A wizard that offers no Save, one whose Save is
+   * disabled, and one that swallows the click are the same answer to "was
+   * anything submitted" - which is the question the no-change stories ask.
+   */
+  async attemptSave(): Promise<{ status: number; body: unknown; text: string } | null> {
+    return NetworkUtils.captureResponse(
+      this.page,
+      ApiEndpoints.payerUpdate,
+      async () => {
+        await this.saveFromAnyStep().catch(() => undefined);
+      },
+      Timeouts.short,
+    );
+  }
+
+  /**
+   * Clicks Save several times as fast as the browser will dispatch them.
+   *
+   * The duplicate-save case. The clicks are fired WITHOUT awaiting the
+   * form's reaction, because awaiting between them is the pause that lets the
+   * application disable the button - and a test that paused would pass without
+   * ever exercising the race.
+   */
+  async saveRepeatedly(times: number): Promise<void> {
+    if ((await this.saveButton().count()) === 0) {
+      await this.goToStep('Effective Period');
+    }
+    await expect(this.saveButton()).toBeVisible({ timeout: Timeouts.default });
+    Logger.step(`Clicking Save ${times} times in rapid succession`);
+    await Promise.all(
+      Array.from({ length: times }, () =>
+        this.saveButton().click({ force: true, noWaitAfter: true }),
+      ),
+    );
+  }
+
+  /**
+   * Confirms the withdrawal warning and leaves the drawer settled.
+   *
+   * Pressing Continue lets the save through, but the drawer does not
+   * reliably close behind it - and while it is open the application treats
+   * it as dirty, so the very next navigation is ABORTED by the
+   * unsaved-changes guard (`net::ERR_ABORTED`). That failure surfaces one
+   * step later as a broken goto, which points at the navigation instead of
+   * at the drawer. So the drawer is closed here, discarding whatever the
+   * form still holds: the save has already reached the server, and the
+   * caller asserts the outcome on the record rather than in the form.
+   */
+  async confirmWithdrawal(): Promise<void> {
+    await new ConfirmDialog(this.page).confirm('Continue');
+    const closed = await this.waitForClosed()
+      .then(() => true)
+      .catch(() => false);
+    if (!closed) {
+      Logger.step('The drawer stayed open after the withdrawal - discarding it so navigation is not aborted'
+      );
+      await this.closeAndDiscard().catch(() => undefined);
+    }
+  }
+
+  /**
+   * Clicks Save and reports whether a confirmation dialog was raised.
+   *
+   * Editing a payer that is awaiting approval raises "Return this payer to
+   * draft?" before saving; editing a draft does not. A caller that always
+   * expected the dialog would hang on the draft path, and one that never
+   * expected it would leave the dialog open - which then aborts the next
+   * navigation, because the drawer is still dirty. So the answer is returned
+   * and the caller decides.
+   */
+  async saveAndReportDialog(): Promise<boolean> {
+    await this.saveFromAnyStep();
+    return new ConfirmDialog(this.page).isVisible();
+  }
+
   async saveFromAnyStep(): Promise<void> {
     // Save is rendered ONLY on the final step; steps 1 and 2 offer Next. Counted
     // rather than probed with isVisible(), which samples the current frame and
@@ -464,6 +731,26 @@ export class PayerFormDialog extends EntityWizardDialog {
   }
 
   /**
+   * Saves a NEW payer and reports what the server said.
+   *
+   * The create counterpart of `saveAndCaptureOutcome`, and a separate method
+   * rather than a parameter because the two hit different endpoints -
+   * CreatePayer against UpdatePayer - and a capture waiting on the wrong one
+   * reports "no response" for a request that plainly happened.
+   *
+   * Needed for the same reason as the update version: a name over 255
+   * characters is refused with 422 while the interface shows nothing, so the
+   * response is the only evidence that the record was not created.
+   */
+  async saveNewAndCaptureOutcome(): Promise<
+    { status: number; body: unknown; text: string } | null
+  > {
+    return NetworkUtils.captureResponse(this.page, ApiEndpoints.payerCreate, () =>
+      this.saveFromAnyStep(),
+    );
+  }
+
+  /**
    * Asserts a captured save outcome is the CONCURRENCY conflict, not merely a 409.
    *
    * WHY THE STATUS ALONE IS NOT ENOUGH, learned the hard way. The application
@@ -493,11 +780,32 @@ export class PayerFormDialog extends EntityWizardDialog {
     ).toContain(expected.reason);
   }
 
-  /** Whether the drawer is still open - it stays open after a rejected save. */
+  /**
+   * Whether the drawer is still open - it stays open after a rejected save.
+   *
+   * Waits, because the option `isVisible()` takes is ignored: it is a single
+   * instantaneous read. This is asked in the moment right after a save attempt,
+   * while the drawer is either closing or being kept open, so an instant read
+   * answers a question the application has not finished answering.
+   */
   async isOpen(): Promise<boolean> {
     return this.title()
-      .isVisible({ timeout: Timeouts.short })
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
       .catch(() => false);
+  }
+
+  /**
+   * Every message the application shows within a fair window, waiting for one.
+   *
+   * This is what a case asserting "the user was told something" - or, more
+   * often here, "the user was told NOTHING" - should call. See
+   * BasePage.settleMessages: the snapshot below is instantaneous, and a claim
+   * of silence made from a single instantaneous read is a claim about timing
+   * rather than about the application.
+   */
+  async waitForVisibleMessages(timeout: number = Timeouts.short): Promise<string[]> {
+    return WaitUtils.settleMessages(() => this.getVisibleMessages(), timeout);
   }
 
   /**
@@ -541,7 +849,10 @@ export class PayerFormDialog extends EntityWizardDialog {
    * application might eventually use - see CONFLICT_MESSAGE_PATTERNS.
    */
   async expectConflictReported(pattern: RegExp): Promise<void> {
-    const messages = await this.getVisibleMessages();
+    // Waited for, not snapshotted. This assertion is the one that declares the
+    // application silent, so it must not be able to fail because it looked too
+    // early - see WaitUtils.settleMessages.
+    const messages = await this.waitForVisibleMessages();
     expect(
       messages,
       'A rejected save must tell the user something - the application currently shows no '

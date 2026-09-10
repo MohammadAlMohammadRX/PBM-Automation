@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { Timeouts } from '../constants/Timeouts';
 import { Logger } from './Logger';
 
@@ -27,6 +28,43 @@ const LOADING_INDICATOR_SELECTORS = [
  * README "Wait Strategy" section for why hardcoded waits are avoided.
  */
 export class WaitUtils {
+  /**
+   * Gives the application a fair chance to say something, then reports whatever
+   * it said.
+   *
+   * THE POINT OF THIS HELPER, and it is a correctness matter rather than a
+   * convenience. The strongest finding in the payer module is that several
+   * server refusals produce no user-visible feedback at all - and that claim is
+   * only worth making if the interface was actually given time to speak. The
+   * screens collect their messages with a single DOM read, which taken the
+   * instant a response lands happens before any toast has rendered: it would
+   * report "nothing was shown" for a message that appeared 200ms later, and
+   * every no-feedback finding built on it would be suspect.
+   *
+   * So the caller's own collector is polled until it finds something, and an
+   * empty result is returned only once the window really has passed in silence.
+   *
+   * `snapshot` stays the caller's because each screen looks in different places
+   * for its messages - toasts, inline field errors, the shared dialog.
+   */
+  static async settleMessages(
+    snapshot: () => Promise<string[]>,
+    timeout: number = Timeouts.short,
+  ): Promise<string[]> {
+    let messages: string[] = [];
+    await expect
+      .poll(
+        async () => {
+          messages = await snapshot().catch(() => []);
+          return messages.length;
+        },
+        { timeout, intervals: [100, 200, 300, 500, 1_000] },
+      )
+      .toBeGreaterThan(0)
+      .catch(() => undefined);
+    return messages;
+  }
+
   /**
    * Waits for any known loading indicator to disappear, if one is present.
    * Safe to call even when no indicator is showing (resolves immediately).

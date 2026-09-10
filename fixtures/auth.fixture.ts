@@ -8,8 +8,11 @@ import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage
 import { LookupManagementPage } from '../pages/settings/LookupManagementPage';
 import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
+import { PolicyManagementPage } from '../pages/policy/PolicyManagementPage';
+import { NetworkInactivateDialog } from '../pages/network/NetworkInactivateDialog';
 import { LanguageSwitcher } from '../pages/components/LanguageSwitcher';
 import { ExportMenu } from '../pages/components/ExportMenu';
+import { Toast } from '../pages/components/Toast';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 
 /**
@@ -49,6 +52,12 @@ export interface PageObjectFixtures {
    */
   planManagementPage: PlanManagementPage;
   networkManagementPage: NetworkManagementPage;
+  /** The Policies module - see PolicyManagementPage. */
+  policyManagementPage: PolicyManagementPage;
+  /** The Network tab of the approvals hub - see ApprovalScope. */
+  networkApprovalsPage: ApprovalManagementPage;
+  /** The Inactivate Network drawer - see NetworkInactivateDialog. */
+  networkInactivateDialog: NetworkInactivateDialog;
 
   /**
    * The bilingual UI toggle. Already used by the payer pages internally; it is
@@ -76,6 +85,16 @@ export interface PageObjectFixtures {
    * can answer.
    */
   roleAdministrationPage: RoleAdministrationPage;
+
+  /**
+   * The toast notification.
+   *
+   * BasePage already offers a contains-match for the common case. This is
+   * registered separately because the creation-toast story asks about exact
+   * wording in both languages, auto-dismiss timing, manual dismissal and the
+   * ABSENCE of a toast - none of which a contains-match can answer.
+   */
+  toast: Toast;
 }
 
 export const test = base.extend<PageObjectFixtures>({
@@ -103,6 +122,18 @@ export const test = base.extend<PageObjectFixtures>({
   planManagementPage: async ({ page }, use) => {
     await use(new PlanManagementPage(page));
   },
+  policyManagementPage: async ({ page }, use) => {
+    await use(new PolicyManagementPage(page));
+  },
+
+  networkInactivateDialog: async ({ page }, use) => {
+    await use(new NetworkInactivateDialog(page));
+  },
+
+  networkApprovalsPage: async ({ page }, use) => {
+    await use(new ApprovalManagementPage(page, 'network'));
+  },
+
   networkManagementPage: async ({ page }, use) => {
     await use(new NetworkManagementPage(page));
   },
@@ -114,5 +145,8 @@ export const test = base.extend<PageObjectFixtures>({
   },
   roleAdministrationPage: async ({ page }, use) => {
     await use(new RoleAdministrationPage(page));
+  },
+  toast: async ({ page }, use) => {
+    await use(new Toast(page));
   },
 });

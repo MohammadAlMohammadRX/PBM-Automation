@@ -190,7 +190,33 @@ export abstract class EntityWizardDialog {
   }
 
   async clickClose(): Promise<void> {
-    await this.closeButton().click();
+    await this.clickThroughAnimation(this.closeButton(), 'the drawer close button');
+  }
+
+  /**
+   * Clicks a control that belongs to the drawer's own chrome, tolerating the
+   * drawer being mid-animation.
+   *
+   * The close button and the stepper bullets sit on a panel that slides, and
+   * Playwright will not click an element whose box is still moving - it retries
+   * until the actionability timeout and then fails with "element is not
+   * stable". Observed for 15 seconds at a stretch after a save that the server
+   * answered but the drawer did not act on, so the panel never settled: the
+   * step failed on a click timeout rather than on its own subject.
+   *
+   * A normal click is tried first, so genuine problems - a control that is
+   * absent, covered or disabled - still surface as themselves. Only the
+   * stability check is bypassed on the retry, and only for chrome whose
+   * position is the thing in motion.
+   */
+  protected async clickThroughAnimation(locator: Locator, description: string): Promise<void> {
+    const clicked = await locator
+      .click({ timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (clicked) return;
+    Logger.warn(`${description} would not settle - clicking through the animation`);
+    await locator.click({ force: true, timeout: Timeouts.short });
   }
 
   /** Submits the final step. The label is accepted for call-site readability

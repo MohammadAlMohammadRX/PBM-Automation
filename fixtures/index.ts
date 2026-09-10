@@ -6,6 +6,10 @@ import { test as payerIdentityTest } from './payerIdentity.fixture';
 import { test as discardSeedTest } from './discardSeed.fixture';
 import { test as statusSeedTest } from './statusSeed.fixture';
 import { test as concurrentEditTest } from './concurrentEdit.fixture';
+import { test as networkStateTest } from './networkState.fixture';
+import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
+import { test as networkAssignmentTest } from './networkAssignment.fixture';
+import { test as versionHistoryStateTest } from './versionHistoryState.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
@@ -13,7 +17,7 @@ import { test as testStatusTest } from './testStatus.fixture';
 /**
  * Single entry point for every test file: merges the auth/Page-Object,
  * test-data, payer-state, payer-sampling, discard-seed, status-seed,
- * stale-session, cleanup, failure-screenshot and execution-status fixtures into
+ * stale-session, network-state, cleanup, failure-screenshot and execution-status fixtures into
  * one `test`.
  *
  * The `steps` fixture from testStatus.fixture provides step-level results plus
@@ -29,6 +33,10 @@ export const test = mergeTests(
   discardSeedTest,
   statusSeedTest,
   concurrentEditTest,
+  networkStateTest,
+  cascadeDependentsTest,
+  networkAssignmentTest,
+  versionHistoryStateTest,
   cleanupTest,
   screenshotTest,
   testStatusTest,

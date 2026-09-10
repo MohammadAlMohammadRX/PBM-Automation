@@ -30,6 +30,33 @@ export class DateUtils {
   }
 
   /** Returns a filesystem-safe timestamp, e.g. 2026-08-10_09-30-00. */
+  /**
+   * Converts the wizard's `DD/MM/YYYY` into the ISO `YYYY-MM-DD` the DETAIL
+   * screen renders.
+   *
+   * The two surfaces disagree, which is easy to miss and produced four
+   * identical failures before it was spotted: the Add/Edit wizard both accepts
+   * and displays `10/09/2026`, while the payer's Overview tab shows the same
+   * date as `2026-09-10`. So a test that sets a date through the form and reads
+   * it back from the detail screen has to convert, or it compares two correct
+   * values and calls them different.
+   *
+   * Deliberately strict: an input that is not `DD/MM/YYYY` throws rather than
+   * silently returning something plausible, because a quietly mangled date
+   * would turn into a confusing assertion failure somewhere else entirely.
+   */
+  static toIsoDate(ddmmyyyy: string): string {
+    const match = ddmmyyyy.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) {
+      throw new Error(
+        `[DateUtils] Expected a DD/MM/YYYY date, got "${ddmmyyyy}". The wizard uses that `
+          + 'format; the detail screen uses YYYY-MM-DD.',
+      );
+    }
+    const [, day, month, year] = match;
+    return `${year}-${month}-${day}`;
+  }
+
   static timestampForFilename(date: Date = new Date()): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return (

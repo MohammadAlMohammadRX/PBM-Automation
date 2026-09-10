@@ -39,6 +39,14 @@ export type TestStatusName = (typeof TestStatus)[keyof typeof TestStatus];
 export const StepStatus = {
   PASS: 'PASS',
   FAIL: 'FAIL',
+  /**
+   * The step stopped because an external prerequisite was missing.
+   *
+   * Distinct from FAIL, and the distinction is the whole point of the BLOCKED
+   * status: nothing was learned about the behaviour under test, so recording it
+   * as a failure would report the environment as a defect in the application.
+   */
+  BLOCKED: 'BLOCKED',
   NOT_EXECUTED: 'NOT EXECUTED',
 } as const;
 export type StepStatusName = (typeof StepStatus)[keyof typeof StepStatus];

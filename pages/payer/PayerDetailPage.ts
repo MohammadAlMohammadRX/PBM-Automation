@@ -10,6 +10,9 @@ import {
   PAYER_DETAIL_FIELD,
   PAYER_DETAIL_HEADER,
   PAYER_DETAIL_TAB,
+  SCREEN,
+  TOAST,
+  PAYER_LINKED_NETWORKS,
   buttonSelector,
 } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
@@ -48,8 +51,48 @@ export class PayerDetailPage extends BasePage {
   }
 
   /** Returns the displayed value of a labelled detail field (e.g. "Created At"). */
+  /**
+   * One of the payer's field values, from whichever tab is currently showing.
+   *
+   * Returns to the Overview section first when the field is not on screen. The
+   * payer's values live there, so a case that has visited Version History or
+   * Linked Networks and then asks for a field would otherwise time out on an
+   * element that exists and is simply behind another tab - which is exactly how
+   * the revert case failed, with a 15-second `innerText` timeout in a step
+   * about whether the live configuration had changed.
+   */
   async getFieldValue(label: string): Promise<string> {
-    return (await this.fieldValue(label).innerText()).trim();
+    const field = this.fieldValue(label);
+    const onScreen = await field
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!onScreen) await this.openOverview(label);
+    return (await field.innerText()).trim();
+  }
+
+  private overviewTab(): Locator {
+    return this.page.locator(buttonSelector(PAYER_DETAIL_TAB.overview)).first();
+  }
+
+  /**
+   * Switches back to the Overview section, waiting for the field the caller
+   * wants rather than for the tab's own state - the panel mounts lazily, so the
+   * tab reporting itself active does not mean the values have rendered.
+   */
+  async openOverview(label: string): Promise<void> {
+    const field = this.fieldValue(label);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await this.overviewTab().click();
+      const ready = await field
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      if (ready) return;
+    }
+    await expect(field, `the Overview section should show "${label}"`).toBeVisible({
+      timeout: Timeouts.default,
+    });
   }
 
   /** The payer's display name as shown on the detail header. */
@@ -124,8 +167,33 @@ export class PayerDetailPage extends BasePage {
     return this.networkRows().count();
   }
 
-  /** Opens the Assign Network drawer from the Linked Networks section. */
+  /**
+   * How the Linked Networks section refuses to let this user change anything.
+   *
+   * Returns 'absent' | 'disabled' | 'available' rather than asserting, for the
+   * reason the row-action helper does: a refusal has two shapes - the control
+   * is omitted, or it is rendered disabled - and a case should be able to say
+   * which one it met instead of only that it was refused.
+   */
+  async getAssignNetworkAvailability(): Promise<'absent' | 'disabled' | 'available'> {
+    await this.networksTab().click().catch(() => undefined);
+    const button = this.assignNetworkButton();
+    if ((await button.count()) === 0) return 'absent';
+    return (await button.isEnabled().catch(() => false)) ? 'available' : 'disabled';
+  }
+
+  /**
+   * Opens the Assign Network drawer from the Linked Networks section.
+   *
+   * Opens the TAB first. The Assign control lives inside the Linked Networks
+   * panel and is not rendered while another tab is showing, so a caller who had
+   * only opened the detail screen clicked a button that did not exist and
+   * waited out the full actionability timeout - reported as "locator.click:
+   * Timeout exceeded", which says nothing about the missing tab. Idempotent, so
+   * a caller that already opened the tab pays nothing.
+   */
   async openAssignNetwork(): Promise<AssignNetworkDrawer> {
+    await this.openLinkedNetworks();
     await this.assignNetworkButton().click();
     const drawer = new AssignNetworkDrawer(this.page);
     await drawer.waitForOpen();
@@ -192,6 +260,140 @@ export class PayerDetailPage extends BasePage {
     return released;
   }
 
+  /**
+   * The first network the payer is linked to: its name, its status, and the
+   * actions its row offers.
+   *
+   * Read rather than assigned, and that is deliberate. Linking a network needs
+   * one from the Assign Network drawer's pool, and the pool holds only live,
+   * unassigned networks - which earlier runs of this suite exhausted, because a
+   * payer holding a network cannot be deleted and the link is never released.
+   * A case that only needs to LOOK at a linked network should not be blocked by
+   * that; it can use a link that already exists.
+   */
+  async getFirstLinkedNetwork(): Promise<{ name: string; status: string; actions: string[] }> {
+    await this.openLinkedNetworks();
+    const row = this.networkRows().first();
+    await expect(row, 'the payer should have at least one linked network').toBeVisible({
+      timeout: Timeouts.default,
+    });
+    const rowId = await row.getAttribute('id');
+    const name = (
+      await this.byId(`${rowId}-cell-${PAYER_LINKED_NETWORKS.nameCell}`).innerText()
+    ).trim();
+    const status = (
+      await this.byId(`${rowId}-cell-${PAYER_LINKED_NETWORKS.statusCell}`).innerText()
+    ).trim();
+    const ids = await this.byId(`${rowId}-actions`)
+      .locator('[id]')
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    const actions = ids
+      .filter((id) => id.startsWith(`${rowId}-`))
+      .map((id) => id.slice(`${rowId}-`.length))
+      .filter((suffix) => suffix.length > 0 && !suffix.startsWith('cell-'));
+    Logger.step(`Linked network "${name}" is ${status}, offering: ${actions.join(', ')}`);
+    return { name, status, actions };
+  }
+
+  /**
+   * Every message the detail screen is currently showing.
+   *
+   * Collected across the screen's `-error` and `-alert` elements plus the app's
+   * toast, because the question these cases ask is open-ended: not "is THIS
+   * message right" but "was the user told anything at all". A case that fails
+   * can then report what the screen actually showed.
+   */
+  /**
+   * Every message the application shows within a fair window, waiting for one.
+   *
+   * This is what a case asserting "the user was told something" - or, more
+   * often here, "the user was told NOTHING" - should call. See
+   * BasePage.settleMessages: the snapshot below is instantaneous, and a claim
+   * of silence made from a single instantaneous read is a claim about timing
+   * rather than about the application.
+   */
+  async waitForVisibleMessages(timeout: number = Timeouts.short): Promise<string[]> {
+    return this.settleMessages(() => this.getVisibleMessages(), timeout);
+  }
+
+  async getVisibleMessages(): Promise<string[]> {
+    const inScreen = await this.page
+      .locator(`[id^="${SCREEN.payerDetail}"][id$="-error"], [id^="${SCREEN.payerDetail}"][id$="-alert"]`)
+      .allInnerTexts()
+      .catch(() => []);
+    const inDrawer = await this.page
+      .locator('[id^="payer-detail-assign-drawer"][id$="-error"]')
+      .allInnerTexts()
+      .catch(() => []);
+    const toast = await this.page
+      .locator(`#${TOAST.summary}`)
+      .innerText()
+      .catch(() => '');
+    return [...inScreen, ...inDrawer, toast]
+      .map((text) => text.trim())
+      .filter((text) => text.length > 0);
+  }
+
+  /**
+   * A linked network's row in the payer's Linked Networks table.
+   *
+   * Matched on the network NAME within this table only - the row ids are keyed
+   * on the assignment, not the network, so the name is the handle a caller has.
+   */
+  private linkedNetworkRow(networkName: string): Locator {
+    return this.networkRows().filter({ hasText: networkName }).first();
+  }
+
+  /**
+   * The STATUS the payer's Linked Networks table reports for a network.
+   *
+   * Read from the row's own status cell, which is the network's lifecycle
+   * status - not the assignment state next to it. The two are different things
+   * and the distinction is the point of the consistency case: a network can be
+   * Active while its assignment is still Pending Addition.
+   */
+  async getLinkedNetworkStatus(networkName: string): Promise<string> {
+    await this.openLinkedNetworks();
+    const row = this.linkedNetworkRow(networkName);
+    await expect(row, `"${networkName}" should be listed among the linked networks`).toBeVisible({
+      timeout: Timeouts.default,
+    });
+    const rowId = await row.getAttribute('id');
+    const cell = this.byId(`${rowId}-cell-${PAYER_LINKED_NETWORKS.statusCell}`);
+    return (await cell.innerText()).trim();
+  }
+
+  /**
+   * The assignment state of a linked network - Pending Addition, Pending
+   * Removal, or whatever the application settles on once approved.
+   */
+  async getLinkedNetworkAssignmentState(networkName: string): Promise<string> {
+    await this.openLinkedNetworks();
+    const rowId = await this.linkedNetworkRow(networkName).getAttribute('id');
+    const cell = this.byId(`${rowId}-cell-${PAYER_LINKED_NETWORKS.assignmentStateCell}`);
+    return (await cell.innerText()).trim();
+  }
+
+  /**
+   * Which ACTIONS the Linked Networks row offers, as their id suffixes.
+   *
+   * Returned as a list rather than asserted, because the question the
+   * network-activation story asks is open-ended: not "is Unassign there" but
+   * "what is offered here at all". A failing assertion can then name what it
+   * found instead of only what it wanted.
+   */
+  async getLinkedNetworkActions(networkName: string): Promise<string[]> {
+    await this.openLinkedNetworks();
+    const rowId = await this.linkedNetworkRow(networkName).getAttribute('id');
+    const ids = await this.byId(`${rowId}-actions`)
+      .locator('[id]')
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids
+      .filter((id) => id.startsWith(`${rowId}-`))
+      .map((id) => id.slice(`${rowId}-`.length))
+      .filter((suffix) => suffix.length > 0 && !suffix.startsWith('cell-'));
+  }
+
   async expectLinkedNetworkCount(expected: number): Promise<void> {
     await expect
       .poll(() => this.linkedNetworkCount(), { timeout: Timeouts.default })
@@ -251,15 +453,25 @@ export class PayerDetailPage extends BasePage {
    * the networks tab is: the strip re-renders as the screen settles.
    */
   async openAuditHistory(): Promise<void> {
+    // Readiness is the tab's FILTER BAR, not its timeline. The timeline renders
+    // only when there are events, so waiting for it made "this payer has no
+    // audit entries" indistinguishable from "the tab would not open" - a
+    // 15-second timeout inside a navigation step, where the real finding
+    // belonged to the assertion that came after it. With the filters as the
+    // signal, an empty trail reaches `expectAuditEntryMatching`, which reports
+    // it as the empty list it is.
+    const ready = this.byId(PAYER_AUDIT.filters).or(this.byId(PAYER_AUDIT.timeline)).first();
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await this.auditTab().click();
-      const ready = await this.byId(PAYER_AUDIT.timeline)
+      const shown = await ready
         .waitFor({ state: 'visible', timeout: Timeouts.short })
         .then(() => true)
         .catch(() => false);
-      if (ready) return;
+      if (shown) return;
     }
-    await expect(this.byId(PAYER_AUDIT.timeline)).toBeVisible({ timeout: Timeouts.default });
+    await expect(ready, 'the Audit History tab should open').toBeVisible({
+      timeout: Timeouts.default,
+    });
   }
 
   /** The text of every audit timeline entry, in the order shown. */

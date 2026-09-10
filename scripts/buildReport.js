@@ -60,6 +60,78 @@ const STORIES = [
     '16-define-bilingual-names-for-all-payer-module-permissions',
     'Define Bilingual Names for All Payer Module Permissions',
   ],
+  [
+    '17-validate-payer-name-fields-for-language-specific-character-sets',
+    'Validate Payer Name Fields for Language-Specific Character Sets and Arabic Name Length',
+  ],
+  [
+    '18-enforce-payer-email-uniqueness-across-the-register',
+    'Enforce Payer Email Uniqueness Across the Register',
+  ],
+  [
+    '19-strengthen-guardrails-and-messaging-for-payer-activation',
+    'Strengthen Guardrails and Messaging for Payer Activation, Inactivation and Reactivation',
+  ],
+  [
+    '20-restrict-expiry-date-to-today-or-later',
+    'Restrict Expiry Date to Today or Later',
+  ],
+  [
+    '21-enable-network-activation-regardless-of-payer-status',
+    'Enable Network Activation Regardless of Payer Status',
+  ],
+  [
+    '22-validate-a-payer-deletion-against-its-dependencies',
+    'Validate a Payer Deletion Against Its Dependencies',
+  ],
+  [
+    '23-reject-submissions-and-saves-that-change-nothing',
+    'Reject Submissions and Saves That Change Nothing',
+  ],
+  [
+    '24-warn-before-withdrawing-a-pending-approval',
+    'Warn Before an Edit or Delete Withdraws a Pending Approval',
+  ],
+  [
+    '25-confirm-a-submission-with-a-bilingual-toast',
+    'Confirm a Submission with a Bilingual Toast',
+  ],
+  [
+    '26-require-a-reason-when-rejecting-a-request',
+    'Require a Reason When Rejecting a Request',
+  ],
+  [
+    '27-explain-inactivation-and-reactivation-effects',
+    'Explain Inactivation and Reactivation Effects Before They Are Applied',
+  ],
+  [
+    '28-ask-which-rows-to-export-when-a-filter-is-applied',
+    'Ask Which Rows to Export When a Filter Is Applied',
+  ],
+  [
+    '29-show-an-explicit-empty-state-in-version-history',
+    'Show an Explicit Empty State in Version History',
+  ],
+  [
+    '30-check-the-record-version-at-save-time',
+    'Check the Record Version at Save Time',
+  ],
+  [
+    '31-guard-publishing-and-reverting-a-payer-version',
+    'Guard Publishing and Reverting a Payer Version',
+  ],
+  [
+    '32-revalidate-network-selection-at-approval-time',
+    'Re-validate Network Selection at Approval Time',
+  ],
+  [
+    '33-validate-payer-creation-input-fields',
+    'Validate Payer Creation Input Fields',
+  ],
+  [
+    '34-display-toast-notification-on-payer-creation',
+    'Display Toast Notification on Payer Creation',
+  ],
   ['01-create-new-payer-organization-record', 'Create New Payer Organization Record'],
   ['04-edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
   ['06-delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],

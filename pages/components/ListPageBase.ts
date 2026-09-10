@@ -192,6 +192,13 @@ export abstract class ListPageBase extends BasePage {
 
   private async clickRowAction(entityName: string, action: RowAction): Promise<void> {
     Logger.step(`Clicking "${action}" for "${entityName}"`);
+    // Wait for the screen to settle FIRST. The application disables every
+    // button while a request is in flight, and a click on a disabled control
+    // waits out the full actionability timeout and then reports only
+    // "locator.click: Timeout exceeded" - which reads as a missing action and
+    // is really a request already in flight. Costly to diagnose, cheap to
+    // prevent.
+    await this.waitForPageReady();
     const button = await this.rowActionButton(entityName, action);
     // Wait for the action before clicking it. Row actions depend on the record's
     // STATE as well as the row - a published payer offers view/edit/inactivate/
@@ -200,6 +207,11 @@ export abstract class ListPageBase extends BasePage {
     // may not be rendered yet. Clicking blind fails as "element never became
     // visible", which reads like an application defect and is not one.
     await expect(button).toBeVisible({ timeout: Timeouts.default });
+    await expect(
+      button,
+      `the "${action}" action on row "${entityName}" should be usable - a disabled one means the`
+        + ' screen is still busy, or the action is withheld from this record',
+    ).toBeEnabled({ timeout: Timeouts.default });
     await button.click();
   }
 
@@ -283,6 +295,77 @@ export abstract class ListPageBase extends BasePage {
   async hasRowAction(entityName: string, action: RowAction): Promise<boolean> {
     const button = await this.rowActionButton(entityName, action);
     return (await button.count()) > 0;
+  }
+
+  /**
+   * How a row REFUSES an action, when it refuses one.
+   *
+   * `hasRowAction` above answers presence only, and presence is not
+   * availability: the payer list renders a DISABLED Activate button on an
+   * expired payer while omitting Inactivate from the same row entirely.
+   * Counting either as "offered" would report a guardrail as missing when it is
+   * being enforced, and counting a disabled button as absent would hide which
+   * of the two mechanisms the application used.
+   *
+   * Returns 'absent' | 'disabled' | 'available' so a caller can assert the
+   * refusal and still say how it was made.
+   */
+  async getRowActionAvailability(
+    entityName: string,
+    action: RowAction,
+  ): Promise<'absent' | 'disabled' | 'available'> {
+    const button = await this.rowActionButton(entityName, action);
+    if ((await button.count()) === 0) return 'absent';
+    return (await button.isEnabled()) ? 'available' : 'disabled';
+  }
+
+  /**
+   * Asserts a row offers no usable route to `action`, and reports which of the
+   * two refusals was used.
+   */
+  async expectRowActionUnavailable(
+    entityName: string,
+    action: RowAction,
+  ): Promise<'absent' | 'disabled'> {
+    const availability = await this.getRowActionAvailability(entityName, action);
+    expect(
+      availability,
+      `row "${entityName}" must not offer a usable "${action}" action`,
+    ).not.toBe('available');
+    return availability as 'absent' | 'disabled';
+  }
+
+  /** Every action this row offers as USABLE, in the order asked for. */
+  async getEnabledRowActions(
+    entityName: string,
+    actions: readonly RowAction[],
+  ): Promise<RowAction[]> {
+    const enabled: RowAction[] = [];
+    for (const action of actions) {
+      if ((await this.getRowActionAvailability(entityName, action)) === 'available') {
+        enabled.push(action);
+      }
+    }
+    return enabled;
+  }
+
+  /**
+   * A row action's own explanatory message, or an empty string when it has none.
+   *
+   * The payer list attaches the reason an action cannot be used to that
+   * action's `title` - "Cannot reactivate: the payer has expired. Update its
+   * expiry date to reactivate it." sits on the DISABLED Activate button of an
+   * expired payer, in whichever language the UI is showing. That is the only
+   * channel the guardrail messaging uses: no toast, no dialog, nothing in the
+   * page body. So a story about guardrail MESSAGING has to read it from here.
+   *
+   * Returns '' rather than null for a missing title, so a caller comparing
+   * against an expected message gets a readable diff instead of a type error.
+   */
+  async getRowActionMessage(entityName: string, action: RowAction): Promise<string> {
+    const button = await this.rowActionButton(entityName, action);
+    if ((await button.count()) === 0) return '';
+    return (await button.getAttribute('title')) ?? '';
   }
 
   // ---- Cell reads -----------------------------------------------------------
@@ -406,6 +489,19 @@ export abstract class ListPageBase extends BasePage {
    */
   protected pageButton(pageNumber: number): Locator {
     return this.btn(`${this.screen}-table-pager-page-${pageNumber}`);
+  }
+
+  /**
+   * Whether a further page of results exists.
+   *
+   * Read from the pager's Next button, which is the only signal that works at
+   * any list length: page NUMBER buttons collapse beyond seven pages, so
+   * "does page 8 exist" cannot be answered by looking for its button.
+   */
+  async hasNextPage(): Promise<boolean> {
+    return this.nextPageButton()
+      .isEnabled({ timeout: Timeouts.short })
+      .catch(() => false);
   }
 
   async goToNextPage(): Promise<void> {

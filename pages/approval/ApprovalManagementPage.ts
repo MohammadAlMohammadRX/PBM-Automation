@@ -14,6 +14,21 @@ import { Logger } from '../../utils/Logger';
 import type { RejectionReason } from '../../data/payers/payerTypes';
 
 /**
+ * Which tab of the hub a page instance drives.
+ *
+ * The hub is one component per module under a module-named id namespace, so a
+ * scope is all that separates a payer queue from a network one. Added when the
+ * network-activation story needed to approve a NETWORK status change; without
+ * it that story would have needed a second, near-identical Page Object.
+ */
+export type ApprovalScope = 'payer' | 'network';
+
+const APPROVAL_SCREEN: Record<ApprovalScope, string> = {
+  payer: SCREEN.approvalsPayer,
+  network: SCREEN.approvalsNetwork,
+};
+
+/**
  * Page Object for the Approval Management module (`/approval-management`) - the
  * reviewer/checker queue of the maker-checker workflow.
  *
@@ -35,14 +50,26 @@ import type { RejectionReason } from '../../data/payers/payerTypes';
  * requires a Rejection Reason.
  */
 export class ApprovalManagementPage extends BasePage {
-  private readonly screen = SCREEN.approvalsPayer;
+  private readonly screen: string;
 
-  constructor(page: Page) {
+  private readonly approvalScope: ApprovalScope;
+
+  constructor(page: Page, scope: ApprovalScope = 'payer') {
     super(page);
+    this.approvalScope = scope;
+    this.screen = APPROVAL_SCREEN[scope];
   }
 
   async open(): Promise<void> {
     await this.goto(AppRoutes.approvalManagement);
+    // The hub opens on the Payer tab. A non-payer scope has to select its own
+    // tab BEFORE anything reads the table, or every read lands on the payer
+    // queue - which would not fail loudly, it would quietly answer the wrong
+    // question. The payer scope skips the click: its tab is already active, and
+    // not touching it keeps the long-standing payer flows untouched.
+    if (this.approvalScope !== 'payer') {
+      await this.openTab(this.approvalScope);
+    }
     // The approval queue shares the module-wide Table/Cards view preference.
     await this.ensureTableView(this.screen);
     // Post-condition: the list is genuinely on screen. Without it `open()` can
@@ -55,8 +82,21 @@ export class ApprovalManagementPage extends BasePage {
 
   /** The Payer tab of the hub, in case another tab is active. */
   async openPayerTab(): Promise<void> {
-    await this.btn('approvals-hub-tab-payer').click();
-    await expect(this.byId(this.screen)).toBeVisible({ timeout: Timeouts.default });
+    await this.openTab('payer');
+  }
+
+  /**
+   * Selects one tab of the hub and waits for its own panel.
+   *
+   * Waits on the panel rather than the tab's selected state: the tabs are
+   * always present, so a click that failed to switch panels would still leave
+   * the tab looking fine while every subsequent read came from the previous
+   * module's queue.
+   */
+  async openTab(scope: ApprovalScope): Promise<void> {
+    Logger.step(`Opening the ${scope} approvals tab`);
+    await this.btn(`approvals-hub-tab-${scope}`).click();
+    await expect(this.byId(APPROVAL_SCREEN[scope])).toBeVisible({ timeout: Timeouts.default });
   }
 
   private searchInput(): Locator {
@@ -75,6 +115,14 @@ export class ApprovalManagementPage extends BasePage {
   async search(payerName: string): Promise<void> {
     Logger.step(`Searching approval queue for "${payerName}"`);
     const input = this.searchInput();
+    // Opens the queue first when the browser is somewhere else. Several cases
+    // legitimately end on the payer list and then ask the queue a question -
+    // "is this request still decidable?" - and the search box they need is not
+    // on that screen: the click timed out after 15 seconds inside an assertion
+    // step, reported as though the queue had refused to answer. Navigating only
+    // when the input is genuinely absent leaves an already-open queue, and any
+    // filters on it, untouched.
+    if ((await input.count()) === 0) await this.open();
     await input.click();
     await input.press('ControlOrMeta+a');
     await input.press('Delete');
@@ -286,6 +334,23 @@ export class ApprovalManagementPage extends BasePage {
     await (await this.rowAction(payerName, 'approve')).click();
     await new ConfirmDialog(this.page).confirm('Approve');
     await this.waitForDecisionProcessed(payerName);
+  }
+
+  /**
+   * Opens the Reject dialog and leaves it open.
+   *
+   * `reject()` below decides the request outright, which is right for a story
+   * that needs a rejected record. The rejection-reason story needs the dialog
+   * ITSELF - what it offers, what it gates - and several of its cases must
+   * read it and then cancel without deciding anything.
+   */
+  async openRejectDialog(payerName: string): Promise<ConfirmDialog> {
+    await this.search(payerName);
+    await this.expectInQueue(payerName);
+    await (await this.rowAction(payerName, 'reject')).click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    return dialog;
   }
 
   /** Rejects a queued request: picks a Rejection Reason, acknowledges, confirms. */
