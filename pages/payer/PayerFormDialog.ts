@@ -446,6 +446,39 @@ export class PayerFormDialog extends EntityWizardDialog {
   }
 
   /**
+   * Types into a dropdown's filter box and returns what survives.
+   *
+   * Returns an EMPTY LIST when the overlay carries no filter input, so a case
+   * can report "this control offers no search" instead of timing out against a
+   * box that was never rendered. PrimeNG renders the filter only when the
+   * component asks for it, and a three-entry catalogue may well not.
+   *
+   * locator-exception: the filter input is a PrimeNG internal with no id.
+   * Scoped to the open overlay, which is reached from the field's own id.
+   */
+  async filterDropdownOptions(label: string, query: string): Promise<string[]> {
+    await this.goToStepContaining(label);
+    await this.field(label).click();
+    const filter = this.page.locator('.p-select-filter, .p-dropdown-filter').first();
+    const hasFilter = await filter
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasFilter) {
+      await this.page.keyboard.press('Escape');
+      Logger.warn(`The "${label}" dropdown offers no filter box - returning no matches`);
+      return [];
+    }
+    await filter.fill(query);
+    const options = this.page.getByRole('option').filter({ visible: true });
+    const values = await options
+      .evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).innerText.trim()))
+      .catch(() => []);
+    await this.page.keyboard.press('Escape');
+    return values.filter((text) => text !== '');
+  }
+
+  /**
    * The dial code shown beside the subscriber number.
    *
    * Its own control rather than part of the Phone Number field, which is why it

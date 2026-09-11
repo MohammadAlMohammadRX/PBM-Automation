@@ -119,6 +119,17 @@ export abstract class ListPageBase extends BasePage {
   }
 
   /**
+   * A row's own id, for callers that need to build another id from it.
+   *
+   * `rowId` stays protected; this is the public door onto the same value. Added
+   * for the status-tag story, which checks that the badge a second role reads
+   * carries the shared id convention rather than a role-specific one.
+   */
+  async getRowId(entityName: string): Promise<string> {
+    return this.rowId(entityName);
+  }
+
+  /**
    * Whether a row for `entityName` is on screen, WAITING for it to appear.
    *
    * `locator.isVisible()` is deliberately not used: it reports the current state

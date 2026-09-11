@@ -70,6 +70,8 @@ const ALLOWED_ACTIONS = [
   ['NetworkUtils.restoreEndpoint', 'fault removal - recovery is asserted in a later step'],
   ['NetworkUtils.failMutatingRequests', 'fault injection'],
   ['NetworkUtils.restore', 'fault removal'],
+  ['NetworkUtils.rewriteJsonResponse', 'fault injection - the rendering is asserted next'],
+  ['.blankStatusInListResponse()', 'fault injection - what the column then renders is asserted next'],
   ['.navigate()', 'deliberately does NOT assert the page rendered - the RBAC cases need it to be allowed to be denied'],
   ['.goToLastPage()', 'navigation - the resulting page state is asserted next'],
   ['.goToNextPage()', 'navigation - the resulting page is asserted next'],
@@ -118,6 +120,15 @@ const ENFORCED = [
   '32-revalidate-network-selection-at-approval-time',
   '33-validate-payer-creation-input-fields',
   '34-display-toast-notification-on-payer-creation',
+  '36-manually-inactivate-active-payer',
+  '38-manually-reactivate-inactive-payer',
+  '39-display-linked-networks-count-on-payer-list',
+  '40-display-linked-members-count-on-payer-list',
+  '41-validate-payercode-uniqueness-on-approval',
+  '42-select-country-from-the-central-country-catalogue',
+  '43-derive-initial-payer-status-from-effective-date-on-approval',
+  '44-prevent-invalid-status-transitions-manually',
+  '45-display-color-coded-status-tags-on-payer-list',
 ];
 
 const files = [];

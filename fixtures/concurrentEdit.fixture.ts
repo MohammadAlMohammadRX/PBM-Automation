@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
+import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { PayerFormDialog } from '../pages/payer/PayerFormDialog';
 import { Logger } from '../utils/Logger';
 
@@ -36,6 +37,15 @@ export interface StaleSession {
   /** The payer list in the second tab. */
   payerPage: PayerManagementPage;
   /**
+   * The approvals queue in the second tab.
+   *
+   * Added for the PayerCode uniqueness story, whose concurrency case needs two
+   * approvals dispatched without either waiting for the other - one session
+   * cannot do that to itself, because its own approve() awaits the decision
+   * before returning.
+   */
+  approvalPage: ApprovalManagementPage;
+  /**
    * Opens a payer for edit in the second tab, giving a copy of the record as it
    * stands NOW. Whatever the first session saves afterwards makes this copy
    * stale, which is the precondition every case in this story needs.
@@ -55,6 +65,7 @@ export const test = base.extend<ConcurrentEditFixtures>({
     const session: StaleSession = {
       page,
       payerPage,
+      approvalPage: new ApprovalManagementPage(page),
       async openEditForm(payerName: string): Promise<PayerFormDialog> {
         Logger.step(`[fixture] Second session opening "${payerName}" for edit`);
 

@@ -95,6 +95,19 @@ export class PayerDetailPage extends BasePage {
     });
   }
 
+  /**
+   * Asserts the Linked Networks section is the one on screen.
+   *
+   * The destination check for the count-column drill-down: arriving at a
+   * payer's detail screen is not the same as arriving at its networks.
+   */
+  async expectLinkedNetworksActive(): Promise<void> {
+    await expect(
+      this.assignNetworkButton(),
+      'the Linked Networks section should be the one showing',
+    ).toBeVisible({ timeout: Timeouts.default });
+  }
+
   /** The payer's display name as shown on the detail header. */
   async getName(): Promise<string> {
     return (await this.byId('payer-detail-name').innerText()).trim();

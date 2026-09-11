@@ -59,6 +59,36 @@ export class PolicyManagementPage extends ListPageBase {
   }
 
   /** The policies belonging to one payer, with the status each displays. */
+  /**
+   * The member count of each policy belonging to a payer.
+   *
+   * Feeds the de-duplication invariant in the linked-members story: a distinct
+   * total can never exceed the sum of these, nor fall below the largest of
+   * them. A policy whose member cell holds no number is SKIPPED rather than
+   * counted as zero - an unreadable count is not the same as none, and treating
+   * it as none would loosen the ceiling the invariant depends on.
+   */
+  async getPolicyMemberCounts(payerName: string): Promise<number[]> {
+    await this.openList();
+    const rows = await this.rows().evaluateAll(
+      (nodes, keys) =>
+        nodes.map((node) => ({
+          payer:
+            (node.querySelector(`[id$="-cell-${keys.payer}"]`) as HTMLElement | null)
+              ?.innerText.trim() ?? '',
+          members:
+            (node.querySelector(`[id$="-cell-${keys.members}"]`) as HTMLElement | null)
+              ?.innerText.trim() ?? '',
+        })),
+      { payer: POLICY_COLUMN.payer, members: POLICY_COLUMN.members },
+    );
+    return rows
+      .filter((row) => row.payer.includes(payerName))
+      .map((row) => row.members.replace(/[^0-9]/g, ''))
+      .filter((digits) => digits !== '')
+      .map((digits) => Number(digits));
+  }
+
   async getPoliciesOfPayer(payerName: string): Promise<{ name: string; status: string }[]> {
     await this.openList();
     const rows = await this.getPolicyRows();

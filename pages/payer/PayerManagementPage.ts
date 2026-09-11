@@ -5,12 +5,15 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { LanguageSwitcher, type AppLanguage } from '../components/LanguageSwitcher';
 import { PayerFormDialog } from './PayerFormDialog';
 import { PayerDetailPage } from './PayerDetailPage';
+import { PayerCardsView } from './PayerCardsView';
 import { AdvancedSearchDrawer } from './AdvancedSearchDrawer';
 import { AppRoutes } from '../../constants/AppRoutes';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
+import { WaitUtils } from '../../utils/WaitUtils';
 import type { MandatoryFieldSpec, PayerData } from '../../data/payers/payerTypes';
 import { DELETE_UI, DELETE_MESSAGES, DELETE_TOASTS } from '../../data/payers/deletePayer.data';
+import { NAV } from '../../constants/ElementIds';
 import {
   ALL_STATUSES,
   ALL_TYPES,
@@ -1026,7 +1029,146 @@ export class PayerManagementPage extends ListPageBase {
     return form;
   }
 
-  // ---- RBAC (TC-012) --------------------------------------------------------
+  // ---- Linked-count columns -------------------------------------------------
+
+  /**
+   * The number a count column shows, or null when it shows no number.
+   *
+   * VERIFIED: a zero count renders as an em dash, not "0" - so "no number" is
+   * a real answer rather than a failed read, and the two count stories turn on
+   * telling those apart.
+   */
+  async getCountValue(payerName: string, column: 'networks' | 'members'): Promise<number | null> {
+    const raw = (await this.getCellValue(payerName, PAYER_COLUMN[column])).trim();
+    const digits = raw.replace(/[^0-9]/g, '');
+    return digits === '' ? null : Number(digits);
+  }
+
+  /**
+   * Whether a count column offers a way through to the records behind it.
+   *
+   * VERIFIED: it does not. The cell holds text and nothing else - no anchor, no
+   * button, no role, `cursor: auto` - so this returns false today, and the
+   * clickability cases report that as the finding it is. A read rather than an
+   * assertion, so a case can say which side of the rule it is checking.
+   *
+   * locator-exception: the question IS what the cell contains, and an
+   * interactive descendant has no id of its own. Scoped inside the cell, which
+   * is addressed by id.
+   */
+  async isCountClickable(payerName: string, column: 'networks' | 'members'): Promise<boolean> {
+    const cell = await this.cell(payerName, PAYER_COLUMN[column]);
+    return (await cell.locator('a, button, [role="button"], [role="link"]').count()) > 0;
+  }
+
+  /**
+   * Follows a count column through to the payer's detail screen.
+   *
+   * Fails naming the cell's contents when the count is not a link, rather than
+   * timing out against an element that was never interactive.
+   */
+  async openCountLink(payerName: string, column: 'networks' | 'members'): Promise<PayerDetailPage> {
+    const cell = await this.cell(payerName, PAYER_COLUMN[column]);
+    const link = cell.locator('a, button, [role="button"], [role="link"]').first();
+    if ((await link.count()) === 0) {
+      throw new Error(
+        `[PayerManagementPage] The ${column} count for "${payerName}" is not a link - the cell `
+          + `holds "${(await cell.innerText()).trim()}" and no interactive element.`,
+      );
+    }
+    await link.click();
+    const detail = this.detail();
+    await detail.waitForLoaded();
+    return detail;
+  }
+
+  /** The same count as the CARDS view renders it, for the cross-view checks. */
+  async getCardCountValue(
+    payerName: string,
+    column: 'networks' | 'members',
+  ): Promise<number | null> {
+    const payerId = await this.recordIdOf(payerName);
+    const cards = new PayerCardsView(this.page);
+    await cards.open();
+    const raw = (await cards.getFieldById(payerId, column)).trim();
+    const digits = raw.replace(/[^0-9]/g, '');
+    return digits === '' ? null : Number(digits);
+  }
+
+  /** The colour band the CARDS view gives a payer's status. */
+  async getCardStatusTone(payerName: string): Promise<string> {
+    const payerId = await this.recordIdOf(payerName);
+    const cards = new PayerCardsView(this.page);
+    await cards.open();
+    return cards.getStatusToneById(payerId);
+  }
+
+  // ---- List-level messages and fault injection -------------------------------
+
+  /**
+   * Every message the LIST screen is showing, waited for.
+   *
+   * The detail screen and the form drawer have their own collectors; this is
+   * the list's, and it exists for the same reason: a case reporting "the screen
+   * said nothing" must have given the screen time to speak. See
+   * WaitUtils.settleMessages.
+   *
+   * locator-exception: toasts are PrimeNG components with no ids of their own.
+   * Scoped to the toast host and to the `payer-list` id namespace.
+   */
+  async waitForVisibleMessages(timeout: number = Timeouts.short): Promise<string[]> {
+    return WaitUtils.settleMessages(async () => {
+      const inList = await this.page
+        .locator(
+          `[id^="${SCREEN.payerList}"][id$="-error"], [id^="${SCREEN.payerList}"][id$="-alert"]`,
+        )
+        .allInnerTexts()
+        .catch(() => []);
+      const toast = await this.page
+        .locator(`#${TOAST.summary}`)
+        .allInnerTexts()
+        .catch(() => []);
+      return [...inList, ...toast].map((text) => text.trim()).filter((text) => text !== '');
+    }, timeout);
+  }
+
+  /**
+   * Answers the payer list with every payer's status blanked.
+   *
+   * A payer with no status is not a state the application will produce, but a
+   * partial migration or a bad join can serve one - and what the status column
+   * then renders is worth knowing before that happens rather than after.
+   */
+  async blankStatusInListResponse(): Promise<void> {
+    await NetworkUtils.rewriteJsonResponse(this.page, ApiEndpoints.payerList, (body) =>
+      NetworkUtils.mapObjects(body, (record) =>
+        Object.prototype.hasOwnProperty.call(record, 'status')
+          ? { ...record, status: null }
+          : record,
+      ),
+    );
+  }
+
+  /** Removes the list-response rewrite. */
+  async restoreListResponse(): Promise<void> {
+    await NetworkUtils.restoreEndpoint(this.page, ApiEndpoints.payerList);
+  }
+
+  /**
+   * Whether this user is offered the Terminology Management module.
+   *
+   * The country catalogue is maintained there, so "may select but may not
+   * maintain" is asserted at the door to that module - the payer form offers no
+   * catalogue control to anyone, so the form cannot answer the question.
+   */
+  async isTerminologyManagementOffered(): Promise<boolean> {
+    return this.byId(NAV.terminologyManagement)
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  // ---- RBAC (TC-012) --------------------------------------------------------  // ---- RBAC (TC-012) --------------------------------------------------------
 
   /** True when the current user is offered the "Create New Payer" action. */
   async isCreateActionAvailable(): Promise<boolean> {

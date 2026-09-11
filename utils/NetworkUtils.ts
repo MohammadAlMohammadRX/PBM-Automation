@@ -172,6 +172,73 @@ export class NetworkUtils {
   }
 
   /**
+   * Rewrites one endpoint's JSON response through a transform, leaving the
+   * status and headers as the server sent them.
+   *
+   * The general form of `emptyListEndpoint`, and it exists for the same
+   * reason: the real response is fetched and only the part under test is
+   * changed, so the envelope the client unwraps stays authentic. Written for
+   * the status-tag story, which needs to see what the list does with a payer
+   * carrying no status - a state the application will not produce but a
+   * partial migration can serve.
+   */
+  static async rewriteJsonResponse(
+    page: Page,
+    urlFragment: string,
+    transform: (body: unknown) => unknown,
+  ): Promise<void> {
+    Logger.step(`Rewriting the JSON response for requests matching "${urlFragment}"`);
+    const predicate = NetworkUtils.matcher(urlFragment);
+    const handler = async (route: Route): Promise<void> => {
+      const response = await route.fetch().catch(() => null);
+      if (response === null) {
+        await route.fallback();
+        return;
+      }
+      const body = await response.json().catch(() => null);
+      if (body === null) {
+        await route.fulfill({ response });
+        return;
+      }
+      // Encoding headers are dropped: the replacement body is not gzipped, and
+      // passing the original content-encoding through hands the browser
+      // something it cannot decode.
+      const headers = { ...response.headers() };
+      delete headers['content-encoding'];
+      delete headers['content-length'];
+      await route.fulfill({
+        status: response.status(),
+        headers,
+        contentType: 'application/json',
+        body: JSON.stringify(transform(body)),
+      });
+    };
+    NetworkUtils.remember(page, urlFragment, predicate, handler);
+    await page.route(predicate, handler);
+  }
+
+  /**
+   * Applies `change` to every object inside a payload, at any depth.
+   *
+   * The records a list endpoint returns sit one or two levels inside its
+   * envelope, and which it is varies by endpoint - so a caller says what to do
+   * to a record and this finds them.
+   */
+  static mapObjects(
+    value: unknown,
+    change: (record: Record<string, unknown>) => Record<string, unknown>,
+  ): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => NetworkUtils.mapObjects(item, change));
+    }
+    if (value === null || typeof value !== 'object') return value;
+    const changed = change({ ...(value as Record<string, unknown>) });
+    return Object.fromEntries(
+      Object.entries(changed).map(([key, inner]) => [key, NetworkUtils.mapObjects(inner, change)]),
+    );
+  }
+
+  /**
    * Aborts one endpoint outright, as an unreachable service rather than an
    * erroring one. Some clients distinguish the two, and "the service is down"
    * is what several cases describe.
@@ -230,6 +297,37 @@ export class NetworkUtils {
     }
     await page.unroute('**/*').catch(() => undefined);
     NetworkUtils.installed.delete(page);
+  }
+
+  /**
+   * Runs `action` and returns the JSON body of the first response whose URL
+   * MATCHES A PATTERN, rather than merely containing a fragment.
+   *
+   * Needed because `captureJsonResponse` matches by substring, and this API's
+   * endpoint names nest: `/api/Payers/GetPayers` is a prefix of
+   * `GetPayersDashboard` and `GetPayersDropdown`, so whichever of the three
+   * answered first was captured. A case asking "does the list payload carry
+   * this column's value?" was reading the dashboard's payload and drawing a
+   * conclusion about the list - once reporting a defect that was not one, and
+   * once passing for a reason that had nothing to do with what it asserted.
+   *
+   * Pass an anchored pattern - `/GetPayers(?|$)/` - to pin one endpoint.
+   */
+  static async captureJsonResponseMatching<T = unknown>(
+    page: Page,
+    pattern: RegExp,
+    action: () => Promise<void>,
+    timeout: number = Timeouts.default,
+  ): Promise<T | null> {
+    const waiting = page
+      .waitForResponse((response: Response) => pattern.test(response.url()) && response.ok(), {
+        timeout,
+      })
+      .catch(() => null);
+    await action();
+    const response = await waiting;
+    if (response === null) return null;
+    return (await response.json().catch(() => null)) as T | null;
   }
 
   /**

@@ -48,6 +48,19 @@ export const SCREEN = {
  * screen element is rendered - the nav drawer, header, breadcrumb bar and every
  * dialog/toast - so they are always queried from the document root.
  */
+/**
+ * The application's left-hand navigation, by the ids its links carry.
+ *
+ * Only the entries a payer test needs to reason about. Terminology Management
+ * is here because the country catalogue is maintained there: "a payer
+ * administrator may select a country but not maintain the list" is asserted at
+ * the door to that module, the payer form offering no catalogue control to
+ * anyone.
+ */
+export const NAV = {
+  terminologyManagement: 'app-nav-terminology-management-link',
+} as const;
+
 export const GLOBAL = {
   headerTitle: 'app-header-title',
   languageToggle: 'app-header-language-toggle-button',

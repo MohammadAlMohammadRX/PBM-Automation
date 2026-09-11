@@ -10,6 +10,7 @@ import { test as networkStateTest } from './networkState.fixture';
 import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
 import { test as networkAssignmentTest } from './networkAssignment.fixture';
 import { test as versionHistoryStateTest } from './versionHistoryState.fixture';
+import { test as linkedCountStateTest } from './linkedCountState.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
@@ -37,6 +38,7 @@ export const test = mergeTests(
   cascadeDependentsTest,
   networkAssignmentTest,
   versionHistoryStateTest,
+  linkedCountStateTest,
   cleanupTest,
   screenshotTest,
   testStatusTest,

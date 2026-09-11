@@ -132,6 +132,42 @@ const STORIES = [
     '34-display-toast-notification-on-payer-creation',
     'Display Toast Notification on Payer Creation',
   ],
+  [
+    '36-manually-inactivate-active-payer',
+    'Manually Inactivate Active Payer',
+  ],
+  [
+    '38-manually-reactivate-inactive-payer',
+    'Manually Reactivate Inactive Payer',
+  ],
+  [
+    '39-display-linked-networks-count-on-payer-list',
+    'Display Linked Networks Count on Payer List',
+  ],
+  [
+    '40-display-linked-members-count-on-payer-list',
+    'Display Linked Members Count on Payer List',
+  ],
+  [
+    '41-validate-payercode-uniqueness-on-approval',
+    'Validate PayerCode Uniqueness on Approval',
+  ],
+  [
+    '42-select-country-from-the-central-country-catalogue',
+    'Select Country from the Central Country Catalogue',
+  ],
+  [
+    '43-derive-initial-payer-status-from-effective-date-on-approval',
+    'Derive Initial Payer Status from Effective Date on Approval',
+  ],
+  [
+    '44-prevent-invalid-status-transitions-manually',
+    'Prevent Invalid Status Transitions Manually',
+  ],
+  [
+    '45-display-color-coded-status-tags-on-payer-list',
+    'Display Color-Coded Status Tags on Payer List',
+  ],
   ['01-create-new-payer-organization-record', 'Create New Payer Organization Record'],
   ['04-edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
   ['06-delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],
