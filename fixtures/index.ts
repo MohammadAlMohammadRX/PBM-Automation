@@ -11,6 +11,8 @@ import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
 import { test as networkAssignmentTest } from './networkAssignment.fixture';
 import { test as versionHistoryStateTest } from './versionHistoryState.fixture';
 import { test as linkedCountStateTest } from './linkedCountState.fixture';
+import { test as networkLinkStateTest } from './networkLinkState.fixture';
+import { test as nonAdminSessionTest } from './nonAdminSession.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
@@ -39,6 +41,8 @@ export const test = mergeTests(
   networkAssignmentTest,
   versionHistoryStateTest,
   linkedCountStateTest,
+  networkLinkStateTest,
+  nonAdminSessionTest,
   cleanupTest,
   screenshotTest,
   testStatusTest,

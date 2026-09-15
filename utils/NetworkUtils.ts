@@ -486,15 +486,17 @@ export class NetworkUtils {
    */
   static async captureRequestBody(
     page: Page,
-    urlFragment: string,
+    urlFragment: string | RegExp,
     action: () => Promise<void>,
     timeout: number = Timeouts.default,
   ): Promise<string | null> {
+    // A RegExp is accepted for endpoints whose name is a prefix of another's -
+    // `/api/Payers/GetPayer` is contained in `GetPayers`, `GetPayerNetworks`
+    // and `GetPayerLinkedPolicies`, all of which a detail screen fires first.
+    const matches = (url: string): boolean =>
+      typeof urlFragment === 'string' ? url.includes(urlFragment) : urlFragment.test(url);
     const waiting = page
-      .waitForRequest(
-        (request) => request.url().includes(urlFragment) && request.method() !== 'GET',
-        { timeout },
-      )
+      .waitForRequest((request) => matches(request.url()) && request.method() !== 'GET', { timeout })
       .catch(() => null);
 
     await action();

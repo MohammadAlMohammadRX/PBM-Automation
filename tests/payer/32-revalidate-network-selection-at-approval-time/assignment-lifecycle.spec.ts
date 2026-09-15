@@ -1,5 +1,5 @@
 import { test, expect } from '../../../fixtures';
-import { ASSIGNMENT_CAVEAT, ASSIGNMENT_CHANGE_TYPE } from '../../../data/networks/networkAssignment.data';
+import { ASSIGNMENT_CAVEAT, ASSIGNMENT_CHANGE_TYPE, networkNameOf } from '../../../data/networks/networkAssignment.data';
 
 /**
  * User story: Re-validate Network Selection at Approval Time.
@@ -58,6 +58,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
         'a real selection should enable the submission',
       ).toBe(true);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
     });
 
     await steps.step('The request is pending approval and the network is not yet linked', async () => {
@@ -100,6 +101,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       ).toContain(network);
       await drawer.selectNetworks([network]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
     });
 
     await steps.critical('The request is in the queue as Pending', async () => {
@@ -117,7 +119,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       const linked = await detail.getFirstLinkedNetwork();
-      expect(linked.name, 'the approved network should be the one submitted').toBe(network);
+      expect(linked.name, 'the approved network should be the one submitted').toBe(networkNameOf(network));
     });
   });
 
@@ -137,6 +139,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       const drawer = await detail.openAssignNetwork();
       await drawer.selectNetworks([network]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
 
       await approvalManagementPage.open();
       await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
@@ -146,7 +149,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.critical('The network is shown as assigned', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(network);
+      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
     });
 
     await steps.step('Submitting the removal creates a request and leaves the link in place', async () => {
@@ -157,7 +160,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       // maker-checker removal should look.
       const stillThere = await detail.getFirstLinkedNetwork();
       expect(stillThere.name, 'the link should survive until the removal is approved').toBe(
-        network,
+        networkNameOf(network),
       );
       expect(
         stillThere.status,
@@ -209,8 +212,12 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       const drawer = await detail.openAssignNetwork();
       await drawer.selectNetworks([network]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
+      // Sending for approval leaves the detail page, so it is re-opened before
+      // the state is read - the stale handle would query a list.
+      await payerManagementPage.openDetails(publishedPayer.nameEn);
 
-      const state = await detail.getLinkedNetworkAssignmentState(network);
+      const state = await detail.getLinkedNetworkAssignmentState(networkNameOf(network));
       observed.push(state);
       expect(state, 'a submitted assignment should be marked as pending').toMatch(/pending/i);
     });
@@ -222,7 +229,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
 
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      const state = await detail.getLinkedNetworkAssignmentState(network);
+      const state = await detail.getLinkedNetworkAssignmentState(networkNameOf(network));
       observed.push(state);
       expect(state, 'an approved assignment should no longer read as pending').not.toMatch(
         /pending/i,
@@ -232,15 +239,17 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.step('Submitting a removal moves it to a pending removal, still linked', async () => {
       const detail = payerManagementPage.detail();
       await detail.unassignAllNetworks();
-      const state = await detail.getLinkedNetworkAssignmentState(network);
+      // Staging is only half of a removal: the row reads "Draft Removal" until
+      // the change is sent for approval, which is when it becomes pending.
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
+      await payerManagementPage.openDetails(publishedPayer.nameEn);
+      const state = await detail.getLinkedNetworkAssignmentState(networkNameOf(network));
       observed.push(state);
       expect(state, 'a submitted removal should be marked as pending').toMatch(/pending/i);
-      expect((await detail.getFirstLinkedNetwork()).name, 'and still linked').toBe(network);
+      expect((await detail.getFirstLinkedNetwork()).name, 'and still linked').toBe(networkNameOf(network));
     });
 
     await steps.step('Approving the removal returns it to unassigned', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
       await approvalManagementPage.open();
       await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
       await approvalManagementPage.approve(publishedPayer.nameEn);

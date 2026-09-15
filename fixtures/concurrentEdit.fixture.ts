@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { PayerFormDialog } from '../pages/payer/PayerFormDialog';
+import { PayerInactivateDialog } from '../pages/payer/PayerInactivateDialog';
 import { Logger } from '../utils/Logger';
 
 /**
@@ -46,6 +47,14 @@ export interface StaleSession {
    */
   approvalPage: ApprovalManagementPage;
   /**
+   * The Inactivate drawer in the second tab.
+   *
+   * Added for the impact-analysis story, whose concurrency case has two
+   * administrators inactivate the same payer at once: the second session must
+   * be able to drive its own drawer, not the first tab's.
+   */
+  inactivateDialog: PayerInactivateDialog;
+  /**
    * Opens a payer for edit in the second tab, giving a copy of the record as it
    * stands NOW. Whatever the first session saves afterwards makes this copy
    * stale, which is the precondition every case in this story needs.
@@ -66,6 +75,7 @@ export const test = base.extend<ConcurrentEditFixtures>({
       page,
       payerPage,
       approvalPage: new ApprovalManagementPage(page),
+      inactivateDialog: new PayerInactivateDialog(page),
       async openEditForm(payerName: string): Promise<PayerFormDialog> {
         Logger.step(`[fixture] Second session opening "${payerName}" for edit`);
 

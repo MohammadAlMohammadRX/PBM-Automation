@@ -29,6 +29,17 @@ export interface PayerStateFixtures {
   secondPublishedPayer: PayerData;
   /** A live payer whose status has been moved to Inactive and approved. */
   inactivePayer: PayerData;
+  /**
+   * Publishes a payer built from `overrides` and hands it back live.
+   *
+   * For the cases whose live payer needs PARTICULAR data - a licence full of
+   * special characters for the export, an effective date in the future for the
+   * activation job, an expiry of tomorrow for the expiry job. `publishedPayer`
+   * cannot express any of those, and each spec re-walking create → send →
+   * approve is the duplication this factory removes. Every payer published
+   * through it is purged at teardown.
+   */
+  publishPayer: (overrides?: Partial<PayerData>) => Promise<PayerData>;
 }
 
 async function createDraft(page: PayerManagementPage, data: PayerData): Promise<void> {
@@ -264,5 +275,23 @@ export const test = base.extend<PayerStateFixtures>({
     await use(data);
 
     await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+  },
+
+  publishPayer: async ({ page }, use, testInfo) => {
+    const payerPage = new PayerManagementPage(page);
+    const approvalPage = new ApprovalManagementPage(page);
+    const published: Array<{ code: string; data: PayerData }> = [];
+
+    await use(async (overrides: Partial<PayerData> = {}) => {
+      const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30), ...overrides });
+      Logger.step(`[fixture] Publishing payer "${data.nameEn}"`);
+      const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
+      published.push({ code: code.trim(), data });
+      return data;
+    });
+
+    for (const { code, data } of published) {
+      await purgePayer(payerPage, approvalPage, code || data.nameEn);
+    }
   },
 });

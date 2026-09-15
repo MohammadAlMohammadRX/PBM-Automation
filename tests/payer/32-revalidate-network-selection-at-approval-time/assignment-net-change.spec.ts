@@ -1,5 +1,6 @@
 import { test, expect } from '../../../fixtures';
-import { NO_CHANGE } from '../../../data/networks/networkAssignment.data';
+import type { AssignNetworkDrawer } from '../../../pages/payer/AssignNetworkDrawer';
+import { NO_CHANGE, networkNameOf } from '../../../data/networks/networkAssignment.data';
 
 /**
  * User story: Re-validate Network Selection at Approval Time.
@@ -36,6 +37,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
       const drawer = await detail.openAssignNetwork();
       await drawer.selectNetworks([network]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
 
       await approvalManagementPage.open();
       await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
@@ -45,7 +47,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     await steps.critical('The network is shown as currently assigned', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(network);
+      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
     });
 
     await steps.step('The drawer no longer offers it, so no duplicate can be selected', async () => {
@@ -90,6 +92,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
       const drawer = await detail.openAssignNetwork();
       await drawer.selectNetworks([linkedNetwork]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
 
       await approvalManagementPage.open();
       await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
@@ -118,6 +121,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
 
       await drawer.selectNetworks([newNetwork]);
       await drawer.assign();
+      await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
     });
 
     await steps.step('One request is created, covering the new network only', async () => {
@@ -130,7 +134,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       await detail.expectLinkedNetworkCount(2);
       expect(
-        await detail.getLinkedNetworkAssignmentState(linkedNetwork),
+        await detail.getLinkedNetworkAssignmentState(networkNameOf(linkedNetwork)),
         'the already-linked network should not have been re-processed',
       ).not.toMatch(/pending/i);
     });
@@ -144,6 +148,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     steps,
   }) => {
     let network!: string;
+    let drawer!: AssignNetworkDrawer;
 
     await steps.critical('Navigate to the module and open the assignment screen', async () => {
       network = await assignableNetwork(publishedPayer.nameEn);
@@ -155,13 +160,14 @@ test.describe('Network selection re-validation - Net-change detection', () => {
 
     await steps.step('Selecting and then deselecting a network reverts the selection', async () => {
       const detail = payerManagementPage.detail();
-      const drawer = await detail.openAssignNetwork();
+      drawer = await detail.openAssignNetwork();
       await drawer.selectNetworks([network]);
       expect(await drawer.isSubmitEnabled(), 'a selection enables the submission').toBe(true);
 
-      // Clicking the same option again unpicks it - the control is a
-      // multi-select, so the second click is a toggle rather than a re-pick.
-      await drawer.selectNetworks([network]);
+      // Unpicking is the same option clicked again - the control is a
+      // multi-select - but it is asked for by name, so a pick that is already
+      // in place is cleared rather than quietly left alone.
+      await drawer.deselectNetworks([network]);
       expect(
         await drawer.isSubmitEnabled(),
         'reverting the selection should gate the submission again',
@@ -183,6 +189,11 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     });
 
     await steps.step('No request is created and the payer is unchanged', async () => {
+      // The drawer is still up, and its modal mask swallows clicks meant for
+      // the page behind it - VERIFIED: the Networks tab reported "p-drawer-mask
+      // intercepts pointer events". The message check above needed it open, so
+      // it is dismissed here rather than earlier.
+      await drawer.cancel();
       const detail = payerManagementPage.detail();
       await detail.expectLinkedNetworkCount(0);
       await approvalManagementPage.open();

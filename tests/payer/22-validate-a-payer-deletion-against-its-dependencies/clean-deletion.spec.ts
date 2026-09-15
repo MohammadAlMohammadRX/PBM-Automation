@@ -310,18 +310,14 @@ test.describe('Payer deletion dependencies - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-010: should withhold the delete action from a user without delete rights', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          RESTRICTED_ROLE_REQUIREMENT.reason
-        } Set them to an account holding ${RESTRICTED_ROLE_REQUIREMENT.role}, then re-run this `
-          + 'case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['deletePayer'] });
 
     let payerName!: string;
 

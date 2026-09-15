@@ -55,10 +55,10 @@ test.describe('Inactivation and reactivation effects - Reactivation messaging', 
 
     await steps.step('Confirming closes the dialog and the update is accepted', async () => {
       await payerManagementPage.dialog().confirm('Activate');
-      expect(
-        await payerManagementPage.dialog().isVisible(),
-        'the dialog should close once the change is accepted',
-      ).toBe(false);
+      // waitForHidden, not !isVisible: the negative probe waits out its whole
+      // timeout on a dialog that has already gone, and the success toast read
+      // next lives only a few seconds - VERIFIED it was missed that way.
+      await payerManagementPage.dialog().waitForHidden();
     });
 
     await steps.step('A success message confirms what happened', () =>

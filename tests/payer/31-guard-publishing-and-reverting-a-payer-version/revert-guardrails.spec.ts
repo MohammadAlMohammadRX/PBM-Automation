@@ -288,6 +288,7 @@ test.describe('Revert guardrails', () => {
 /** The reviewer-separation case, which needs a second account. */
 test.describe('Revert guardrails - Segregation of duties', () => {
   test('TC-012: should block a submitter from approving their own version', async ({
+    requireNonAdmin,
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -326,15 +327,9 @@ test.describe('Revert guardrails - Segregation of duties', () => {
     });
 
     await steps.step('A reviewer account is needed to carry the approval', async () => {
-      if (!env.nonAdminUsername || !env.nonAdminPassword) {
-        steps.blocked(
-          `the reviewer half of this case needs a second account. ${
-            REVIEWER_ROLE_REQUIREMENT.reason
-          } Set NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD in .env to ${
-            REVIEWER_ROLE_REQUIREMENT.role
-          }, then re-run this case.`,
-        );
-      }
+      // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+      // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+      requireNonAdmin({ holding: ['approvePayer'] });
       await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
     });
   });

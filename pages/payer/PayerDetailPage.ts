@@ -3,19 +3,34 @@ import { expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { AssignNetworkDrawer } from './AssignNetworkDrawer';
 import { PayerVersionHistoryTab } from './PayerVersionHistoryTab';
+import { PayerAuditHistoryTab } from './PayerAuditHistoryTab';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Timeouts } from '../../constants/Timeouts';
 import {
+  GLOBAL,
   PAYER_AUDIT,
   PAYER_DETAIL_FIELD,
   PAYER_DETAIL_HEADER,
+  PAYER_DETAIL_BANNER,
+  BANNER_ANY,
   PAYER_DETAIL_TAB,
   SCREEN,
   TOAST,
   PAYER_LINKED_NETWORKS,
+  PAYER_LINKED_POLICIES,
   buttonSelector,
 } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
+
+/** One row of the payer's Linked Networks table, every cell as rendered. */
+export interface LinkedNetworkRow {
+  name: string;
+  code: string;
+  /** The Facilities cell exactly as shown - "0", "3", or whatever placeholder appears. */
+  facilities: string;
+  status: string;
+  assignmentState: string;
+}
 
 /**
  * Read-only payer detail view (`/payer-management/{id}`), reached via the "View"
@@ -108,6 +123,59 @@ export class PayerDetailPage extends BasePage {
     ).toBeVisible({ timeout: Timeouts.default });
   }
 
+  /**
+   * The what-to-do-next status banner locator - whichever {state}-hint is present.
+   *
+   * locator-exception: matched by the shared id suffix all the banners carry, because a
+   * single reader must cover draft, pending and rejected without knowing which is showing.
+   * It is still an id-based selector - see BANNER_ANY.
+   */
+  private statusBanner() {
+    return this.page.locator(BANNER_ANY).first();
+  }
+
+  /** Whether any status banner is on the detail screen right now, waiting for it. */
+  async hasStatusBanner(): Promise<boolean> {
+    return this.statusBanner()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /** The banner text, or empty string when no banner is shown. */
+  async getStatusBannerText(): Promise<string> {
+    if (!(await this.hasStatusBanner())) return '';
+    return (await this.statusBanner().innerText()).replace(/\s+/g, ' ').trim();
+  }
+
+  /** The id of the banner that is showing, for mapping it to a state. */
+  async getStatusBannerId(): Promise<string> {
+    if (!(await this.hasStatusBanner())) return '';
+    return (await this.statusBanner().getAttribute('id')) ?? '';
+  }
+
+  /**
+   * The concatenated text of every Overview field, for content checks that do
+   * not depend on a specific id.
+   *
+   * Written for the inactivation-fields story: whether the inactivation Reason,
+   * Details, By and On appear is a question about CONTENT, and the four fields
+   * only exist on an inactive payer, so keying on fixed ids that may be absent
+   * is fragile. Reading the whole Overview text and asserting the entered
+   * reason and details appear is robust to the exact ids.
+   *
+   * locator-exception: scans every element whose id starts with the overview
+   * prefix - an id-anchored query, not a free CSS selector.
+   */
+  async getOverviewText(): Promise<string> {
+    await this.byId(PAYER_DETAIL_HEADER.name).waitFor({ state: 'visible', timeout: Timeouts.default });
+    const texts = await this.page
+      .locator('[id^="payer-detail-overview-"]')
+      .allInnerTexts()
+      .catch(() => [] as string[]);
+    return texts.join(' | ').replace(/\s+/g, ' ').trim();
+  }
+
   /** The payer's display name as shown on the detail header. */
   async getName(): Promise<string> {
     return (await this.byId('payer-detail-name').innerText()).trim();
@@ -127,6 +195,30 @@ export class PayerDetailPage extends BasePage {
 
   // ---- Page actions (projected into the breadcrumb bar) ---------------------
 
+  /**
+   * The management actions the header offers this session, by their action
+   * key - e.g. ["edit", "inactivate", "delete"].
+   *
+   * Read rather than probed one by one, so a role case can report the actual
+   * set a role was given ("Delete is offered to the Payer Admin") instead of
+   * a bare true/false per button.
+   */
+  async getHeaderActionIds(): Promise<string[]> {
+    const prefix = `${SCREEN.payerDetail}-`;
+    const ids = await this.page
+      .locator(`#${GLOBAL.breadcrumbActions} [id^="${prefix}"][id$="-button"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids.map((id) => id.slice(prefix.length).replace(/-button$/, ''));
+  }
+
+  /** The tab labels the detail screen offers, in order. */
+  async getTabLabels(): Promise<string[]> {
+    const labels = await this.page
+      .locator(`#${PAYER_DETAIL_HEADER.tabs} [id^="${PAYER_DETAIL_TAB.prefix}"]`)
+      .allInnerTexts();
+    return labels.map((label) => label.replace(/\s*\(\d+\)\s*$/, '').trim()).filter((label) => label !== '');
+  }
+
   editButton(): Locator {
     return this.btn('payer-detail-edit-button');
   }
@@ -137,6 +229,30 @@ export class PayerDetailPage extends BasePage {
 
   submitForApprovalButton(): Locator {
     return this.btn('payer-detail-submit-for-approval-button');
+  }
+
+  /**
+   * Opens the Send for Approval confirmation from the detail header without
+   * deciding it. The header action is the second route to the same request
+   * as the list row's - the submit story asks that both behave identically.
+   */
+  async openSendForApprovalPrompt(): Promise<ConfirmDialog> {
+    await expect(
+      this.submitForApprovalButton(),
+      'the detail header should offer Send for Approval',
+    ).toBeVisible({ timeout: Timeouts.default });
+    await this.submitForApprovalButton().click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    return dialog;
+  }
+
+  /** Sends the payer for approval from the detail header, confirming the prompt. */
+  async sendForApproval(): Promise<void> {
+    Logger.step('Sending the payer for approval from the detail header');
+    const dialog = await this.openSendForApprovalPrompt();
+    await dialog.confirm('Send for Approval');
+    await this.waitForPageReady();
   }
 
   // ---- Linked Networks ------------------------------------------------------
@@ -157,6 +273,26 @@ export class PayerDetailPage extends BasePage {
    * Switches to the Linked Networks section. The section content mounts lazily,
    * so the click is retried until the Assign Network control is on screen.
    */
+  /**
+   * Waits, best-effort, for the Linked Networks rows to catch up with the
+   * count the tab label advertises ("Linked Networks (N)").
+   *
+   * The tab reads ready as soon as its Assign control shows, but its rows
+   * arrive with a later request - VERIFIED a read 0.4 s after opening found no
+   * rows on a payer whose tab said (1). Never fails on its own: a label the
+   * rows legitimately disagree with (a staged removal, say) just costs the
+   * wait, and the caller's own assertion then reports what was actually there.
+   */
+  private async waitForLinkedNetworkRows(): Promise<void> {
+    const label = (await this.networksTab().innerText().catch(() => '')).trim();
+    const advertised = Number(/\((\d+)\)/.exec(label)?.[1] ?? Number.NaN);
+    if (Number.isNaN(advertised)) return;
+    await expect
+      .poll(() => this.networkRows().count(), { timeout: Timeouts.default })
+      .toBe(advertised)
+      .catch(() => undefined);
+  }
+
   async openLinkedNetworks(): Promise<void> {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await this.networksTab().click();
@@ -413,6 +549,167 @@ export class PayerDetailPage extends BasePage {
       .toBe(expected);
   }
 
+  /**
+   * Every row of the Linked Networks table, each cell as rendered.
+   *
+   * Read in ONE pass over the rows for the reason ListPageBase.getRowPairs
+   * gives: the table re-renders asynchronously, and reading the columns one at
+   * a time can pair a network's name with another row's facility count. The
+   * facility-count story turns on exactly that pairing.
+   */
+  async getLinkedNetworkRows(): Promise<LinkedNetworkRow[]> {
+    await this.openLinkedNetworks();
+    await this.waitForLinkedNetworkRows();
+    return this.networkRows().evaluateAll(
+      (rows, keys) =>
+        rows.map((row) => {
+          const read = (key: string): string => {
+            const cell = row.querySelector(`[id$="-cell-${key}"]`);
+            return cell ? (cell as HTMLElement).innerText.trim() : '';
+          };
+          return {
+            name: read(keys.name),
+            code: read(keys.code),
+            facilities: read(keys.facilities),
+            status: read(keys.status),
+            assignmentState: read(keys.assignmentState),
+          };
+        }),
+      {
+        name: PAYER_LINKED_NETWORKS.nameCell,
+        code: PAYER_LINKED_NETWORKS.codeCell,
+        facilities: PAYER_LINKED_NETWORKS.facilitiesCell,
+        status: PAYER_LINKED_NETWORKS.statusCell,
+        assignmentState: PAYER_LINKED_NETWORKS.assignmentStateCell,
+      },
+    );
+  }
+
+  /**
+   * The column keys the Linked Networks table renders, left to right, read from
+   * the header ids so the same check holds in Arabic.
+   */
+  async getLinkedNetworkColumnKeys(): Promise<string[]> {
+    await this.openLinkedNetworks();
+    const prefix = PAYER_LINKED_NETWORKS.headerPrefix;
+    const ids = await this.page
+      .locator(`th[id^="${prefix}"]`)
+      .evaluateAll((headers) => headers.map((header) => (header as HTMLElement).id));
+    return ids.map((id) => id.slice(prefix.length));
+  }
+
+  /** The maker-checker hint the Linked Networks section shows above its table. */
+  async getLinkedNetworksHintText(): Promise<string> {
+    await this.openLinkedNetworks();
+    return (await this.byId(PAYER_LINKED_NETWORKS.hint).innerText()).replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Stages the removal of ONE linked network via its row's Unassign action.
+   *
+   * The single-row counterpart of `unassignAllNetworks`, for the cases whose
+   * subject is a specific link: what its row reads after staging, and whether a
+   * rejected removal can be re-staged. Only STAGES - the link stays until a
+   * reviewer approves, as the section's own hint says.
+   */
+  async unassignNetwork(networkName: string): Promise<void> {
+    await this.openLinkedNetworks();
+    const row = this.linkedNetworkRow(networkName);
+    await expect(row, `"${networkName}" should be listed among the linked networks`).toBeVisible({
+      timeout: Timeouts.default,
+    });
+    const rowId = await row.getAttribute('id');
+    Logger.step(`Staging removal of "${networkName}"`);
+    await this.page.locator(buttonSelector(`${rowId}-unassign`)).first().click();
+    const confirmNeeded = await this.byId('pbm-dialog')
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (confirmNeeded) await new ConfirmDialog(this.page).confirm();
+    await this.waitForPageReady();
+  }
+
+  /**
+   * The Linked Networks section's own controls - everything it carries outside
+   * its table rows - as id suffixes after the section prefix.
+   *
+   * locator-exception: gathered by the section's id prefix, an id-anchored
+   * query; row ids are filtered out so the answer is about the toolbar.
+   */
+  async getLinkedNetworksControlIds(): Promise<string[]> {
+    await this.openLinkedNetworks();
+    const prefix = 'payer-detail-networks-';
+    const ids = await this.page
+      .locator(`[id^="${prefix}"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return ids
+      .filter((id) => !id.startsWith(PAYER_LINKED_NETWORKS.rowPrefix))
+      .map((id) => id.slice(prefix.length));
+  }
+
+  /** Whether the Linked Networks section offers its own search box. */
+  async hasLinkedNetworksSearch(): Promise<boolean> {
+    await this.openLinkedNetworks();
+    return this.byId(PAYER_LINKED_NETWORKS.searchInput)
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  // ---- Linked Policies ------------------------------------------------------
+
+  private policiesTab(): Locator {
+    return this.page.locator(buttonSelector(PAYER_DETAIL_TAB.policies)).first();
+  }
+
+  /**
+   * Switches to the Linked Policies section.
+   *
+   * Waits for the section's search box rather than for a table: VERIFIED live,
+   * the search box is the only element the section renders for a payer with no
+   * policies, so it is the one signal that the panel has mounted at all.
+   */
+  async openLinkedPolicies(): Promise<void> {
+    const search = this.byId(PAYER_LINKED_POLICIES.searchInput);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await this.policiesTab().click();
+      const ready = await search
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      if (ready) return;
+    }
+    await expect(search, 'the Linked Policies section should mount').toBeVisible({
+      timeout: Timeouts.default,
+    });
+  }
+
+  /**
+   * What the Linked Policies section contains: every id it carries and the
+   * text of the panel under the tab strip.
+   *
+   * Returned rather than asserted because the story's questions are open-ended
+   * - "is there an empty-state message", "is there any add/edit/delete control"
+   * - and a failing case should be able to show exactly what the panel held.
+   *
+   * locator-exception: the ids are gathered by the section's id prefix, and the
+   * panel text is the element following the id'd tab strip - both anchored on
+   * ids, since the panel itself carries none.
+   */
+  async getLinkedPoliciesSection(): Promise<{ ids: string[]; text: string }> {
+    await this.openLinkedPolicies();
+    const ids = await this.page
+      .locator(`[id^="${PAYER_LINKED_POLICIES.prefix}"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    const texts = await this.byId(PAYER_DETAIL_HEADER.tabs)
+      .locator('xpath=following-sibling::*')
+      .allInnerTexts()
+      .catch(() => [] as string[]);
+    const text = texts.join(' | ').replace(/\s+/g, ' ').trim();
+    Logger.step(`Linked Policies section holds ${ids.length} id(s); text: "${text.slice(0, 120)}"`);
+    return { ids, text };
+  }
+
   // ---- Tab strip ------------------------------------------------------------
 
   /**
@@ -449,6 +746,25 @@ export class PayerDetailPage extends BasePage {
   }
 
   // ---- Audit History tab ----------------------------------------------------
+
+  /** The filtered audit timeline, with its filters and entry drawer. */
+  auditHistory(): PayerAuditHistoryTab {
+    return new PayerAuditHistoryTab(this.page);
+  }
+
+  /**
+   * Whether the Overview shows its values as plain text rather than inputs.
+   *
+   * locator-exception: scans the id-anchored overview and contact value
+   * elements for form controls; a read-only view carries none.
+   */
+  async isOverviewReadOnly(): Promise<boolean> {
+    await this.openOverview('Payer Code');
+    const controls = await this.page
+      .locator('[id^="payer-detail-overview-"] input, [id^="payer-detail-overview-"] textarea, [id^="payer-detail-overview-"] select, [id^="payer-detail-contact-"] input, [id^="payer-detail-contact-"] textarea')
+      .count();
+    return controls === 0;
+  }
 
   private auditTab(): Locator {
     return this.page.locator(buttonSelector(PAYER_DETAIL_TAB.audit)).first();

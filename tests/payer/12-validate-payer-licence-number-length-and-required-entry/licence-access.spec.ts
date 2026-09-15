@@ -13,6 +13,7 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Access 
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-016: should keep the licence number read-only when the payer is opened by a limited role', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
@@ -20,13 +21,9 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Access 
     // BLOCKED, not FAIL: without a restricted account the denial this case
     // exists to prove can never be exercised, so nothing would be learned about
     // the application and a failure would be a false statement about it.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, so a limited-role '
-          + 'session cannot be established. This case needs an account that can open a payer '
-          + 'but not edit it.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

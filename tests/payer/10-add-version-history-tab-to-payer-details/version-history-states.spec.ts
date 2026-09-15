@@ -204,6 +204,7 @@ test.describe('Add Version History Tab to Payer Details - Access control', () =>
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-006: should apply role-based access to the Version History tab', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
@@ -214,15 +215,9 @@ test.describe('Add Version History Tab to Payer Details - Access control', () =>
     // by every other case in this story - the tab is reachable and usable - so
     // running it again here would add nothing while making the case look
     // covered.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'the access decision table needs a read-only Payer Manager account and an account '
-          + 'with no Payer Management rights. Neither is configured - NON_ADMIN_USERNAME / '
-          + 'NON_ADMIN_PASSWORD are empty in .env - so the two denial rows cannot be '
-          + 'exercised. The System Administrator row is already covered by the other cases '
-          + 'in this story.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer', 'viewPayerList'] });
 
     await steps.critical('Sign in as a non-administrator', async () => {
       await loginPage.open();

@@ -80,7 +80,17 @@ export abstract class BasePage {
   private async recoverIfSignedOut(relativePath: string, targetUrl: string): Promise<void> {
     // Navigating to the login screen on purpose is not a signed-out state.
     if (relativePath.includes(AppRoutes.login)) return;
-    if (!/\/login\b/.test(this.page.url())) return;
+    // The bounce to /login is CLIENT-SIDE and lands after domcontentloaded, so
+    // the URL read at that instant still names the target route. VERIFIED: an
+    // expired session an hour into a run passed the URL check here, then every
+    // navigation burnt its full budget waiting for a list on the login screen.
+    // Wait for whichever renders first - the authenticated header or the login
+    // form - and only then decide.
+    const landed = await Promise.race([
+      this.byId(GLOBAL.headerTitle).waitFor({ state: 'attached', timeout: Timeouts.navigation }).then(() => 'app'),
+      this.byId(LOGIN.email).waitFor({ state: 'visible', timeout: Timeouts.navigation }).then(() => 'login'),
+    ]).catch(() => 'unknown');
+    if (landed !== 'login' && !/\/login\b/.test(this.page.url())) return;
 
     Logger.warn('Session expired - signing in again and retrying the navigation');
     await this.page.locator(`#${LOGIN.email}`).fill(env.adminUsername);

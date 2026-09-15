@@ -13,6 +13,7 @@ test.describe('View Paginated Payer List with Metrics - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-010: should deny the payer list and its metrics to a non-administrator', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     payerMetrics,
@@ -21,12 +22,9 @@ test.describe('View Paginated Payer List with Metrics - Access control', () => {
     // BLOCKED, not FAIL: without a non-administrator account the denial this
     // case exists to prove can never be exercised. Nothing is learned about the
     // application, so reporting a failure would be a false statement about it.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, so a '
-          + 'non-administrator session cannot be established.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['viewPayerList'] });
 
     await steps.critical('Sign in as a non-administrator', async () => {
       await loginPage.open();

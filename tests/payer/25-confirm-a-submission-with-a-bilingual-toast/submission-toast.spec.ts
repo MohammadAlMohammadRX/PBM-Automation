@@ -114,6 +114,11 @@ test.describe('Bilingual submission toast', () => {
     secondPublishedPayer,
     steps,
   }) => {
+    // Two provisioned payers, two submissions in two languages and two
+    // maker-checker teardowns: VERIFIED every step passed and the case was
+    // still reported failed because the fixture teardown ran past the default
+    // budget.
+    test.slow();
     let secondCode!: string;
 
     await steps.critical('Navigate to the Payer Management module in English', async () => {
@@ -153,6 +158,9 @@ test.describe('Bilingual submission toast', () => {
       // submit.
       await payerManagementPage.editTextFieldAndSave(secondCode, 'License Number', 'LIC-AR-TOAST');
       await payerManagementPage.open();
+      // Searched first: the row action is clicked on the CURRENT page, and the
+      // Arabic list orders differently - VERIFIED the payer sat off page one.
+      await payerManagementPage.search(secondCode);
       await payerManagementPage.sendRowForApproval(secondCode);
       await payerManagementPage.dialog().confirm('Send for Approval');
       await toast.expectText(SUBMISSION_TOAST.ar);

@@ -15,6 +15,7 @@ test.describe('Refine Automatic Status Transitions - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-012: should refuse the expiry-date change when an expired payer is opened by a non-approving role', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
@@ -22,14 +23,9 @@ test.describe('Refine Automatic Status Transitions - Access control', () => {
     // BLOCKED, not FAIL: without a restricted account the refusal this case
     // exists to prove can never be exercised, so nothing would be learned about
     // the application.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          READ_ONLY_REQUIREMENT.reason
-        } Set them to an account holding the "${READ_ONLY_REQUIREMENT.role}" role, then `
-          + 're-run this case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

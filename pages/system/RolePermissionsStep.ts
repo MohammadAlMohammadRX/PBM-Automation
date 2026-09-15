@@ -108,6 +108,22 @@ export class RolePermissionsStep {
   }
 
   /** Whether a permission with exactly this label is listed. */
+  /**
+   * The first of several candidate labels that the catalogue actually shows,
+   * or an empty string when none does.
+   *
+   * For the cases that ask whether a permission EXISTS rather than what it is
+   * called: the bilingual-names story established that most payer permissions
+   * are still displayed under their raw codes, so an existence check has to
+   * accept the intended name or the code.
+   */
+  async resolveLabel(candidates: readonly string[]): Promise<string> {
+    for (const candidate of candidates) {
+      if (await this.hasPermissionLabelled(candidate)) return candidate;
+    }
+    return '';
+  }
+
   async hasPermissionLabelled(label: string): Promise<boolean> {
     const labels = await this.getPermissionLabels();
     return labels.includes(label);

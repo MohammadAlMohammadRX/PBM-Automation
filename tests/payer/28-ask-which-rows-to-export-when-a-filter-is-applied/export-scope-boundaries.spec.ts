@@ -253,19 +253,15 @@ test.describe('Export scope prompt - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-009: should withhold the export control from a user without export rights', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     exportMenu,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          RESTRICTED_ROLE_REQUIREMENT.reason
-        } Set them to an account holding ${RESTRICTED_ROLE_REQUIREMENT.role}, then re-run this `
-          + 'case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['exportPayers'] });
 
     await steps.critical('Open the payer list as the restricted user', async () => {
       await loginPage.open();

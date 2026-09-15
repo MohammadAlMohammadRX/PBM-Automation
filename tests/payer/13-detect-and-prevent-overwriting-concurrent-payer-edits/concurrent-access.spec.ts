@@ -22,18 +22,14 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Cross-rol
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-012: should report the conflict regardless of role when the two sessions belong to different roles', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `a second authorized account is required and none is configured. ${
-          SECOND_ROLE_REQUIREMENT.reason
-        } Set NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD in .env to an account holding the `
-          + `"${SECOND_ROLE_REQUIREMENT.role}" role, then re-run this case.`,
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ holding: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

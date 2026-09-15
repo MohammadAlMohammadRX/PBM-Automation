@@ -14,6 +14,8 @@ import { LanguageSwitcher } from '../pages/components/LanguageSwitcher';
 import { ExportMenu } from '../pages/components/ExportMenu';
 import { Toast } from '../pages/components/Toast';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
+import { SettingsPage } from '../pages/system/SettingsPage';
+import { AuditLogsPage } from '../pages/system/AuditLogsPage';
 
 /**
  * Page-Object fixture registry.
@@ -87,6 +89,15 @@ export interface PageObjectFixtures {
   roleAdministrationPage: RoleAdministrationPage;
 
   /**
+   * System Settings > Settings, which owns the payer lifecycle job's CRON
+   * schedule - the lifecycle-schedule story's whole subject.
+   */
+  settingsPage: SettingsPage;
+
+  /** System Settings > Audit Logs, the system-wide record of every change. */
+  auditLogsPage: AuditLogsPage;
+
+  /**
    * The toast notification.
    *
    * BasePage already offers a contains-match for the common case. This is
@@ -145,6 +156,12 @@ export const test = base.extend<PageObjectFixtures>({
   },
   roleAdministrationPage: async ({ page }, use) => {
     await use(new RoleAdministrationPage(page));
+  },
+  settingsPage: async ({ page }, use) => {
+    await use(new SettingsPage(page));
+  },
+  auditLogsPage: async ({ page }, use) => {
+    await use(new AuditLogsPage(page));
   },
   toast: async ({ page }, use) => {
     await use(new Toast(page));

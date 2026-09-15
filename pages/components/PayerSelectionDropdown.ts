@@ -109,6 +109,51 @@ export class PayerSelectionDropdown {
       .toBe(true);
   }
 
+  /**
+   * Narrows the open dropdown with its filter box.
+   *
+   * VERIFIED: the overlay renders only the first 256 payers of a 900-plus
+   * register, so a payer created moments ago is usually not among the rendered
+   * options at all - "not offered" and "not rendered yet" look identical
+   * without the filter. PrimeNG puts no id on the filter input.
+   *
+   * locator-exception: `.p-select-filter` is PrimeNG's filter input, which
+   * carries no application id; the overlay itself is reached from the id'd
+   * trigger.
+   */
+  private filterInput(): Locator {
+    return this.page.locator('input.p-select-filter').filter({ visible: true }).first(); // locator-exception: PrimeNG filter input, no app id
+  }
+
+  async filterBy(term: string): Promise<void> {
+    await this.open();
+    const input = this.filterInput();
+    await expect(input, 'the payer dropdown should offer a filter box').toBeVisible({ timeout: Timeouts.default });
+    await input.fill(term);
+  }
+
+  /** Asserts a payer is offered once the list is narrowed to its name. */
+  async expectOffersPayerWhenFiltered(payerName: string): Promise<void> {
+    await this.filterBy(payerName);
+    await expect
+      .poll(() => this.offersPayer(payerName), {
+        timeout: Timeouts.default,
+        message: `the ${this.surface} payer dropdown should offer "${payerName}" when filtered to it`,
+      })
+      .toBe(true);
+  }
+
+  /** Asserts a payer is NOT offered even when the list is narrowed to its name. */
+  async expectExcludesPayerWhenFiltered(payerName: string): Promise<void> {
+    await this.filterBy(payerName);
+    await expect
+      .poll(() => this.offersPayer(payerName), {
+        timeout: Timeouts.default,
+        message: `the ${this.surface} payer dropdown should NOT offer "${payerName}" even when filtered to it`,
+      })
+      .toBe(false);
+  }
+
   async expectExcludesPayer(payerName: string): Promise<void> {
     await expect
       .poll(() => this.offersPayer(payerName), {

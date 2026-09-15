@@ -168,6 +168,96 @@ const STORIES = [
     '45-display-color-coded-status-tags-on-payer-list',
     'Display Color-Coded Status Tags on Payer List',
   ],
+  [
+    '46-show-created-modified-metadata-on-payer-overview',
+    'Show Created-Modified Metadata on Payer Overview',
+  ],
+  [
+    '47-restrict-effective-date-to-today-or-later',
+    'Restrict Effective Date to Today or Later',
+  ],
+  [
+    '48-keep-a-rejected-payer-registration-visible-and-editable',
+    'Keep a Rejected Payer Registration Visible and Editable',
+  ],
+  [
+    '49-show-approval-status-across-list-cards-and-payer-details',
+    'Show Approval Status Across List, Cards and Payer Details',
+  ],
+  [
+    '50-help-icon-banners-on-payer-details',
+    'Help Icon (What-To-Do-Next) Banners on Payer Details',
+  ],
+  [
+    '51-show-inactivation-reason-details-by-and-on-while-inactive',
+    'Show Inactivation Reason, Details, By and On While a Payer Is Inactive',
+  ],
+  [
+    '52-preview-impact-before-confirming-inactivation',
+    'Preview Impact Before Confirming Inactivation',
+  ],
+  [
+    '53-capture-and-display-payer-licence-number',
+    'Capture and Display Payer Licence Number',
+  ],
+  ['54-display-read-only-linked-policies-list', 'Display Read-Only Linked Policies List'],
+  ['55-manage-linked-networks-from-payer-details', 'Manage Linked Networks from Payer Details'],
+  [
+    '56-trigger-downstream-impact-analysis-on-status-change',
+    'Trigger Downstream Impact Analysis on Status Change',
+  ],
+  [
+    '57-restrict-payer-visibility-to-a-users-assigned-scope',
+    'Restrict Payer Visibility to a User\'s Assigned Scope',
+  ],
+  [
+    '58-show-draft-assignment-removal-states-and-reserve-networks-being-staged',
+    'Show Draft Assignment/Removal States and Reserve Networks Being Staged',
+  ],
+  [
+    '59-re-check-network-removal-dependency-at-both-staging-and-approval',
+    'Re-check Network Removal Dependency at Both Staging and Approval',
+  ],
+  ['60-show-real-facility-count-per-linked-network', 'Show Real Facility Count per Linked Network'],
+  ['61-stop-payer-validity-in-bre-on-expiry', 'Stop Payer Validity in BRE on Expiry'],
+  [
+    '62-maintain-member-eligibility-until-policy-expiry',
+    'Maintain Member Eligibility Until Policy Expiry',
+  ],
+  ['63-submit-a-payer-draft-for-approval', 'Submit a Payer Draft for Approval'],
+  [
+    '64-cascade-inactivation-to-plans-and-policies-and-restore-on-reactivation',
+    'Cascade Inactivation to Plans and Policies, Restore on Reactivation',
+  ],
+  [
+    '65-revert-a-payer-to-a-previously-published-version',
+    'Revert a Payer to a Previously Published Version',
+  ],
+  [
+    '66-make-the-lifecycle-job-schedule-configurable-and-resilient',
+    'Make the Lifecycle Job Schedule Configurable and Resilient',
+  ],
+  ['67-withdraw-a-payer-change-before-it-is-reviewed', 'Withdraw a Payer Change Before It Is Reviewed'],
+  [
+    '68-add-inactivate-view-details-and-approval-permissions',
+    'Add Inactivate, View Details and Approval Permissions',
+  ],
+  [
+    '69-reconstruct-a-payers-historical-configuration',
+    'Reconstruct a Payer\'s Historical Configuration',
+  ],
+  ['70-export-payer-list-to-csv-and-excel', 'Export Payer List to CSV and Excel'],
+  ['71-display-payer-audit-history-with-filters', 'Display Payer Audit History with Filters'],
+  ['72-display-toast-notification-on-payer-update', 'Display Toast Notification on Payer Update'],
+  ['73-view-comprehensive-payer-details-with-tabs', 'View Comprehensive Payer Details with Tabs'],
+  [
+    '74-automatically-transition-payer-status-to-active',
+    'Automatically Transition Payer Status to Active',
+  ],
+  [
+    '75-automatically-transition-payer-status-to-expired',
+    'Automatically Transition Payer Status to Expired',
+  ],
   ['01-create-new-payer-organization-record', 'Create New Payer Organization Record'],
   ['04-edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
   ['06-delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],
@@ -481,30 +571,6 @@ const storySections = grouped
   })
   .join('');
 
-const attention = grouped
-  .flatMap((g) => g.cases.map((c) => ({ ...c, story: g.name, tag: tagOf(g.name) })))
-  .filter((c) => c.status !== 'PASS')
-  .sort(byAttention);
-
-const attentionCount = attention.length;
-const attentionRows = attention
-  .map(
-    (c) => `<tr class="r r--${c.status.toLowerCase()}${disputed(c) ? ' r--unstable' : ''}">
-      <td class="c-id">${esc(c.tag)}-${esc(c.id)}</td>
-      <td>${esc(c.story)}</td>
-      <td class="c-exp">${esc(c.expected)}</td>
-      <td>${codeify(c.actual)}${
-      disputed(c)
-        ? `<p class="repro">Not reproduced &mdash; the other run recorded this as <b>${esc(
-            c.otherRunStatus,
-          )}</b>.</p>`
-        : ''
-    }</td>
-      <td class="c-st"><span class="badge badge--${c.status.toLowerCase()}">${c.status}</span></td>
-    </tr>`,
-  )
-  .join('');
-
 const summaryRows = grouped
   .map((g) => {
     const c = storyCounts(g);
@@ -667,20 +733,6 @@ const html = `<title>Payer Module Test Results</title>
 ${
   PREPARED && raw.provenance
     ? `<p class="note"><b>How this report was assembled.</b> ${esc(raw.provenance)}</p>`
-    : ''
-}
-
-${
-  attentionRows
-    ? `<section class="story">
-  <h2>Cases needing attention</h2>
-  <p class="story__meta">${attentionCount} of ${CASE_COUNT} cases did not pass &mdash; failures
-  first, then blocked, then skipped. Each also appears in its own user story below.</p>
-  <div class="tw"><table>
-    <thead><tr><th>Case</th><th>User story</th><th>Expected result</th><th>Actual result</th><th>Status</th></tr></thead>
-    <tbody>${attentionRows}</tbody>
-  </table></div>
-</section>`
     : ''
 }
 

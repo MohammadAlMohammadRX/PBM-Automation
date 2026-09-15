@@ -32,6 +32,20 @@ export const AppRoutes = {
    * a payer's inactivation carried its policies with it.
    */
   policyManagement: '/policy-management',
+
+  /**
+   * System Settings > Settings. Owns the three lifecycle job schedules (network,
+   * payer, policy) as CRON expressions in UTC, edited through one drawer -
+   * which is where the payer lifecycle-schedule story lives.
+   */
+  systemSettings: '/system-settings/settings',
+
+  /**
+   * System Settings > Audit Logs - the system-wide log (time, action, entity
+   * type, entity id, actor). Read by the stories that ask whether an action
+   * left an audit record outside the payer's own Audit History tab.
+   */
+  auditLogs: '/system-settings/audit-logs',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

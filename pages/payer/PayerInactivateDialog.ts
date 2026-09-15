@@ -49,6 +49,45 @@ export class PayerInactivateDialog {
   }
 
   /**
+   * Whether the drawer is showing an impact section AT ALL, waiting briefly.
+   *
+   * Distinct from `getImpactSummaryText`, which asserts the preview is there.
+   * VERIFIED: when the preview endpoint fails, the drawer drops the whole
+   * section rather than showing an error in its place - so "is the section
+   * present" is a question with a legitimate "no" that a case has to report.
+   */
+  async hasImpactSection(): Promise<boolean> {
+    await this.waitForOpen();
+    return this.page
+      .locator(`#${PAYER_INACTIVATE_DIALOG.impact}`)
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /**
+   * Whether the drawer is STILL open once a confirm attempt has had time to
+   * land - true only if it never closed within the window.
+   *
+   * `isOpen()` answers instantly and, right after a click, sees a drawer that
+   * is still animating shut - which read as "the confirm was refused" when it
+   * had in fact gone through. This waits for the close and reports honestly.
+   */
+  async remainsOpen(timeout: number = Timeouts.short): Promise<boolean> {
+    return this.title()
+      .waitFor({ state: 'hidden', timeout })
+      .then(() => false)
+      .catch(() => true);
+  }
+
+  /** Whether Confirm can be pressed right now, without waiting for it to change. */
+  async isConfirmEnabled(): Promise<boolean> {
+    return this.confirmButton()
+      .isEnabled({ timeout: Timeouts.short })
+      .catch(() => false);
+  }
+
+  /**
    * The drawer's warning paragraph - the sentence that explains the cascade.
    *
    * Read as text rather than asserted here: the cascade story checks three
@@ -143,6 +182,21 @@ export class PayerInactivateDialog {
   async isOpen(): Promise<boolean> {
     return this.title()
       .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /**
+   * Whether the drawer has gone - the fast direction of `isOpen()`.
+   *
+   * `isOpen()` on a drawer that HAS closed spends its whole short timeout
+   * before answering false, and the success toast a confirm raises lives only
+   * a few seconds: VERIFIED that gap is enough for a case to miss the toast
+   * entirely. A case that confirms and then reads the toast asks this instead.
+   */
+  async isClosed(): Promise<boolean> {
+    return this.title()
+      .waitFor({ state: 'hidden', timeout: Timeouts.default })
       .then(() => true)
       .catch(() => false);
   }

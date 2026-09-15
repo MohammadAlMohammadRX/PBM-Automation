@@ -134,7 +134,11 @@ test.describe('Prevent invalid status transitions', () => {
       // Its own payer, inactivated properly, so the expiry can be cleared on a
       // record nothing else depends on.
       await payerManagementPage.open();
-      await payerManagementPage.inactivateRow(publishedPayer.nameEn);
+      // Found before it is clicked: the row action lands on the CURRENT page,
+      // and a freshly published payer sits well past page one - the click then
+      // reported "element(s) not found" against a list that simply had not been
+      // filtered to it.
+      await payerManagementPage.findAndInactivateRow(publishedPayer.nameEn);
       await payerInactivateDialog.selectReason(PRIMARY_REASON);
       await payerInactivateDialog.confirm();
       await payerManagementPage.open();

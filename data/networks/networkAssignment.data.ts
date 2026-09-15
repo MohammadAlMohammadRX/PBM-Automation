@@ -102,3 +102,27 @@ export const RESTRICTED_ROLE_REQUIREMENT = {
     + 'payer but not change its networks. The shared administrator session holds every '
     + 'permission, so running it as the administrator would assert nothing.',
 } as const;
+
+/**
+ * The network NAME carried inside an Assign-drawer option label.
+ *
+ * The drawer labels each option with three facts - "NET-000018 — Automation
+ * Network mscalp0duyk3 · Active" - while a payer's Linked Networks table
+ * reports the name alone. `assignableNetwork` and `listAvailableNetworks` both
+ * hand back the LABEL, because a case about the pool asks what the pool shows
+ * (folder 55 reads the status straight out of it). So every comparison that
+ * crosses from the drawer to a ROW has to drop the code and the status first;
+ * the ones that stayed in the drawer must not.
+ *
+ * VERIFIED the hard way: the row lookups silently matched nothing and the
+ * equality checks reported a name that differed from the label only by the
+ * parts the table never shows.
+ *
+ * A value that is already a bare name is returned unchanged, so this is safe to
+ * apply to either form.
+ */
+export const networkNameOf = (option: string): string =>
+  option
+    .replace(/^[^—–]*[—–]\s*/, '')
+    .replace(/\s*·[^·]*$/, '')
+    .trim();

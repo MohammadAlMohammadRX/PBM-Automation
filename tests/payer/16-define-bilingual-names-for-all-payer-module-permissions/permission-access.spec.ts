@@ -38,17 +38,15 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
   });
 
   test('TC-012: should hide the approve and reject controls when a reviewer lacking the approval permission opens a pending request', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     approvalManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. `
-          + `${ROLE_REQUIREMENTS.reviewerWithoutApproval.reason}`,
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['approvePayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();
@@ -56,8 +54,11 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
       await payerManagementPage.navigate();
     });
 
+    // openHub, not open: a reviewer without the payer approval permission is
+    // not offered the Payer queue at all (VERIFIED as the Payer Admin), and
+    // open() asserts that queue's table.
     await steps.step('The approvals hub is opened as the reviewer', () =>
-      approvalManagementPage.open());
+      approvalManagementPage.openHub());
 
     await steps.step('The Approve and Reject controls are hidden or disabled', () =>
       approvalManagementPage.expectApprovalActionsDenied());

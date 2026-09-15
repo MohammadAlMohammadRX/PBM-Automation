@@ -12,6 +12,7 @@ test.describe('Edit Existing Payer Configuration Details - Access control', () =
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-006: should deny the Edit action when the user lacks payer-edit permission', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
@@ -19,12 +20,9 @@ test.describe('Edit Existing Payer Configuration Details - Access control', () =
     // BLOCKED, not FAIL: without a non-administrator account the denial this
     // case exists to prove can never be exercised. Nothing is learned about the
     // application, so reporting a failure would be a false statement about it.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, so a '
-          + 'non-administrator session cannot be established.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer'] });
 
     await steps.critical('Sign in as a user without payer-edit permission', async () => {
       await loginPage.open();

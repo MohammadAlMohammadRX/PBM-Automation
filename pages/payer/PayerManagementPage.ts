@@ -102,6 +102,16 @@ export class PayerManagementPage extends ListPageBase {
    *  RBAC test, where a non-admin may be denied the page or its controls. */
   async navigate(): Promise<void> {
     await this.goto(AppRoutes.payerManagement);
+    // The list opens in the user's remembered view. VERIFIED: the Payer Admin's
+    // is Cards, which renders no table rows, so the access cases that read the
+    // list after navigate() saw an empty table. Switched only when the toggle
+    // is offered - a role denied the module altogether has no toggle to click,
+    // and that absence is exactly what those cases then assert.
+    const toggled = await this.btn(GLOBAL.viewToggleTable)
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (toggled) await this.ensureTableView(this.screen);
   }
 
   /**
@@ -1178,7 +1188,21 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   async expectCreateActionDenied(): Promise<void> {
-    await expect(this.addButtonInternal()).toHaveCount(0, { timeout: Timeouts.default });
+    // "Denied" means the module is withheld altogether OR its Add control is.
+    // The toolbar is waited for FIRST: asserting a zero count on a list that
+    // has not rendered yet passes vacuously - VERIFIED the Payer Admin, who IS
+    // offered Add Payer, "passed" this check that way.
+    const onModule = await this.byId(`${this.screen}-toolbar`)
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+    if (!onModule) {
+      await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
+      return;
+    }
+    await expect(this.addButtonInternal(), 'the Add control should be withheld from this role').toHaveCount(0, {
+      timeout: Timeouts.default,
+    });
   }
 
   /**
@@ -1204,8 +1228,21 @@ export class PayerManagementPage extends ListPageBase {
    * Matched on the row-action id rather than a localized `title` attribute.
    */
   async expectEditActionDenied(): Promise<void> {
+    // Rows are waited for first, for the same reason as expectCreateActionDenied:
+    // a zero count on a table that has not rendered its rows yet says nothing.
+    const onModule = await this.table()
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+    if (onModule) {
+      await this.rows()
+        .first()
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .catch(() => undefined);
+    }
     await expect(
       this.page.locator(`[id^="${this.screen}-table-row-"][id$="-edit"]`),
+      'the Edit control should be withheld from this role',
     ).toHaveCount(0, { timeout: Timeouts.default });
   }
 
@@ -1232,6 +1269,24 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /** Sends a draft row for approval and confirms the modal. */
+  /**
+   * Opens the Send for Approval confirmation from the list row WITHOUT
+   * deciding it, and returns the dialog.
+   *
+   * For the cases whose subject is the prompt itself - cancelling it must
+   * raise no request, and two sessions holding it open at once must produce
+   * exactly one. `sendForApproval` below confirms straight through and is the
+   * right call everywhere else.
+   */
+  async openSendForApprovalPrompt(payerName: string): Promise<ConfirmDialog> {
+    await this.search(payerName);
+    await this.waitForRowVisible(payerName);
+    await this.sendRowForApproval(payerName);
+    const dialog = this.confirmDialog();
+    await dialog.waitForVisible();
+    return dialog;
+  }
+
   async sendForApproval(payerName: string): Promise<void> {
     Logger.step(`Sending "${payerName}" for approval`);
     await this.search(payerName);
@@ -1545,9 +1600,11 @@ export class PayerManagementPage extends ListPageBase {
     // The wording is the app's own: asking for a missing payer answers "The
     // supplied payer Id is invalid." - so "invalid" belongs in the pattern.
     // Without it this assertion could not pass even against the right element.
+    // A payer outside the session's SCOPE answers "Unable to load the requested
+    // payer." (VERIFIED as a scoped account) - the same Not Found shape.
     await expect(
       this.byId(TOAST.summary).or(this.byId(TOAST.detail)).first(),
-    ).toContainText(/not found|does not exist|already deleted|no longer|invalid/i, {
+    ).toContainText(/not found|does not exist|already deleted|no longer|invalid|unable to load/i, {
       timeout: Timeouts.default,
     });
   }
@@ -1740,6 +1797,22 @@ export class PayerManagementPage extends ListPageBase {
   /** Edits a single text field on the open payer and saves. */
   async editTextFieldAndSave(payerName: string, label: string, value: string): Promise<void> {
     await this.editSingleFieldAndSave(payerName, label, value, 'text');
+  }
+
+  /**
+   * Stages a single text-field edit and returns the moment Save is clicked,
+   * with the list NOT reloaded.
+   *
+   * For the cases that read the toast the save raises. `editTextFieldAndSave`
+   * asserts a toast itself and then reloads the list, which takes the toast
+   * down before a spec can read its wording or time its dismissal. The caller
+   * reads the toast, then `waitForClosed()` on the returned form.
+   */
+  async saveTextFieldEdit(payerName: string, label: string, value: string): Promise<PayerFormDialog> {
+    const form = await this.openEditForm(payerName);
+    await form.setFieldValue(label, value, 'text');
+    await form.saveFromAnyStep();
+    return form;
   }
 
   /** Edits a single dropdown field on the open payer and saves. */

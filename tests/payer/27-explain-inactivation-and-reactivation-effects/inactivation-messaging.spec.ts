@@ -60,10 +60,13 @@ test.describe('Inactivation and reactivation effects - Inactivation messaging', 
     await steps.step('Confirming closes the dialog and the update is accepted', async () => {
       await payerInactivateDialog.selectReason(INACTIVATION_REASONS[0]);
       await payerInactivateDialog.confirm();
+      // isClosed, not !isOpen: the negative probe waits out its whole timeout
+      // on a drawer that has already gone, and the success toast read next
+      // lives only a few seconds - VERIFIED it was missed that way.
       expect(
-        await payerInactivateDialog.isOpen(),
+        await payerInactivateDialog.isClosed(),
         'the dialog should close once the change is accepted',
-      ).toBe(false);
+      ).toBe(true);
     });
 
     await steps.step('A success message confirms what happened', () =>

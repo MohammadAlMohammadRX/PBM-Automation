@@ -132,17 +132,14 @@ test.describe('Country catalogue - Permission', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-009: should let a payer administrator select a country but not maintain the catalogue', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          CATALOGUE_ROLE_REQUIREMENT.reason
-        } Set them to ${CATALOGUE_ROLE_REQUIREMENT.role}, then re-run this case.`,
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ holding: ['editPayer'], lacking: ['systemSettings'] });
 
     let form!: PayerFormDialog;
 

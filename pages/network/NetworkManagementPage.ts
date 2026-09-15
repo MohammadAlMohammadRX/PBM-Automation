@@ -11,6 +11,15 @@ import { CONSUMING_SCREEN, NETWORK_COLUMN } from '../../constants/ElementIds';
 import { NetworkUtils } from '../../utils/NetworkUtils';
 import { Logger } from '../../utils/Logger';
 
+/** A network the list shows as owned by a payer, with what else its row says. */
+export interface OwnedNetwork {
+  network: string;
+  payer: string;
+  /** The Facilities cell as rendered on the Network list. */
+  facilities: string;
+  status: string;
+}
+
 /**
  * The Networks module (`/network-management`).
  *
@@ -102,6 +111,92 @@ export class NetworkManagementPage extends ListPageBase {
       await this.goToNextPage();
     }
     return null;
+  }
+
+  /**
+   * Networks whose Payer column names an owner, with the facility count and
+   * status the list shows for each, read off up to `maxPages` pages.
+   *
+   * DISCOVERY, not provisioning. The facility-count and network-removal stories
+   * need "a payer with a linked network", and the list's Payer column is the
+   * one place that relationship is visible from the network side. Read in one
+   * pass per page - see ListPageBase.getRowPairs for why separate column reads
+   * can pair a network with another row's payer. Stops at the first page that
+   * brings the total to `minimum`, so a caller wanting one candidate does not
+   * walk all thirteen pages.
+   */
+  async findOwnedNetworks(minimum = 1, maxPages = 13): Promise<OwnedNetwork[]> {
+    await this.openList();
+    const found: OwnedNetwork[] = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      const rows = await this.readOwnershipOnPage();
+      // The list renders "no payer" as a dash; anything else is an owner.
+      found.push(...rows.filter((row) => row.payer !== '' && !/^[-—–]$/.test(row.payer)));
+      if (found.length >= minimum) break;
+      if (!(await this.hasNextPage())) break;
+      await this.goToNextPage();
+    }
+    Logger.step(
+      `Owned networks found: ${found.length}`
+      + (found.length > 0 ? ` (first: "${found[0].network}" -> "${found[0].payer}")` : ''),
+    );
+    return found;
+  }
+
+  /**
+   * Every network the list shows this session, owned or not, read off up to
+   * `maxPages` pages - the scope story's view of the network side.
+   *
+   * Unlike `findOwnedNetworks` this keeps the unowned rows (Payer "—"): a scoped
+   * user is meant to see unassigned networks alongside their own payers', and
+   * NOT the networks of payers outside their scope, so the caller needs both
+   * halves of the column.
+   */
+  async listNetworkOwnership(maxPages = 13): Promise<OwnedNetwork[]> {
+    await this.openList();
+    const seen: OwnedNetwork[] = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      seen.push(...(await this.readOwnershipOnPage()));
+      if (!(await this.hasNextPage())) break;
+      // The pager re-renders as a page finishes loading, and VERIFIED its Next
+      // control can read enabled a moment before it is replaced by a disabled
+      // one - so a click that finds it disabled ends the walk rather than
+      // waiting out its budget and failing the read.
+      const moved = await this.nextPageButton()
+        .click({ timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      if (!moved) break;
+      await this.waitForPageReady();
+    }
+    Logger.step(`Networks listed for this session: ${seen.length}`);
+    return seen;
+  }
+
+  /** One page of the list as network/payer/facilities/status, read in a single pass. */
+  private async readOwnershipOnPage(): Promise<OwnedNetwork[]> {
+    await this.expectRowsRendered();
+    return this.rows().evaluateAll(
+      (elements, keys) =>
+        elements.map((row) => {
+          const read = (key: string): string => {
+            const cell = row.querySelector(`[id$="-cell-${key}"]`);
+            return cell ? (cell as HTMLElement).innerText.trim() : '';
+          };
+          return {
+            network: read(keys.name),
+            payer: read(keys.payer),
+            facilities: read(keys.facilities),
+            status: read(keys.status),
+          };
+        }),
+      {
+        name: NETWORK_COLUMN.networkName,
+        payer: NETWORK_COLUMN.payer,
+        facilities: NETWORK_COLUMN.facilities,
+        status: NETWORK_COLUMN.status,
+      },
+    );
   }
 
   /** The network id behind a row, read from the row's own element id. */

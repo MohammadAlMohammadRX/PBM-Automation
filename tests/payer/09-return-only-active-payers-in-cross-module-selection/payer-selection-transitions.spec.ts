@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { nonAdminBlockReason } from '../../../data/accounts/nonAdminAccount.data';
 import { ELIGIBLE_STATUS } from '../../../data/payers/payerSelection.data';
 
 /**
@@ -173,9 +174,9 @@ test.describe('Cross-Module Payer Selection - Status transitions', () => {
     // can still use the dropdown, and running it as an admin would assert
     // nothing while reporting a pass - the most misleading outcome available.
     steps.blocked(
-      'this case needs a user with access to a consuming module but no Payer Management '
-        + 'rights. NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, and '
-        + 'running it as the administrator would prove nothing about the restricted role.',
+      `this case needs a user with access to a consuming module but no Payer Management rights. ${
+        nonAdminBlockReason({ lacking: ['viewPayerList'] })
+      } Running it as the administrator would prove nothing about the restricted role.`,
     );
   });
 });

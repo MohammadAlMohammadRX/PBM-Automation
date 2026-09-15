@@ -6,6 +6,7 @@ import { AppRoutes } from '../../constants/AppRoutes';
 import { Timeouts } from '../../constants/Timeouts';
 import {
   APPROVALS_COLUMN,
+  APPROVALS_HUB,
   SCREEN,
   buttonSelector,
   type ApprovalsRowAction,
@@ -95,8 +96,29 @@ export class ApprovalManagementPage extends BasePage {
    */
   async openTab(scope: ApprovalScope): Promise<void> {
     Logger.step(`Opening the ${scope} approvals tab`);
-    await this.btn(`approvals-hub-tab-${scope}`).click();
+    await this.btn(`${APPROVALS_HUB.tabPrefix}${scope}`).click();
     await expect(this.byId(APPROVAL_SCREEN[scope])).toBeVisible({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Opens the hub without assuming which tab it lands on - for a session that
+   * may not be offered the payer queue at all. `open()` asserts the payer
+   * table, which for such a session would report the refusal as a page fault.
+   */
+  async openHub(): Promise<void> {
+    Logger.step('Opening the approvals hub');
+    await this.goto(AppRoutes.approvalManagement);
+    await expect(this.byId(APPROVALS_HUB.tabs), 'the approvals hub should render').toBeVisible({
+      timeout: Timeouts.default,
+    });
+  }
+
+  /** The module tabs the hub offers this session, by id suffix, e.g. ["payer", "network"]. */
+  async getOfferedTabs(): Promise<string[]> {
+    const ids = await this.page
+      .locator(`[id^="${APPROVALS_HUB.tabPrefix}"]`)
+      .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
+    return Array.from(new Set(ids.map((id) => id.slice(APPROVALS_HUB.tabPrefix.length).split('-')[0])));
   }
 
   private searchInput(): Locator {

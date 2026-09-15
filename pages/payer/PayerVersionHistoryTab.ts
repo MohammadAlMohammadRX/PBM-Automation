@@ -12,6 +12,7 @@ import {
   type PayerVersionColumnKey,
 } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   PUBLISHED_STATUSES,
   REQUIRED_VERSION_FIELDS,
@@ -449,6 +450,34 @@ export class PayerVersionHistoryTab {
   }
 
 
+
+  /**
+   * Opens the Revert confirmation for a superseded version WITHOUT deciding it.
+   *
+   * VERIFIED live: every superseded row offers `-revert`; the current version
+   * does not. The dialog says the version will be SUBMITTED for approval, and
+   * the payer is reverted only once a reviewer approves - maker-checker, like
+   * every other change. Returned undecided so the cases that read or cancel
+   * the prompt can do so.
+   */
+  async openRevert(versionLabel: string): Promise<ConfirmDialog> {
+    const id = await this.rowId(versionLabel);
+    const button = this.page.locator(buttonSelector(`${id}-revert`)).first();
+    await expect(button, `${versionLabel} should offer a Revert action`).toBeVisible({
+      timeout: Timeouts.default,
+    });
+    await button.click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    return dialog;
+  }
+
+  /** Requests a revert to `versionLabel` and confirms the prompt. */
+  async revertTo(versionLabel: string): Promise<void> {
+    Logger.step(`Requesting a revert to ${versionLabel}`);
+    const dialog = await this.openRevert(versionLabel);
+    await dialog.confirm('Revert');
+  }
 
   /** Opens a version entry's detail drawer via its View action. */
   async openEntry(versionLabel: string): Promise<void> {

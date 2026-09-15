@@ -246,18 +246,14 @@ test.describe('Status tag colours - Roles', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-005: should band statuses identically for every role that can read the list', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. The case exists '
-        + 'to prove the colour bands are a property of the status and not of the viewer, which '
-        + 'needs a second role: read as the administrator alone it would compare a result with '
-        + 'itself. Set them to any account with Payer Management read access, then re-run.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ holding: ['viewPayerList'] });
 
     await steps.critical('Sign in as the second role and open the payer list', async () => {
       await loginPage.open();

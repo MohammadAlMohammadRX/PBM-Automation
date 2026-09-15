@@ -14,19 +14,16 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Access con
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-009: should deny the payer list and its statuses when the module is opened by an unauthorized role', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
     // BLOCKED, not FAIL: without a restricted account the denial this case
     // exists to prove can never be exercised.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        'NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env, so an '
-          + 'unauthorized session cannot be established. This case needs an account holding '
-          + 'none of the payer permissions.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['viewPayerList'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

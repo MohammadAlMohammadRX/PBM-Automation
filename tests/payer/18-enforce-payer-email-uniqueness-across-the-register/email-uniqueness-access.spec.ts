@@ -16,6 +16,7 @@ test.describe('Enforce Payer Email Uniqueness - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-009: should withhold the create and edit controls when the module is opened by a restricted role', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
@@ -23,14 +24,9 @@ test.describe('Enforce Payer Email Uniqueness - Access control', () => {
     // BLOCKED, not FAIL: without a restricted account the withholding this case
     // exists to prove can never be exercised, so nothing would be learned about
     // the application.
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          RESTRICTED_ROLE_REQUIREMENT.reason
-        } Set them to an account holding the "${RESTRICTED_ROLE_REQUIREMENT.role}" role, then `
-          + 're-run this case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

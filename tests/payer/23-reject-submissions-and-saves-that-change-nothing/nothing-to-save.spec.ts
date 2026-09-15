@@ -348,18 +348,14 @@ test.describe('Nothing to submit - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-007: should refuse the submission for a user without submission rights', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          RESTRICTED_ROLE_REQUIREMENT.reason
-        } Set them to an account holding ${RESTRICTED_ROLE_REQUIREMENT.role}, then re-run this `
-          + 'case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['sendForApproval'] });
 
     let payerName!: string;
 

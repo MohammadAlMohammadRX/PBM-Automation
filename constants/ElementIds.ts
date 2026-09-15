@@ -349,6 +349,7 @@ export const PAYER_DETAIL_FIELD: Record<string, string> = {
 };
 
 export const PAYER_DETAIL_TAB = {
+  prefix: 'payer-detail-tab-',
   overview: 'payer-detail-tab-overview',
   networks: 'payer-detail-tab-networks',
   policies: 'payer-detail-tab-policies',
@@ -586,10 +587,49 @@ export const PAYER_AUDIT = {
   dateRangeInput: 'payer-detail-audit-date-range-input',
   timeline: 'payer-detail-audit-timeline',
   rowPrefix: 'payer-detail-audit-row-',
+  /** Each entry's only action: `{rowPrefix}{id}-view-details`. */
+  viewDetailsSuffix: 'view-details',
   detailDrawer: 'payer-detail-audit-detail-drawer',
+  /**
+   * The entry drawer - VERIFIED live. Its diff table lists one row per changed
+   * field: `{detailRowPrefix}{fieldkey}-field|-before|-after`.
+   */
+  detailDrawerTitle: 'payer-detail-audit-detail-drawer-title',
+  detailDrawerClose: 'payer-detail-audit-detail-drawer-close',
+  detailSummary: 'payer-detail-audit-detail-drawer-summary',
+  detailActionChip: 'payer-detail-audit-detail-drawer-action-chip',
+  detailEntityType: 'payer-detail-audit-detail-drawer-entity-type',
+  detailEntityId: 'payer-detail-audit-detail-drawer-entity-id',
+  detailMeta: 'payer-detail-audit-detail-drawer-meta',
+  detailDiffTable: 'payer-detail-audit-detail-drawer-diff-table',
+  detailRowPrefix: 'payer-detail-audit-detail-drawer-row-',
+  /**
+   * The date-range picker's day cells carry `data-date="YYYY-M-D"` with a
+   * ZERO-BASED month (PrimeNG). Typing into the input applies nothing; a range
+   * is chosen by clicking two day cells, which fires the trail request with
+   * `fromUtc`/`toUtc`.
+   */
+  calendarDayAttribute: 'data-date',
 } as const;
 
 /** Detail-header elements beyond PAYER_DETAIL_FIELD's label-to-id value map. */
+/**
+ * The what-to-do-next status banners on the payer detail (view) screen.
+ *
+ * VERIFIED live: a draft payer shows #payer-detail-draft-hint reading "This payer is a
+ * draft. It is not live yet ...", and a pending payer shows #payer-detail-pending-hint.
+ * The rejected banner follows the same {state}-hint convention. Any of them can be found
+ * by the shared suffix, which BANNER_ANY matches.
+ */
+export const PAYER_DETAIL_BANNER = {
+  draft: 'payer-detail-draft-hint',
+  pending: 'payer-detail-pending-hint',
+  rejected: 'payer-detail-rejected-hint',
+} as const;
+
+/** Matches whichever status-hint banner is on the detail screen. */
+export const BANNER_ANY = '[id^="payer-detail-"][id$="-hint"]';
+
 export const PAYER_DETAIL_HEADER = {
   name: 'payer-detail-name',
   nameAr: 'payer-detail-overview-payer-name-ar',
@@ -708,10 +748,96 @@ export const NETWORK_COLUMN = {
  */
 export const PAYER_LINKED_NETWORKS = {
   rowPrefix: 'payer-detail-networks-table-row-',
+  /** Column headers: `payer-detail-networks-table-th-{cellKey}`. */
+  headerPrefix: 'payer-detail-networks-table-th-',
   nameCell: 'networkname',
   codeCell: 'networkcode',
+  /**
+   * The Facilities column - VERIFIED live: the cell key is `networkfacilities`
+   * and a network with nothing attached renders "0", not the dash the payer
+   * list uses for a zero count.
+   */
+  facilitiesCell: 'networkfacilities',
   statusCell: 'status',
   assignmentStateCell: 'assignmentstate',
+  /** The section's own search box and its maker-checker hint line. */
+  searchInput: 'payer-detail-networks-search-input',
+  hint: 'payer-detail-networks-hint',
+} as const;
+
+/**
+ * The payer detail screen's Linked Policies section.
+ *
+ * VERIFIED live on a payer with no policies: activating the tab renders this
+ * search bar and an un-id'd empty-state sentence ("No policies are linked to
+ * this payer yet."), no table, and fires no request. Every id the section
+ * carries starts with `prefix`, which is how a reader can say what the section
+ * contains without knowing the ids a policy table would carry if one rendered.
+ */
+export const PAYER_LINKED_POLICIES = {
+  prefix: 'payer-detail-policies',
+  searchInput: 'payer-detail-policies-search-input',
+  filterButton: 'payer-detail-policies-search-filter-button',
+} as const;
+
+// ---------------------------------------------------------------------------
+// System Settings > Settings > General
+// ---------------------------------------------------------------------------
+
+/**
+ * The General settings card and its edit drawer.
+ *
+ * VERIFIED live. The read view carries only the Edit button as an id - its
+ * values are plain text - so a reader takes values from the drawer's inputs.
+ * The three lifecycle job schedules are single CRON expressions in UTC, one
+ * input each; the drawer performs NO client-side validation (an invalid or
+ * empty CRON leaves Save enabled and shows nothing), the server refuses on
+ * save with 422 and a toast. Save and Cancel are `<p-button>` wrappers whose
+ * inner button carries no id - clicking the wrapper reaches it.
+ */
+export const SETTINGS_GENERAL = {
+  tabs: 'settings-hub-tabs',
+  generalTab: 'settings-hub-tab-general',
+  editButton: 'settings-general-edit-button',
+  drawer: 'settings-general-drawer',
+  drawerTitle: 'settings-general-drawer-title',
+  drawerClose: 'settings-general-drawer-close',
+  saveButton: 'settings-general-drawer-save-button',
+  cancelButton: 'settings-general-drawer-cancel-button',
+  siteTimezoneSelect: 'settings-general-site-timezone-select',
+  siteTitleInput: 'settings-general-site-title-input',
+  jobs: {
+    network: 'settings-general-jobs-networklifecyclecron-input',
+    payer: 'settings-general-jobs-payerlifecyclecron-input',
+    policy: 'settings-general-jobs-policylifecyclecron-input',
+  },
+} as const;
+
+export type LifecycleJob = keyof typeof SETTINGS_GENERAL.jobs;
+
+// ---------------------------------------------------------------------------
+// System Settings > Audit Logs
+// ---------------------------------------------------------------------------
+
+/**
+ * The system-wide audit log: a list in the SAME shared shape as every other
+ * list (`audit-log-list-table-row-{id}-cell-{key}`), so ListPageBase drives it.
+ * Its System Log tab lists every entity change - PayerVersion rows appear for
+ * payer edits and approvals.
+ */
+export const AUDIT_LOG = {
+  screen: 'audit-log-list',
+  tabs: 'audit-logs-hub-tabs',
+  systemLogTab: 'audit-logs-hub-tab-system-log',
+} as const;
+
+/** The audit log's columns, as its cell ids carry them. */
+export const AUDIT_LOG_COLUMN = {
+  occurredAt: 'occurredatutc',
+  actionType: 'actiontype',
+  entityType: 'entitytype',
+  entityId: 'entityid',
+  actor: 'actor',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -779,6 +905,17 @@ export const PAYER_INACTIVATE_DIALOG = {
  * lookup, so this can never drift onto another table's pager.
  */
 export const PAGER_ACTIVE_CLASS = 'is-active';
+
+/**
+ * The approvals hub's tab strip. Which module tabs it carries depends on the
+ * session's permissions - VERIFIED a Payer Admin gets Network, Policy,
+ * Formulary and Registrations but no Payer tab - so the strip is read, not
+ * assumed, by the permission cases.
+ */
+export const APPROVALS_HUB = {
+  tabs: 'approvals-hub-tabs',
+  tabPrefix: 'approvals-hub-tab-',
+} as const;
 
 // ---------------------------------------------------------------------------
 // List export

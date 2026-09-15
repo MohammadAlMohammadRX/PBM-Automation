@@ -19,6 +19,11 @@
 export const ApiEndpoints = {
   /** The payer list itself (POST, paged + filtered). */
   payerList: '/api/Payers/GetPayers',
+  /**
+   * One payer's record (POST, `{ payerId }`). VERIFIED: answers 404 for a payer
+   * outside the caller's scope - the scope story's Not-Found-not-Forbidden check.
+   */
+  payerDetail: '/api/Payers/GetPayer',
 
   /**
    * The five dashboard metric counts (POST). Returns
@@ -112,6 +117,42 @@ export const ApiEndpoints = {
    * only the response tells them apart.
    */
   payerCreate: '/api/Payers/CreatePayer',
+
+  /**
+   * The Inactivate drawer's impact preview (POST), fired when the drawer opens.
+   *
+   * Named so the impact-analysis story can fail it on its own. VERIFIED: when
+   * this call fails the drawer drops its impact section entirely - no message,
+   * no gate on Confirm - which is what the "service unavailable" case reports.
+   */
+  payerImpactPreview: '/api/Payers/GetPayerImpactPreview',
+
+  /**
+   * The Assign Network drawer's pool of assignable networks (POST), fired when
+   * the drawer opens. The list it returns is what the eligibility cases read.
+   */
+  payerAssignableNetworks: '/api/Payers/GetAssignableNetworks',
+
+  /**
+   * Saving System Settings > General (PUT), the lifecycle CRONs included.
+   *
+   * VERIFIED: an invalid CRON is refused HERE, server-side, with 422 "Form
+   * Validation Failure" and a toast "Invalid CRON expression." - the drawer
+   * itself validates nothing. So the schedule story reads this response to
+   * tell a refused save from an accepted one.
+   */
+  systemSettingsUpsert: '/api/SystemSettings/UpsertSystemSettings',
+
+  /**
+   * Reverting a payer to an earlier version (POST), fired by the Version
+   * History row's Revert confirmation.
+   *
+   * VERIFIED: answers 200 "The revert has been saved as a draft. Send it for
+   * approval when you are ready." - the revert is STAGED as a new draft
+   * version ("vN · Reverted from vM", change type Revert) and still has to be
+   * sent for approval, although the prompt says it "will submit" the version.
+   */
+  payerRevert: '/api/Payers/RevertPayer',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

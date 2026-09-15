@@ -202,6 +202,24 @@ export class ExportMenu {
    * more than the CSV already tells us. The Excel option is still asserted as
    * being OFFERED.
    */
+  /**
+   * Exports in either format and returns the file's name and bytes.
+   *
+   * For the cases about the FILE rather than its rows: the naming convention,
+   * and whether an Excel export is a real workbook (a zip beginning "PK") or a
+   * corrupt or empty download.
+   */
+  async exportAndReadBytes(
+    scope: ExportScope,
+    format: 'csv' | 'excel',
+  ): Promise<{ filename: string; bytes: Buffer }> {
+    const download = await this.exportAndDownload(scope, format);
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    return { filename: download.suggestedFilename(), bytes: Buffer.concat(chunks) };
+  }
+
   async exportCsv(scope: ExportScope = 'all'): Promise<ParsedCsv> {
     const download = await this.exportAndDownload(scope, 'csv');
     const stream = await download.createReadStream();

@@ -4,6 +4,23 @@
  * so tests never guess dropdown text.
  */
 
+/**
+ * A sheet case that cannot be exercised in this environment.
+ *
+ * The environment-blocked stories list these in their data files and generate
+ * one BLOCKED test per entry, so every sheet case still appears in the report
+ * with the exact resource it is waiting for - and becomes a real test in place
+ * when that resource arrives, without a renumbering.
+ */
+export interface BlockedCase {
+  /** The renumbered id within the story, e.g. "004". */
+  id: string;
+  /** The test title after the id - "should <behaviour> when <condition>". */
+  title: string;
+  /** What is missing, and what would make the case runnable. */
+  reason: string;
+}
+
 /** Payer Type options (Step 1). */
 export const PAYER_TYPES = ['Government', 'Private'] as const;
 export type PayerType = (typeof PAYER_TYPES)[number];

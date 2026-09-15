@@ -84,18 +84,14 @@ test.describe('Withdraw a pending approval - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('TC-011: should withhold edit and delete on a pending payer from an unauthorized user', async ({
+    requireNonAdmin,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    if (!env.nonAdminUsername || !env.nonAdminPassword) {
-      steps.blocked(
-        `NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD are not configured in .env. ${
-          RESTRICTED_ROLE_REQUIREMENT.reason
-        } Set them to an account holding ${RESTRICTED_ROLE_REQUIREMENT.role}, then re-run this `
-          + 'case.',
-      );
-    }
+    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
+    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
+    requireNonAdmin({ lacking: ['editPayer'] });
 
     let payerName!: string;
 
