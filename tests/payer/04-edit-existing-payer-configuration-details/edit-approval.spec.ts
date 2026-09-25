@@ -21,7 +21,8 @@ import {
  * describe the same root cause.
  */
 test.describe('Edit Existing Payer Configuration Details - Edit approval', () => {
-  test('TC-013: should update the live payer and stamp the modification when the edit is approved', async ({
+  // Azure test case 14364
+  test('14364: should update the live payer and stamp the modification when the edit is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -74,7 +75,8 @@ test.describe('Edit Existing Payer Configuration Details - Edit approval', () =>
     });
   });
 
-  test('TC-014: should leave the live payer unchanged and return the draft when the edit is rejected', async ({
+  // Azure test case 14366
+  test('14366: should leave the live payer unchanged and return the draft when the edit is rejected', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -131,7 +133,8 @@ test.describe('Edit Existing Payer Configuration Details - Edit approval', () =>
       approvalManagementPage.expectNotInQueue(publishedPayer.nameEn));
   });
 
-  test('TC-015: should prevent the submitting maker from approving their own payer edit', async ({
+  // Azure test case 14371
+  test('14371: should prevent the submitting maker from approving their own payer edit', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

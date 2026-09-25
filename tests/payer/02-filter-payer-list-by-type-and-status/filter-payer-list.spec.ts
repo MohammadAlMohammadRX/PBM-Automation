@@ -18,7 +18,8 @@ import {
  * next one report.
  */
 test.describe('Filter Payer List by Type and Status - Single criterion', () => {
-  test('TC-001: should list only private payers when the Payer Type filter is set to Private', async ({
+  // Azure test case 14395
+  test('14395: should list only private payers when the Payer Type filter is set to Private', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -31,7 +32,8 @@ test.describe('Filter Payer List by Type and Status - Single criterion', () => {
       payerManagementPage.expectAllRowsOfType('Private'));
   });
 
-  test('TC-002: should list only government payers when the Payer Type filter is set to Government', async ({
+  // Azure test case 14394
+  test('14394: should list only government payers when the Payer Type filter is set to Government', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -44,7 +46,8 @@ test.describe('Filter Payer List by Type and Status - Single criterion', () => {
       payerManagementPage.expectAllRowsOfType('Government'));
   });
 
-  test('TC-003: should list only active payers when the Status filter is set to Active', async ({
+  // Azure test case 14393
+  test('14393: should list only active payers when the Status filter is set to Active', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -61,7 +64,10 @@ test.describe('Filter Payer List by Type and Status - Single criterion', () => {
   // TC-006: the first and last selectable status must filter correctly - proving
   // there is no off-by-one error in the dropdown selection.
   for (const boundary of STATUS_BOUNDARY_CASES) {
-    test(`TC-006: should filter to only ${boundary.status} payers when the ${boundary.position} Status option is selected`, async ({
+    // Azure test case 14396
+    // Azure test cases - one per generated case:
+    //   TC-006 = 14396
+    test(`14396: should filter to only ${boundary.status} payers when the ${boundary.position} Status option is selected`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -85,7 +91,10 @@ test.describe('Filter Payer List by Type and Status - Single criterion', () => {
 test.describe('Filter Payer List by Type and Status - Cumulative filtering', () => {
   // TC-004: one iteration per decision-table combination.
   for (const combination of FILTER_COMBINATIONS) {
-    test(`TC-004: should list only payers matching both criteria when Payer Type is ${combination.type} and Status is ${combination.status}`, async ({
+    // Azure test case 14392
+    // Azure test cases - one per generated case:
+    //   TC-004 = 14392
+    test(`14392: should list only payers matching both criteria when Payer Type is ${combination.type} and Status is ${combination.status}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -121,7 +130,8 @@ test.describe('Filter Payer List by Type and Status - Cumulative filtering', () 
    * meant to prove. The Type column IS asserted, because the type filter is
    * unaffected.
    */
-  test('TC-008: should narrow the list to active government payers and restore the full list when the filters are cleared', async ({
+  // Azure test case 14398
+  test('14398: should narrow the list to active government payers and restore the full list when the filters are cleared', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -160,7 +170,8 @@ test.describe('Filter Payer List by Type and Status - Cumulative filtering', () 
  * Resetting filters, moving between filter states, and rapid toggling.
  */
 test.describe('Filter Payer List by Type and Status - Reset & transitions', () => {
-  test('TC-005: should restore the full unfiltered list when both filters are set back to All', async ({
+  // Azure test case 14397
+  test('14397: should restore the full unfiltered list when both filters are set back to All', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -188,7 +199,8 @@ test.describe('Filter Payer List by Type and Status - Reset & transitions', () =
       payerManagementPage.expectMixedPayerTypes());
   });
 
-  test('TC-007: should update the list at every step when the Payer Type filter changes in sequence', async ({
+  // Azure test case 14399
+  test('14399: should update the list at every step when the Payer Type filter changes in sequence', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -225,7 +237,8 @@ test.describe('Filter Payer List by Type and Status - Reset & transitions', () =
       payerManagementPage.expectMixedPayerTypes());
   });
 
-  test('TC-012: should show only the last selected filter combination after rapid successive changes', async ({
+  // Azure test case 14403
+  test('14403: should show only the last selected filter combination after rapid successive changes', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -272,7 +285,8 @@ test.describe('Filter Payer List by Type and Status - Empty state & URL handling
    * No `steps` fixture here: a fixme test never executes, so there is nothing to
    * record. It is reported SKIPPED with this reason.
    */
-  test('TC-009: should show a no-results empty state when the filter combination matches no payers', async ({
+  // Azure test case 14400
+  test('14400: should show a no-results empty state when the filter combination matches no payers', async ({
     payerManagementPage,
   }) => {
     // The in-body form of fixme, because it is the only one that carries a
@@ -298,7 +312,8 @@ test.describe('Filter Payer List by Type and Status - Empty state & URL handling
     await payerManagementPage.expectEmptyState();
   });
 
-  test('TC-013: should ignore unsupported filter values supplied through the URL without breaking the page', async ({
+  // Azure test case 14404
+  test('14404: should ignore unsupported filter values supplied through the URL without breaking the page', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -314,7 +329,8 @@ test.describe('Filter Payer List by Type and Status - Empty state & URL handling
       payerManagementPage.expectMixedPayerTypes());
   });
 
-  test('TC-014: should update the result count, recalculate pagination and reset to page one when a filter is applied', async ({
+  // Azure test case 14405
+  test('14405: should update the result count, recalculate pagination and reset to page one when a filter is applied', async ({
     payerManagementPage,
     steps,
   }) => {

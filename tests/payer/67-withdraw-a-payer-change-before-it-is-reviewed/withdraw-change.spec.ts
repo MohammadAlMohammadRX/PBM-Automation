@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import { APPROVAL_STATE, WITHDRAWAL_WARNING } from '../../../data/payers/withdrawApproval.data';
 import { UNMODIFIED_INDICATORS } from '../../../data/payers/overviewMetadata.data';
@@ -43,7 +44,8 @@ async function withdrawViaEdit(payerManagementPage: PayerManagementPage, name: s
 }
 
 test.describe('Withdraw a pending payer change', () => {
-  test('TC-001: should withdraw the maker\'s own pending request and return the payer to draft', async ({
+  // Azure test case 15712
+  test('15712: should withdraw the maker\'s own pending request and return the payer to draft', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -65,7 +67,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-002: should record no reviewer decision on a withdrawn request', async ({
+  // Azure test case 15713
+  test('15713: should record no reviewer decision on a withdrawn request', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -88,7 +91,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-003: should remove the withdrawn request from the reviewer\'s queue', async ({
+  // Azure test case 15714
+  test('15714: should remove the withdrawn request from the reviewer\'s queue', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -109,7 +113,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-004: should exclude the withdrawn request from the pending count', async ({
+  // Azure test case 15715
+  test('15715: should exclude the withdrawn request from the pending count', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -131,7 +136,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-005: should not count a withdrawal as a rejection', async ({
+  // Azure test case 15716
+  test('15716: should not count a withdrawal as a rejection', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -152,7 +158,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-008: should offer no withdrawal for a request that has already been approved', async ({
+  // Azure test case 15718
+  test('15718: should offer no withdrawal for a request that has already been approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -175,7 +182,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-009: should offer no withdrawal for a request that has already been rejected', async ({
+  // Azure test case 15720
+  test('15720: should offer no withdrawal for a request that has already been rejected', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -198,7 +206,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-010: should offer no second withdrawal once a request has been withdrawn', async ({
+  // Azure test case 15721
+  test('15721: should offer no second withdrawal once a request has been withdrawn', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -219,7 +228,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-012: should settle on one consistent state when a withdrawal races a reviewer decision', async ({
+  // Azure test case 15723
+  test('15723: should settle on one consistent state when a withdrawal races a reviewer decision', async ({
     payerManagementPage,
     approvalManagementPage,
     staleSession,
@@ -253,7 +263,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-013: should record a single withdrawal when Withdraw is pressed repeatedly', async ({
+  // Azure test case 15724
+  test('15724: should record a single withdrawal when Withdraw is pressed repeatedly', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -292,7 +303,8 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  test('TC-014: should record the withdrawal in the audit trail with the maker and no reviewer', async ({
+  // Azure test case 15726
+  test('15726: should record the withdrawal in the audit trail with the maker and no reviewer', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -321,7 +333,10 @@ test.describe('Withdraw a pending payer change', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-006 = 15717,  TC-007 = 15719,  TC-011 = 15722
+    //   TC-015 = 15725,  TC-016 = 15727
+    test(`${azureOrCase('67', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { SettingsPage } from '../../../pages/system/SettingsPage';
 import { ACCESS_RESTRICTED, NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import {
@@ -47,7 +48,8 @@ test.describe('Lifecycle job schedule', () => {
     originalPayerCron = '';
   });
 
-  test('TC-001: should persist and display a valid payer lifecycle schedule when the administrator saves it', async ({
+  // Azure test case 15697
+  test('15697: should persist and display a valid payer lifecycle schedule when the administrator saves it', async ({
     settingsPage,
     steps,
   }) => {
@@ -76,7 +78,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-002: should reject the save and keep the prior schedule when an invalid value is submitted', async ({
+  // Azure test case 15698
+  test('15698: should reject the save and keep the prior schedule when an invalid value is submitted', async ({
     settingsPage,
     steps,
   }) => {
@@ -104,7 +107,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-003: should enforce the hour and minute boundaries of the schedule', async ({ settingsPage, steps }) => {
+  // Azure test case 15699
+  test('15699: should enforce the hour and minute boundaries of the schedule', async ({ settingsPage, steps }) => {
     let original = '';
 
     await steps.critical('Navigate to System Settings and read the current payer schedule', async () => {
@@ -132,7 +136,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-004: should accept every valid schedule form and refuse the invalid ones', async ({ settingsPage, steps }) => {
+  // Azure test case 15700
+  test('15700: should accept every valid schedule form and refuse the invalid ones', async ({ settingsPage, steps }) => {
     test.slow();
     let original = '';
 
@@ -166,7 +171,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-008: should state the schedule\'s time basis alongside the site\'s configured time zone', async ({
+  // Azure test case 15704
+  test('15704: should state the schedule\'s time basis alongside the site\'s configured time zone', async ({
     settingsPage,
     steps,
   }) => {
@@ -185,7 +191,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-010: should refuse to save when the schedule is left empty', async ({ settingsPage, steps }) => {
+  // Azure test case 15705
+  test('15705: should refuse to save when the schedule is left empty', async ({ settingsPage, steps }) => {
     let original = '';
 
     await steps.critical('Navigate to System Settings and read the current payer schedule', async () => {
@@ -209,7 +216,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-011: should refuse malformed and oversized schedule input', async ({ settingsPage, steps }) => {
+  // Azure test case 15707
+  test('15707: should refuse malformed and oversized schedule input', async ({ settingsPage, steps }) => {
     let original = '';
 
     await steps.critical('Navigate to System Settings and read the current payer schedule', async () => {
@@ -234,7 +242,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-012: should keep the payer schedule scoped to the payer module and leave the other schedules untouched', async ({
+  // Azure test case 15708
+  test('15708: should keep the payer schedule scoped to the payer module and leave the other schedules untouched', async ({
     settingsPage,
     steps,
   }) => {
@@ -261,7 +270,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-013: should sanitise or refuse script input in the schedule field', async ({ settingsPage, steps }) => {
+  // Azure test case 15709
+  test('15709: should sanitise or refuse script input in the schedule field', async ({ settingsPage, steps }) => {
     let original = '';
 
     await steps.critical('Navigate to System Settings and read the current payer schedule', async () => {
@@ -281,7 +291,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-015: should record a successful schedule save in the audit log', async ({
+  // Azure test case 15711
+  test('15711: should record a successful schedule save in the audit log', async ({
     settingsPage,
     auditLogsPage,
     steps,
@@ -309,7 +320,8 @@ test.describe('Lifecycle job schedule', () => {
     });
   });
 
-  test('TC-009: should let only the System Administrator view and change the lifecycle schedule', async ({
+  // Azure test case 15706
+  test('15706: should let only the System Administrator view and change the lifecycle schedule', async ({
     settingsPage,
     nonAdminSession,
     steps,
@@ -328,7 +340,10 @@ test.describe('Lifecycle job schedule', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-005 = 15701,  TC-006 = 15702,  TC-007 = 15703
+    //   TC-014 = 15710
+    test(`${azureOrCase('66', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

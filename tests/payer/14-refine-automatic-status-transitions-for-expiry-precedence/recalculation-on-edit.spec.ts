@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import {
   LIFECYCLE_STATUS,
   RECALCULATION_CASES,
@@ -29,7 +30,9 @@ import {
  */
 test.describe('Refine Automatic Status Transitions - Recalculation on edit', () => {
   for (const recalculation of RECALCULATION_CASES) {
-    test(`${recalculation.caseId}: should recalculate the payer status to ${LIFECYCLE_STATUS[recalculation.expected].en} when ${recalculation.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-005 = 15355,  TC-006 = 15356,  TC-009 = 15359
+    test(`${azureOrCase('14', recalculation.caseId)}: should recalculate the payer status to ${LIFECYCLE_STATUS[recalculation.expected].en} when ${recalculation.label}`, async ({
       payerManagementPage,
       statusSeed,
       steps,
@@ -73,7 +76,8 @@ test.describe('Refine Automatic Status Transitions - Recalculation on edit', () 
     });
   }
 
-  test('TC-007: should show the recalculated status in the list when an expired payer has its expiry extended', async ({
+  // Azure test case 15357
+  test('15357: should show the recalculated status in the list when an expired payer has its expiry extended', async ({
     payerManagementPage,
     statusSeed,
     steps,

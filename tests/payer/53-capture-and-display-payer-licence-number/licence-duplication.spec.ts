@@ -14,7 +14,8 @@ import { DUPLICATE_HINT, SHARED_LICENCE } from '../../../data/payers/licenceDupl
  * the list column, search, export - is REUSE, mapped in the traceability matrix.
  */
 test.describe('Payer licence number - duplication and persistence', () => {
-  test('TC-001: should handle a second payer taking a licence another payer already holds', async ({
+  // Azure test case 15736
+  test('15736: should handle a second payer taking a licence another payer already holds', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -65,7 +66,8 @@ test.describe('Payer licence number - duplication and persistence', () => {
     });
   });
 
-  test('TC-002: should keep the licence number through an inactivation status change', async ({
+  // Azure test case 15733
+  test('15733: should keep the licence number through an inactivation status change', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,

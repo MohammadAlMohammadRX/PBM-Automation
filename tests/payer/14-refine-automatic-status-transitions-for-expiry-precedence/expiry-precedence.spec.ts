@@ -30,7 +30,8 @@ import {
  * inactivation.
  */
 test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
-  test('TC-001: should transition the payer to Expired when its expiry has passed while it is Inactive', async ({
+  // Azure test case 15351
+  test('15351: should transition the payer to Expired when its expiry has passed while it is Inactive', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -61,7 +62,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
       payerManagementPage.expectStatusText(seeded.nameEn, LIFECYCLE_STATUS.expired.en));
   });
 
-  test('TC-002: should leave the payer Inactive when its expiry date is today and has not yet passed', async ({
+  // Azure test case 15352
+  test('15352: should leave the payer Inactive when its expiry date is today and has not yet passed', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -97,7 +99,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
     });
   });
 
-  test('TC-003: should leave the payer Inactive when its expiry date is still in the future', async ({
+  // Azure test case 15353
+  test('15353: should leave the payer Inactive when its expiry date is still in the future', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -127,7 +130,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
       payerManagementPage.expectStatusText(seeded!.nameEn, LIFECYCLE_STATUS.inactive.en));
   });
 
-  test('TC-004: should expire every lapsed payer and leave the rest alone when the batch covers mixed statuses', async ({
+  // Azure test case 15354
+  test('15354: should expire every lapsed payer and leave the rest alone when the batch covers mixed statuses', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -174,7 +178,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
     }
   });
 
-  test('TC-008: should keep the payer Expired when the recalculation runs again with no edit in between', async ({
+  // Azure test case 15358
+  test('15358: should keep the payer Expired when the recalculation runs again with no edit in between', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -207,7 +212,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
     });
   });
 
-  test('TC-010: should end as Expired when a manual inactivation is attempted on a payer whose expiry has passed', async ({
+  // Azure test case 15360
+  test('15360: should end as Expired when a manual inactivation is attempted on a payer whose expiry has passed', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -245,7 +251,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
     });
   });
 
-  test('TC-011: should transition each record consistently with its own dates when a mixed batch is recalculated', async ({
+  // Azure test case 15361
+  test('15361: should transition each record consistently with its own dates when a mixed batch is recalculated', async ({
     payerManagementPage,
     statusSeed,
     steps,
@@ -292,7 +299,8 @@ test.describe('Refine Automatic Status Transitions - Expiry precedence', () => {
     });
   });
 
-  test('TC-013: should expire all lapsed payers and leave future-dated ones unchanged when the scheduled job completes', async ({
+  // Azure test case 15363
+  test('15363: should expire all lapsed payers and leave future-dated ones unchanged when the scheduled job completes', async ({
     payerManagementPage,
     statusSeed,
     steps,

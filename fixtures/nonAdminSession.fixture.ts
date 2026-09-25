@@ -6,6 +6,8 @@ import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { SettingsPage } from '../pages/system/SettingsPage';
 import { ExportMenu } from '../pages/components/ExportMenu';
+import { PayerScopeDialog } from '../pages/components/PayerScopeDialog';
+import { DEFAULT_VIEWPORT } from '../constants/BrowserConfig';
 import { env } from '../constants/EnvironmentConfig';
 import { nonAdminUnfit, type NonAdminRequirement } from '../data/accounts/nonAdminAccount.data';
 import { blockedByPrecondition } from './testStatus.fixture';
@@ -57,13 +59,25 @@ export const test = base.extend<NonAdminSessionFixtures>({
     const unfit = nonAdminUnfit();
     if (unfit !== null) blockedByPrecondition(testInfo, 'a non-administrator session', new Error(unfit));
 
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    // The suite's own window size, not the browser default: some screens render
+    // a different layout at 1280x720 (Role Administration swaps cards for a
+    // table), and a context that quietly differs finds nothing.
+    const context = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      viewport: DEFAULT_VIEWPORT,
+    });
     const page = await context.newPage();
     try {
       Logger.step(`[fixture] Signing in the non-admin account "${env.nonAdminUsername}"`);
       const login = new LoginPage(page);
       await login.open();
       await login.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+      // The scope gate, answered before the case gets the session: a scoped
+      // account is asked which payer it is working with, and every payer screen
+      // renders no rows until it answers. The administrator never sees it, so
+      // it only appears on sessions like this one.
+      const payerName = await new PayerScopeDialog(page).chooseIfAsked();
+      if (payerName !== null) Logger.step(`[fixture] Scoped session working on "${payerName}"`);
     } catch (error) {
       await context.close();
       blockedByPrecondition(testInfo, 'a non-administrator session', error);

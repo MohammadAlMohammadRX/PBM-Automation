@@ -27,7 +27,8 @@ import {
  * missing message are reported separately.
  */
 test.describe('Withdraw a pending approval - On delete', () => {
-  test('TC-002: should refuse a second submission while a request is already pending', async ({
+  // Azure test case 15487
+  test('15487: should refuse a second submission while a request is already pending', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -99,7 +100,8 @@ test.describe('Withdraw a pending approval - On delete', () => {
     });
   });
 
-  test('TC-004: should warn that deleting will withdraw the pending request', async ({
+  // Azure test case 15490
+  test('15490: should warn that deleting will withdraw the pending request', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -151,7 +153,8 @@ test.describe('Withdraw a pending approval - On delete', () => {
     });
   });
 
-  test('TC-008: should show the plain delete confirmation for a payer with nothing pending', async ({
+  // Azure test case 15494
+  test('15494: should show the plain delete confirmation for a payer with nothing pending', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -187,7 +190,8 @@ test.describe('Withdraw a pending approval - On delete', () => {
     });
   });
 
-  test('TC-009: should leave no orphaned request when a withdrawn payer is then deleted', async ({
+  // Azure test case 15495
+  test('15495: should leave no orphaned request when a withdrawn payer is then deleted', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -253,7 +257,8 @@ test.describe('Withdraw a pending approval - On delete', () => {
     });
   });
 
-  test('TC-010: should remove the withdrawn request from the reviewer queue and record the withdrawal', async ({
+  // Azure test case 15496
+  test('15496: should remove the withdrawn request from the reviewer queue and record the withdrawal', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -309,7 +314,8 @@ test.describe('Withdraw a pending approval - On delete', () => {
     });
   });
 
-  test('TC-012: should clear the task from the reviewer queue once an administrator withdraws it', async ({
+  // Azure test case 15498
+  test('15498: should clear the task from the reviewer queue once an administrator withdraws it', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

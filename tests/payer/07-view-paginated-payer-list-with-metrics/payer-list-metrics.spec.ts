@@ -22,7 +22,8 @@ import { ALL_STATUSES } from '../../../data/payers/filterPayer.data';
  * system - a false statement about the application.
  */
 test.describe('View Paginated Payer List with Metrics - Dashboard counters', () => {
-  test('TC-004: should calculate all five metric counts independently and accurately', async ({
+  // Azure test case 14446
+  test('14446: should calculate all five metric counts independently and accurately', async ({
     payerManagementPage,
     payerMetrics,
     steps,
@@ -71,7 +72,8 @@ test.describe('View Paginated Payer List with Metrics - Dashboard counters', () 
     });
   });
 
-  test('TC-011: should reflect payer data changes made elsewhere in the system', async ({
+  // Azure test case 14461
+  test('14461: should reflect payer data changes made elsewhere in the system', async ({
     payerManagementPage,
     payerMetrics,
     uniquePayer,
@@ -130,7 +132,8 @@ test.describe('View Paginated Payer List with Metrics - Dashboard counters', () 
     });
   });
 
-  test('TC-014: should present every element on the list and dashboard checklist', async ({
+  // Azure test case 14468
+  test('14468: should present every element on the list and dashboard checklist', async ({
     payerManagementPage,
     payerMetrics,
     steps,
@@ -203,7 +206,8 @@ test.describe('View Paginated Payer List with Metrics - Dashboard counters', () 
     });
   });
 
-  test('TC-008: should handle an empty payer result set gracefully', async ({
+  // Azure test case 14462
+  test('14462: should handle an empty payer result set gracefully', async ({
     payerManagementPage,
     payerMetrics,
     steps,

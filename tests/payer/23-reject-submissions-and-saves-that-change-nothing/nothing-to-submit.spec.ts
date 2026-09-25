@@ -28,7 +28,8 @@ import {
  * application explains itself".
  */
 test.describe('Nothing to submit - Submissions', () => {
-  test('TC-001: should submit the payer when it holds a draft change', async ({
+  // Azure test case 15475
+  test('15475: should submit the payer when it holds a draft change', async ({
     payerManagementPage,
     approvalManagementPage,
     toast,
@@ -74,7 +75,8 @@ test.describe('Nothing to submit - Submissions', () => {
     });
   });
 
-  test('TC-002: should refuse the submission when the payer holds no draft changes', async ({
+  // Azure test case 15476
+  test('15476: should refuse the submission when the payer holds no draft changes', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -129,7 +131,8 @@ test.describe('Nothing to submit - Submissions', () => {
     });
   });
 
-  test('TC-006: should refuse a further submission while one is already pending', async ({
+  // Azure test case 15480
+  test('15480: should refuse a further submission while one is already pending', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -172,7 +175,8 @@ test.describe('Nothing to submit - Submissions', () => {
     });
   });
 
-  test('TC-009: should run one validation when the submission is triggered repeatedly', async ({
+  // Azure test case 15483
+  test('15483: should run one validation when the submission is triggered repeatedly', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -225,7 +229,8 @@ test.describe('Nothing to submit - Submissions', () => {
     });
   });
 
-  test('TC-011: should leave the approval queue empty for a payer with no draft changes', async ({
+  // Azure test case 15484
+  test('15484: should leave the approval queue empty for a payer with no draft changes', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -272,7 +277,8 @@ test.describe('Nothing to submit - Submissions', () => {
  * Arabic for the duration and restores it at the end.
  */
 test.describe('Nothing to submit - Both languages', () => {
-  test('TC-008: should state both refusals in the active language, English and Arabic', async ({
+  // Azure test case 15482
+  test('15482: should state both refusals in the active language, English and Arabic', async ({
     payerManagementPage,
     publishedPayer,
     steps,

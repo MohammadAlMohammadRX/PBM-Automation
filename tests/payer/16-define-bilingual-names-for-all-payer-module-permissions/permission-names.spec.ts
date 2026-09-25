@@ -1,11 +1,15 @@
 import { test, expect } from '../../../fixtures';
-import { PERMISSION_GROUP } from '../../../constants/ElementIds';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { RolePermissionsStep } from '../../../pages/system/RolePermissionsStep';
 import {
+  ARABIC_LETTER,
   EXPECTED_PAYER_PERMISSION_COUNT,
+  PAYER_APPROVALS_GROUP,
+  PAYER_PERMISSION_GROUP,
   PAYER_PERMISSIONS,
-  PERMISSION_SEARCH_TERM,
   TRANSLATED_CONTROL,
+  findPermission,
+  samePermission,
 } from '../../../data/payers/payerPermissions.data';
 
 /**
@@ -14,37 +18,56 @@ import {
  * WHERE THE CATALOGUE IS. Payer permissions are defined on a ROLE, so the only
  * screen that can answer "what is this permission called in Arabic" is
  * Role Administration -> a role's Edit drawer -> step 2, "Privileges". Not a
- * payer screen at all, which is why this story needed a new Page Object.
+ * payer screen at all, which is why this story needed its own Page Object.
  *
- * WHAT WAS FOUND, before these cases were written. The feature is largely not
- * implemented, and these cases FAIL against a reachable, working screen - which
- * is the correct result rather than a problem with the tests:
+ * HOW THE CATALOGUE IS READ, and why it changed. These cases used to filter the
+ * tree to "Payer" and look for a name among the results. Two things were wrong
+ * with that:
  *
- *   - The `Payers` group holds 21 permissions. Exactly ONE carries a friendly
- *     bilingual name: "View Audit Logs" / "عرض سجلات التدقيق".
- *   - The other 19 display their raw code names - `GetPayer`,
- *     `GetPayersDashboard`, `ExportPayers`, `InactivatePayer` and so on - and
- *     they are IDENTICAL in Arabic. Switching the interface translates the
- *     surrounding chrome and leaves every one of these labels in English.
- *   - The `Payers` group heading is itself untranslated, where the neighbouring
- *     `Plans` heading correctly reads `الخطط`. So the gap is specific to this
- *     module rather than a missing Arabic bundle - and "View Audit Logs" proves
- *     the mechanism works when a name has been defined.
+ *   - The search term matches rows in OTHER modules - "Payer Approvals" sits
+ *     under Approval Management - so finding a name after searching was not
+ *     evidence that the PAYERS group offered it.
+ *   - A name was compared literally, so "ExportPayers" did not count as
+ *     "Export Payers". They are the same permission written two ways, and
+ *     reporting it as a missing name was wrong.
  *
- * ONE DEFECT IN THE SCREEN ITSELF, which shapes how these cases are written:
- * every checkbox in the tree carries the SAME id
- * (`role-form-drawer-arabic-description-checkbox`, 26+ duplicates), so no
- * permission can be addressed by id. Rows are located by their visible label
- * instead - which is what this story is about anyway. See RolePermissionsStep.
+ * So the section is now scrolled to and read row by row, and names are compared
+ * on their letters rather than their punctuation. VERIFIED live: the Payers
+ * group holds 21 rows - "View Audit Logs" plus a "GetPayers (19/19)" subgroup
+ * of 19 codes.
+ *
+ * WHAT THAT LEAVES. Two of the checklist names ARE present once spelling is set
+ * aside - ExportPayers and InactivatePayer. The rest are genuinely different
+ * words: "GetPayer" is not a spelling of "View Payer Details". And in Arabic
+ * every one of these rows keeps its English text, which is the finding this
+ * story exists to record. The group heading "Payers" is itself untranslated
+ * where its neighbour "Plans" correctly reads "الخطط", so the gap is specific
+ * to this module rather than a missing bundle.
+ *
+ * ONE DEFECT IN THE SCREEN ITSELF: every checkbox in the tree carries the SAME
+ * id (`role-form-drawer-arabic-description-checkbox`, 26+ duplicates), so no
+ * permission can be addressed by id. Rows are located by their visible label -
+ * which is what this story is about anyway. See RolePermissionsStep.
  */
 test.describe('Define Bilingual Names for All Payer Module Permissions - Names', () => {
+  /** The group a permission is listed under, as a top-level section. */
+  const sectionFor = (group: string): readonly string[] =>
+    (group === PAYER_PERMISSION_GROUP[0] ? PAYER_PERMISSION_GROUP : PAYER_APPROVALS_GROUP);
+
   for (const permission of PAYER_PERMISSIONS) {
-    test(`${permission.caseId}: should display a correct Arabic label for "${permission.expectedEn}" when the permission catalogue is viewed in Arabic`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-001 = 15377,  TC-002 = 15378,  TC-003 = 15379
+    //   TC-004 = 15380,  TC-005 = 15381,  TC-006 = 15382
+    //   TC-007 = 15383,  TC-008 = 15384,  TC-009 = 15385
+    test(`${azureOrCase('16', permission.caseId)}: should display a correct Arabic label for "${permission.expectedEn}" when the permission catalogue is viewed in Arabic`, async ({
       roleAdministrationPage,
       languageSwitcher,
       steps,
     }) => {
       let privileges!: RolePermissionsStep;
+      let english: string[] = [];
+      let shownEn = '';
+      let position = -1;
 
       await steps.critical('Navigate to the permission catalogue', async () => {
         await languageSwitcher.switchTo('en');
@@ -52,51 +75,75 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Names',
         await roleAdministrationPage.expectRolesListed();
       });
 
-      await steps.critical('Open the permission assignment screen', async () => {
+      await steps.critical(`Scroll to the "${sectionFor(permission.group)[0]}" section`, async () => {
         privileges = await roleAdministrationPage.openFirstRolePermissionCatalogue();
-        await privileges.searchPermissions(PERMISSION_SEARCH_TERM);
-        expect((await privileges.getPermissionLabels()).length).toBeGreaterThan(0);
+        english = await privileges.getGroupPermissions(sectionFor(permission.group));
+        expect(
+          english.length,
+          `the "${sectionFor(permission.group)[0]}" section should list its permissions`,
+        ).toBeGreaterThan(0);
       });
 
       await steps.step(
-        `The entry reads "${permission.expectedEn}" with the language set to English`,
-        () => privileges.expectPermissionLabelled(permission.expectedEn),
+        `The section offers "${permission.expectedEn}", however it is spelled`,
+        async () => {
+          // Matched on letters, not punctuation: the catalogue writes
+          // "ExportPayers" where the story writes "Export Payers", and those
+          // are one permission, not a missing one.
+          shownEn = findPermission(english, permission.expectedEn);
+          position = english.findIndex((label) => samePermission(label, permission.expectedEn));
+          expect(
+            shownEn,
+            `the ${sectionFor(permission.group)[0]} section should offer "${permission.expectedEn}". `
+              + `It lists: ${english.join(', ')}`,
+          ).not.toBe('');
+        },
       );
 
-      await steps.step('Switching to Arabic re-renders the permission list', async () => {
+      await steps.step('Switching to Arabic re-renders the same section', async () => {
         // The header language toggle sits behind the drawer's overlay, so the
         // drawer is closed before switching - the click would not land otherwise.
         await roleAdministrationPage.closeDrawer();
         await languageSwitcher.switchTo('ar');
         await languageSwitcher.expectRightToLeft();
         privileges = await roleAdministrationPage.openFirstRolePermissionCatalogue();
-        await privileges.searchPermissions(PERMISSION_SEARCH_TERM);
-        expect((await privileges.getPermissionLabels()).length).toBeGreaterThan(0);
+        const arabic = await privileges.getGroupPermissions(sectionFor(permission.group));
+        expect(
+          arabic.length,
+          'the Arabic section should list the same number of permissions as the English one',
+        ).toBe(english.length);
       });
 
-      // Two assertions, because the sheet asks for two different things
-      // depending on the permission: a specific Arabic string where it states
-      // one, and otherwise "a correct, non-empty Arabic label" - which is
-      // judged as "not the English name, and not a raw code".
-      await steps.step('The same entry shows its Arabic equivalent', async () => {
-        await privileges.expectPermissionNotLabelled(permission.currentCode);
-        const labels = await privileges.getPermissionLabels();
+      await steps.step('That row reads in Arabic, not in English', async () => {
+        // Read at the SAME POSITION rather than by name: a translated row no
+        // longer carries the English text, so there is nothing to match on.
+        const arabic = await privileges.getGroupPermissions(sectionFor(permission.group));
+        const shownAr = arabic[position] ?? '';
         expect(
-          labels,
-          `"${permission.expectedEn}" should show an Arabic label here. The catalogue displays `
-            + `"${permission.currentCode}" instead, in both languages.`,
-        ).not.toContain(permission.currentCode);
+          ARABIC_LETTER.test(shownAr),
+          `"${permission.expectedEn}" is listed as "${shownEn}" in English and "${shownAr}" in `
+            + 'Arabic - the Arabic view still shows the English text.',
+        ).toBe(true);
+
+        if (permission.expectedAr !== undefined) {
+          expect(
+            shownAr,
+            `the sheet names this permission "${permission.expectedAr}" in Arabic`,
+          ).toBe(permission.expectedAr);
+        }
       });
     });
   }
 
-  test('TC-010: should list exactly the nine payer permissions with Arabic labels when the catalogue is checked against the checklist', async ({
+  // Azure test case 15387
+  test('15387: should list exactly the nine payer permissions with Arabic labels when the catalogue is checked against the checklist', async ({
     roleAdministrationPage,
     languageSwitcher,
     steps,
   }) => {
     let privileges!: RolePermissionsStep;
-    let englishLabels: string[] = [];
+    let payers: string[] = [];
+    let approvals: string[] = [];
 
     await steps.critical('Navigate to the permission catalogue', async () => {
       await languageSwitcher.switchTo('en');
@@ -104,75 +151,69 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Names',
       await roleAdministrationPage.expectRolesListed();
     });
 
-    await steps.critical('Open the full list of payer-related permissions', async () => {
+    await steps.critical('Scroll to both sections that hold payer permissions', async () => {
       privileges = await roleAdministrationPage.openFirstRolePermissionCatalogue();
-      await privileges.searchPermissions(PERMISSION_SEARCH_TERM);
-      englishLabels = await privileges.getPermissionLabels();
-      expect(englishLabels.length).toBeGreaterThan(0);
-      // Both groups must be present, because approve/reject lives in
-      // "Payer Approvals" rather than in "Payers" - a case that looked only at
-      // the Payers group would find eight of the nine and blame the wrong thing.
-      const groups = await privileges.getGroupLabels();
-      expect(groups.join(' | ')).toContain(PERMISSION_GROUP.payers);
+      payers = await privileges.getGroupPermissions(PAYER_PERMISSION_GROUP);
+      // Approve/reject lives under Approval Management, not under Payers - a
+      // case that read only the Payers section would find eight of the nine and
+      // blame the wrong thing.
+      approvals = await privileges.getGroupPermissions(PAYER_APPROVALS_GROUP);
+      expect(payers.length, 'the Payers section should list its permissions').toBeGreaterThan(0);
+      expect(approvals.length, 'the Approval Management section should list its permissions').toBeGreaterThan(0);
     });
 
     await steps.step(
-      `Exactly ${EXPECTED_PAYER_PERMISSION_COUNT} payer permissions are listed`,
+      `All ${EXPECTED_PAYER_PERMISSION_COUNT} checklist permissions are offered`,
       async () => {
-        const named = PAYER_PERMISSIONS.filter((permission) =>
-          englishLabels.includes(permission.expectedEn));
+        const absent = PAYER_PERMISSIONS.filter((permission) => {
+          const pool = permission.group === PAYER_PERMISSION_GROUP[0] ? payers : approvals;
+          return findPermission(pool, permission.expectedEn) === '';
+        }).map((permission) => `${permission.expectedEn} (the section shows "${permission.currentCode}")`);
+
         expect(
-          named.length,
-          `Of the ${EXPECTED_PAYER_PERMISSION_COUNT} permissions on the checklist, these are `
-            + `displayed under their required names: ${JSON.stringify(named.map((p) => p.expectedEn))}. `
-            + 'The rest show raw code names.',
-        ).toBe(EXPECTED_PAYER_PERMISSION_COUNT);
+          absent,
+          'These checklist permissions are not offered under a name that matches, even ignoring '
+            + 'spacing and punctuation',
+        ).toEqual([]);
       },
     );
 
-    await steps.step('Every checklist item is present, with no duplicates', async () => {
-      const absent = PAYER_PERMISSIONS.filter(
-        (permission) => !englishLabels.includes(permission.expectedEn),
-      ).map((permission) => `${permission.expectedEn} (shown as "${permission.currentCode}")`);
-      const duplicated = PAYER_PERMISSIONS.filter(
-        (permission) =>
-          englishLabels.filter((label) => label === permission.expectedEn).length > 1,
-      ).map((permission) => permission.expectedEn);
-      expect(absent, 'These checklist permissions are not displayed under their names').toEqual([]);
+    await steps.step('No permission is listed twice', async () => {
+      const duplicated = PAYER_PERMISSIONS.filter((permission) => {
+        const pool = permission.group === PAYER_PERMISSION_GROUP[0] ? payers : approvals;
+        return pool.filter((label) => samePermission(label, permission.expectedEn)).length > 1;
+      }).map((permission) => permission.expectedEn);
       expect(duplicated, 'No permission should be listed twice').toEqual([]);
     });
 
-    await steps.step('Every one of the nine has a non-empty Arabic label', async () => {
-      // The header language toggle sits behind the drawer's overlay, so the
-      // drawer is closed before switching - the click would not land otherwise.
+    await steps.step('Every row of the Payers section reads in Arabic', async () => {
       await roleAdministrationPage.closeDrawer();
       await languageSwitcher.switchTo('ar');
       privileges = await roleAdministrationPage.openFirstRolePermissionCatalogue();
-      await privileges.searchPermissions(PERMISSION_SEARCH_TERM);
-      const arabicLabels = await privileges.getPermissionLabels();
-      expect(arabicLabels.length).toBeGreaterThan(0);
+      const arabic = await privileges.getGroupPermissions(PAYER_PERMISSION_GROUP);
+      expect(arabic.length, 'the Arabic section should list the same rows').toBe(payers.length);
 
-      // Untranslated is judged as "the Arabic view still shows the English
-      // name". Comparing against the expected Arabic strings alone would not
-      // catch a permission that simply kept its code name.
-      const untranslated = PAYER_PERMISSIONS.filter((permission) =>
-        arabicLabels.includes(permission.currentCode));
+      const untranslated = arabic.filter((label) => !ARABIC_LETTER.test(label));
       expect(
-        untranslated.map((permission) => permission.currentCode),
-        'These payer permissions show the same label in Arabic as in English',
+        untranslated,
+        `${untranslated.length} of the ${arabic.length} permissions in the Payers section still `
+          + 'show their English text when the interface is Arabic',
       ).toEqual([]);
+    });
 
-      // The positive control: this one IS translated, so a failure above is
-      // about the missing names rather than about the language switch.
+    await steps.step('The one already-named permission proves the mechanism works', async () => {
+      const arabic = await privileges.getGroupPermissions(PAYER_PERMISSION_GROUP);
       expect(
-        arabicLabels,
-        'The one already-named payer permission should appear in Arabic, proving the '
-          + 'translation mechanism itself works',
-      ).toContain(TRANSLATED_CONTROL.ar);
+        findPermission(arabic, TRANSLATED_CONTROL.ar),
+        'The one already-named payer permission should appear in Arabic, proving the translation '
+          + 'mechanism itself works',
+      ).not.toBe('');
+      await roleAdministrationPage.closeDrawer();
     });
   });
 
-  test('TC-017: should update the correct permission and keep every Arabic label readable when permissions are toggled in Arabic', async ({
+  // Azure test case 15393
+  test('15393: should update the correct permission and keep every Arabic label readable when permissions are toggled in Arabic', async ({
     roleAdministrationPage,
     languageSwitcher,
     steps,
@@ -192,8 +233,9 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Names',
       await languageSwitcher.switchTo('ar');
       await languageSwitcher.expectRightToLeft();
       privileges = await roleAdministrationPage.openFirstRolePermissionCatalogue();
-      await privileges.searchPermissions(PERMISSION_SEARCH_TERM);
-      expect((await privileges.getPermissionLabels()).length).toBeGreaterThan(0);
+      await privileges.scrollGroupIntoView(PAYER_PERMISSION_GROUP);
+      expect((await privileges.getGroupPermissions(PAYER_PERMISSION_GROUP)).length)
+        .toBeGreaterThan(0);
     });
 
     // Toggled and then restored, so the role is left exactly as it was: this is

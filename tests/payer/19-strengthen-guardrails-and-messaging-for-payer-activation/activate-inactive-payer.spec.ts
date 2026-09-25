@@ -26,7 +26,8 @@ import { ACTIVATION_DIALOG } from '../../../data/payers/lifecycleGuardrails.data
  * status pool these stories sample from is small.
  */
 test.describe('Payer lifecycle guardrails - Activating an inactive payer', () => {
-  test('TC-003: should activate the payer when an Inactive record is confirmed for activation', async ({
+  // Azure test case 15424
+  test('15424: should activate the payer when an Inactive record is confirmed for activation', async ({
     payerManagementPage,
     approvalManagementPage,
     inactivePayer,
@@ -67,7 +68,8 @@ test.describe('Payer lifecycle guardrails - Activating an inactive payer', () =>
     });
   });
 
-  test('TC-008: should reactivate the payer and promise to restore its cascade when an Inactive record is reactivated', async ({
+  // Azure test case 15429
+  test('15429: should reactivate the payer and promise to restore its cascade when an Inactive record is reactivated', async ({
     payerManagementPage,
     approvalManagementPage,
     inactivePayer,

@@ -33,7 +33,8 @@ import { PRIMARY_REASON } from '../../../data/payers/inactivationDecisions.data'
  * payer or a seeded Pending payer exists.
  */
 test.describe('Prevent invalid status transitions', () => {
-  test('TC-001: should carry a payer through Active, Inactive and back with every step persisted', async ({
+  // Azure test case 14913
+  test('14913: should carry a payer through Active, Inactive and back with every step persisted', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -102,7 +103,8 @@ test.describe('Prevent invalid status transitions', () => {
     });
   });
 
-  test('TC-002: should permit a reactivation once a lapsed expiry date is extended', async ({
+  // Azure test case 14914
+  test('14914: should permit a reactivation once a lapsed expiry date is extended', async ({
     steps,
   }) => {
     steps.blocked(
@@ -198,7 +200,8 @@ test.describe('Prevent invalid status transitions', () => {
     });
   });
 
-  test('TC-004: should refuse a direct move from Pending to Inactive', async ({ steps }) => {
+  // Azure test case 14911
+  test('14911: should refuse a direct move from Pending to Inactive', async ({ steps }) => {
     steps.blocked(
       'This case needs a payer whose status is PENDING, which cannot be produced here. '
       + 'Reaching Pending requires an approved payer whose effective date has not yet arrived, '

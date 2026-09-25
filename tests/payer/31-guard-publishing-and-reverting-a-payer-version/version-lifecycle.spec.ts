@@ -17,7 +17,8 @@ import {
  * approval attempted on a request that is no longer there.
  */
 test.describe('Version lifecycle', () => {
-  test('TC-009: should do nothing with a revert to a version this payer does not have', async ({
+  // Azure test case 15577
+  test('15577: should do nothing with a revert to a version this payer does not have', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -63,7 +64,8 @@ test.describe('Version lifecycle', () => {
     });
   });
 
-  test('TC-010: should leave the version pending when the approval fails to apply', async ({
+  // Azure test case 15578
+  test('15578: should leave the version pending when the approval fails to apply', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -153,7 +155,8 @@ test.describe('Version lifecycle', () => {
     });
   });
 
-  test('TC-011: should walk a version from draft to rejected and a second one to published', async ({
+  // Azure test case 15579
+  test('15579: should walk a version from draft to rejected and a second one to published', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -248,7 +251,8 @@ test.describe('Version lifecycle', () => {
     });
   });
 
-  test('TC-014: should refuse an approval for a request that is no longer there', async ({
+  // Azure test case 15582
+  test('15582: should refuse an approval for a request that is no longer there', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

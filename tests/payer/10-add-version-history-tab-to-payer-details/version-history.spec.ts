@@ -37,7 +37,8 @@ import {
  * rename the old name is no longer there to search for.
  */
 test.describe('Add Version History Tab to Payer Details - Tab and contents', () => {
-  test('TC-002: should present all five tabs in the specified order', async ({
+  // Azure test case 15299
+  test('15299: should present all five tabs in the specified order', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -69,7 +70,8 @@ test.describe('Add Version History Tab to Payer Details - Tab and contents', () 
     });
   });
 
-  test('TC-001: should list the payer’s approved changes, newest first', async ({
+  // Azure test case 15298
+  test('15298: should list the payer’s approved changes, newest first', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -126,50 +128,94 @@ test.describe('Add Version History Tab to Payer Details - Tab and contents', () 
       history.expectReverseChronologicalOrder());
   });
 
-  test('TC-003: should exclude pending, rejected and draft changes', async ({
+  // Azure test case 15300
+  test('15300: should exclude pending, rejected and draft changes', async ({
     payerManagementPage,
+    approvalManagementPage,
     publishedPayer,
     steps,
   }) => {
-    // The payer arrives published at v1. An edit is staged and deliberately
-    // LEFT unapproved, which is the mixed-status history the case needs: one
-    // approved change plus one awaiting review.
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Stage an edit and leave it awaiting approval', async () => {
-      await payerManagementPage.editTextFieldAndSave(
-        publishedPayer.nameEn,
-        'License Number',
-        `LIC-PENDING-${Date.now()}`,
-      );
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
-    });
-
+    // THE CASE NAMES THREE UNAPPROVED STATES and now visits all three. It used
+    // to stage a pending edit only, so a rejected change could appear in the
+    // tab and the case would still pass - VERIFIED live on 19 September: after
+    // an edit was submitted and then rejected, the tab listed
+    // ["Rejected", "Published"] where the criteria allow only the published
+    // entry, and the payer itself correctly returned to "v1 · Published".
+    //
+    // One payer carries all three, because only one change can be in flight at
+    // a time: an edit is staged (Draft), submitted (Pending Approval), then
+    // rejected (Rejected). The tab is read after each.
+    test.slow();
+    let detail: PayerDetailPage;
     let history: PayerVersionHistoryTab;
-    let statuses: string[] = [];
-    await steps.critical('Open the Version History tab', async () => {
+    const seen: Record<string, string[]> = {};
+
+    const readStatuses = async (): Promise<string[]> => {
       await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       await detail.waitForLoaded();
       history = detail.versionHistory();
       await history.open();
-      statuses = await history.getListedStatuses();
+      return history.getListedStatuses();
+    };
+
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    await steps.critical('Stage an edit and leave it as a draft', async () => {
+      await payerManagementPage.editTextFieldAndSave(
+        publishedPayer.nameEn,
+        'License Number',
+        `LIC-DRAFT-${Date.now()}`,
+      );
+      seen.draft = await readStatuses();
+      expect(seen.draft.length, 'the tab should list the published entry').toBeGreaterThan(0);
     });
 
-    await steps.step('The approved change is listed', async () => {
+    await steps.critical('Submit it, so the change is awaiting approval', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
+      seen.pending = await readStatuses();
+      expect(seen.pending.length, 'the tab should still list the published entry').toBeGreaterThan(0);
+    });
+
+    await steps.critical('Reject it, so the change is refused', async () => {
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
+      await approvalManagementPage.reject(publishedPayer.nameEn);
+      seen.rejected = await readStatuses();
+      expect(seen.rejected.length, 'the tab should still list the published entry').toBeGreaterThan(0);
+    });
+
+    await steps.step('The approved change is listed throughout', async () => {
+      for (const [state, statuses] of Object.entries(seen)) {
+        expect(
+          statuses.some((status) => status.includes('Published')),
+          `with a ${state} change in play the published entry must still be listed; `
+            + `the tab showed: ${statuses.join(', ')}`,
+        ).toBe(true);
+      }
+    });
+
+    // The story's central rule, and the one the build does not honour - for a
+    // rejected change as well as a pending one.
+    await steps.step('No unapproved change is listed, in any of the three states', async () => {
+      const offending = Object.entries(seen)
+        .map(([state, statuses]) => ({
+          state,
+          unapproved: statuses.filter((status) => !status.includes('Published')),
+        }))
+        .filter((entry) => entry.unapproved.length > 0)
+        .map((entry) => `${entry.state}: ${entry.unapproved.join(', ')}`);
+
       expect(
-        statuses.some((status) => status.includes('Published')),
-        `the published change must be listed; statuses listed: ${statuses.join(', ')}`,
-      ).toBe(true);
+        offending,
+        'Version History should list approved changes only. These unapproved entries appeared',
+      ).toEqual([]);
     });
-
-    // The story's central rule, and the one the build does not honour.
-    await steps.step('Only approved changes are listed', () =>
-      history.expectOnlyPublishedVersions());
   });
 
-  test('TC-005: should show exactly one entry for a payer with one approved change', async ({
+  // Azure test case 15302
+  test('15302: should show exactly one entry for a payer with one approved change', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -200,7 +246,8 @@ test.describe('Add Version History Tab to Payer Details - Tab and contents', () 
       history.expectEveryEntryComplete());
   });
 
-  test('TC-008: should show every mandatory field on each entry', async ({
+  // Azure test case 15305
+  test('15305: should show every mandatory field on each entry', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -230,7 +277,8 @@ test.describe('Add Version History Tab to Payer Details - Tab and contents', () 
     });
   });
 
-  test('TC-011: should agree with the Audit History tab for the same changes', async ({
+  // Azure test case 15308
+  test('15308: should agree with the Audit History tab for the same changes', async ({
     payerManagementPage,
     publishedPayer,
     steps,

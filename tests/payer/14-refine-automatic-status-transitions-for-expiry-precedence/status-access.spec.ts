@@ -14,18 +14,19 @@ import { READ_ONLY_REQUIREMENT } from '../../../data/payers/statusTransition.dat
 test.describe('Refine Automatic Status Transitions - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-012: should refuse the expiry-date change when an expired payer is opened by a non-approving role', async ({
-    requireNonAdmin,
+  // Azure test case 15362
+  test('15362: should refuse the expiry-date change when an expired payer is opened by a non-approving role', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a restricted account the refusal this case
-    // exists to prove can never be exercised, so nothing would be learned about
     // the application.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

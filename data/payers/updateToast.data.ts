@@ -49,9 +49,4 @@ export const UPDATE_TOAST_ROLE_REQUIREMENT = {
 
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '010',
-    title: 'should not let a user without edit permission reach the save and toast flow',
-    reason: `${nonAdminBlockReason({ lacking: ['editPayer'] })} ${UPDATE_TOAST_ROLE_REQUIREMENT.reason}`,
-  },
 ];

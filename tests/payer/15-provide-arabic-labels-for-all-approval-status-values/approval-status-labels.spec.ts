@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { APPROVAL_STATUS, PAYER_COLUMN } from '../../../constants/ElementIds';
 import {
   BROKEN_LABEL_PATTERNS,
@@ -38,7 +39,9 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
   );
 
   for (const status of listStatuses) {
-    test(`${status.caseId}: should display the Arabic label "${status.ar}" when the interface language is Arabic and a payer is ${status.en}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-001 = 15364,  TC-002 = 15365
+    test(`${azureOrCase('15', status.caseId)}: should display the Arabic label "${status.ar}" when the interface language is Arabic and a payer is ${status.en}`, async ({
       payerManagementPage,
       languageSwitcher,
       steps,
@@ -103,7 +106,9 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
   );
 
   for (const status of historyStatuses) {
-    test(`${status.caseId}: should display the Arabic label "${status.ar}" when the interface language is Arabic and a version is ${status.en}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-003 = 15366,  TC-004 = 15367
+    test(`${azureOrCase('15', status.caseId)}: should display the Arabic label "${status.ar}" when the interface language is Arabic and a version is ${status.en}`, async ({
       payerManagementPage,
       payerWithVersionStatus,
       languageSwitcher,
@@ -153,7 +158,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
     });
   }
 
-  test(`TC-005: should offer Withdrawn with the Arabic label "${WITHDRAWN_STATUS.ar}" when the approval status vocabulary is inspected`, async ({
+  // Azure test case 15368
+  test(`15368: should offer Withdrawn with the Arabic label "${WITHDRAWN_STATUS.ar}" when the approval status vocabulary is inspected`, async ({
     payerManagementPage,
     payerWithVersionStatus,
     languageSwitcher,
@@ -206,7 +212,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
     });
   });
 
-  test('TC-008: should pair every status with its correct Arabic label when all five are compared row by row', async ({
+  // Azure test case 15371
+  test('15371: should pair every status with its correct Arabic label when all five are compared row by row', async ({
     payerManagementPage,
     payerWithVersionStatus,
     languageSwitcher,
@@ -272,7 +279,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
     });
   });
 
-  test('TC-010: should show readable Arabic text for every status when the interface is switched to Arabic', async ({
+  // Azure test case 15373
+  test('15373: should show readable Arabic text for every status when the interface is switched to Arabic', async ({
     payerManagementPage,
     payerWithVersionStatus,
     languageSwitcher,

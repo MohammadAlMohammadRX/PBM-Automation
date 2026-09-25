@@ -26,7 +26,8 @@ import {
  * reviewer's real work is discarded.
  */
 test.describe('Require a reason when rejecting', () => {
-  test('TC-001: should record the rejection when a valid reason is chosen', async ({
+  // Azure test case 15508
+  test('15508: should record the rejection when a valid reason is chosen', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -63,7 +64,8 @@ test.describe('Require a reason when rejecting', () => {
     });
   });
 
-  test('TC-002: should refuse the rejection when no reason is chosen', async ({
+  // Azure test case 15509
+  test('15509: should refuse the rejection when no reason is chosen', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -118,7 +120,8 @@ test.describe('Require a reason when rejecting', () => {
     });
   });
 
-  test('TC-003: should accept the shortest valid reason and offer no shorter one', async ({
+  // Azure test case 15510
+  test('15510: should accept the shortest valid reason and offer no shorter one', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -172,7 +175,8 @@ test.describe('Require a reason when rejecting', () => {
     });
   });
 
-  test('TC-004: should accept the longest managed reason and offer no way to exceed it', async ({
+  // Azure test case 15511
+  test('15511: should accept the longest managed reason and offer no way to exceed it', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -225,7 +229,8 @@ test.describe('Require a reason when rejecting', () => {
     });
   });
 
-  test('TC-005: should treat an unchosen reason as no reason at all', async ({
+  // Azure test case 15512
+  test('15512: should treat an unchosen reason as no reason at all', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -272,7 +277,8 @@ test.describe('Require a reason when rejecting', () => {
     });
   });
 
-  test('TC-007: should offer no surface for a script to be stored in the reason', async ({
+  // Azure test case 15514
+  test('15514: should offer no surface for a script to be stored in the reason', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,

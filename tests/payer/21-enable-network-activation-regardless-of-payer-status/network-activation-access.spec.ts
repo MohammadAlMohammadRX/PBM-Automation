@@ -17,7 +17,8 @@ import { NETWORK_STATUS, RESTRICTED_ROLE_REQUIREMENT } from '../../../data/netwo
 test.describe('Network activation - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-007: should withhold the network lifecycle actions when the user is not authorized to change a network status', async ({
+  // Azure test case 15456
+  test('15456: should withhold the network lifecycle actions when the user is not authorized to change a network status', async ({
     requireNonAdmin,
     loginPage,
     networkManagementPage,

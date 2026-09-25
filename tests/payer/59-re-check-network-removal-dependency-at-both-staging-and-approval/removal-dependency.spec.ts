@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
 import type { LinkedNetworkCandidate } from '../../../fixtures/networkLinkState.fixture';
 import {
@@ -22,7 +25,8 @@ import {
  * case that needs a network WITH dependent policies is BLOCKED on one.
  */
 test.describe('Network removal dependency re-check', () => {
-  test('TC-001: should remove the network when a dependency-free removal is staged and approved', async ({
+  // Azure test case 15807
+  test('15807: should remove the network when a dependency-free removal is staged and approved', async ({
     payerManagementPage,
     approvalManagementPage,
     networkManagementPage,
@@ -76,7 +80,8 @@ test.describe('Network removal dependency re-check', () => {
     });
   });
 
-  test('TC-006: should complete the removal when a rejected request is reviewed, re-staged and approved', async ({
+  // Azure test case 15676
+  test('15676: should complete the removal when a rejected request is reviewed, re-staged and approved', async ({
     payerManagementPage,
     approvalManagementPage,
     linkedNetwork,
@@ -124,7 +129,8 @@ test.describe('Network removal dependency re-check', () => {
     });
   });
 
-  test('TC-011: should offer removal only against a linked network row', async ({
+  // Azure test case 15817
+  test('15817: should offer removal only against a linked network row', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -154,8 +160,55 @@ test.describe('Network removal dependency re-check', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 15676
+  test('15676: should withhold staging of assignment and removal drafts from a viewer role', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    // THE BASELINE COMES FIRST, so a control that was never on offer cannot be
+    // mistaken for a permission the application honoured.
+    await steps.critical('The assignment control IS offered while the role holds the rights', async () => {
+      const held = await shapedNonAdmin({ with: ['assignNetworks', 'unassignNetwork'] });
+      await held.payers.navigate();
+      await held.payers.expectRowsRendered();
+      const detail = await held.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      const offered = await detail.getAssignNetworkAvailability();
+      if (offered !== 'available') {
+        steps.blocked(
+          `"${NON_ADMIN_PROFILE.scopedPayers[0]}" does not offer the Assign Network control even `
+            + `to a role that HOLDS the rights (it is ${offered}), so withdrawing them would `
+            + 'prove nothing about the permission.',
+        );
+      }
+    });
+
+    await steps.critical('Sign in as a user without the assignment rights', async () => {
+      session = await shapedNonAdmin({ without: ['assignNetworks', 'unassignNetwork'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The assignment control is withheld from this role', async () => {
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      expect(
+        await detail.getAssignNetworkAvailability(),
+        'a viewer role must not be offered the Assign Network control',
+      ).not.toBe('available');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15808,  TC-003 = 15809,  TC-004 = 15810
+    //   TC-005 = 15811,  TC-007 = 15812,  TC-008 = 15814
+    //   TC-009 = 15815,  TC-010 = 15816,  TC-012 = 15818
+    test(`${azureOrCase('59', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

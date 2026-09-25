@@ -14,7 +14,8 @@ import { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
  * its status or PayerCode would report a meaningless failure.
  */
 test.describe('Create New Payer Organization Record - Draft creation', () => {
-  test('TC-001: should save the payer as a private Draft when an admin submits valid mandatory data', async ({
+  // Azure test case 15597
+  test('15597: should save the payer as a private Draft when an admin submits valid mandatory data', async ({
     payerManagementPage,
     uniquePayer,
     cleanup,
@@ -36,7 +37,8 @@ test.describe('Create New Payer Organization Record - Draft creation', () => {
       payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
   });
 
-  test('TC-002: should not assign a PayerCode when the payer record is still a Draft', async ({
+  // Azure test case 15602
+  test('15602: should not assign a PayerCode when the payer record is still a Draft', async ({
     payerManagementPage,
     uniquePayer,
     cleanup,
@@ -64,7 +66,8 @@ test.describe('Create New Payer Organization Record - Draft creation', () => {
  * detail view (View action) where "Created At" is displayed.
  */
 test.describe('Create New Payer Organization Record - Timestamp integrity', () => {
-  test('TC-011: should preserve the CreatedAt timestamp from Draft creation through approval', async ({
+  // Azure test case 15607
+  test('15607: should preserve the CreatedAt timestamp from Draft creation through approval', async ({
     payerManagementPage,
     approvalManagementPage,
     uniquePayer,
@@ -166,7 +169,8 @@ test.describe('Create New Payer Organization Record - Draft persistence', () => 
  * Requires SECOND_ADMIN_USERNAME / SECOND_ADMIN_PASSWORD in .env.
  */
 test.describe('Create New Payer Organization Record - Draft privacy', () => {
-  test('TC-013: should hide a Draft payer from a second administrator who is not its creator', async ({
+  // Azure test case 15609
+  test('15609: should hide a Draft payer from a second administrator who is not its creator', async ({
     payerManagementPage,
     uniquePayer,
     cleanup,
@@ -224,7 +228,8 @@ test.describe('Create New Payer Organization Record - Draft privacy', () => {
  * cannot proceed to approval.
  */
 test.describe('Create New Payer Organization Record - Send for Approval', () => {
-  test('TC-003: should transition the payer from Draft to Pending Approval when Send for Approval is confirmed', async ({
+  // Azure test case 15599
+  test('15599: should transition the payer from Draft to Pending Approval when Send for Approval is confirmed', async ({
     payerManagementPage,
     uniquePayer,
     cleanup,

@@ -13,6 +13,7 @@ import { test as versionHistoryStateTest } from './versionHistoryState.fixture';
 import { test as linkedCountStateTest } from './linkedCountState.fixture';
 import { test as networkLinkStateTest } from './networkLinkState.fixture';
 import { test as nonAdminSessionTest } from './nonAdminSession.fixture';
+import { test as shapedNonAdminTest } from './shapedNonAdmin.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
@@ -43,6 +44,7 @@ export const test = mergeTests(
   linkedCountStateTest,
   networkLinkStateTest,
   nonAdminSessionTest,
+  shapedNonAdminTest,
   cleanupTest,
   screenshotTest,
   testStatusTest,

@@ -30,7 +30,8 @@ import {
  * non-administrator account that is still outstanding.
  */
 test.describe('Linked networks count', () => {
-  test('TC-001: should show the number of networks actually linked to the payer', async ({
+  // Azure test case 14774
+  test('14774: should show the number of networks actually linked to the payer', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -77,7 +78,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-002: should present a zero count as a dash rather than as "0" or an empty cell', async ({
+  // Azure test case 14777
+  test('14777: should present a zero count as a dash rather than as "0" or an empty cell', async ({
     linkedCounts,
     steps,
   }) => {
@@ -121,7 +123,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-003: should show exactly one when the payer has a single linked network', async ({
+  // Azure test case 14778
+  test('14778: should show exactly one when the payer has a single linked network', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -163,7 +166,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-004: should render the largest count in the list in full', async ({
+  // Azure test case 14790
+  test('14790: should render the largest count in the list in full', async ({
     linkedCounts,
     steps,
   }) => {
@@ -205,7 +209,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-005: should open the payer\'s linked networks when the count is clicked', async ({
+  // Azure test case 14780
+  test('14780: should open the payer\'s linked networks when the count is clicked', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -255,7 +260,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-006: should make a zero count inert while a non-zero count navigates', async ({
+  // Azure test case 14782
+  test('14782: should make a zero count inert while a non-zero count navigates', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -307,7 +313,8 @@ test.describe('Linked networks count', () => {
       payerManagementPage.expectNoUnexpectedDialog());
   });
 
-  test('TC-007: should keep the count and the linked-network records in step', async ({
+  // Azure test case 14785
+  test('14785: should keep the count and the linked-network records in step', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -411,7 +418,8 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-009: should show a placeholder rather than a wrong number when the count cannot be loaded', async ({
+  // Azure test case 14786
+  test('14786: should show a placeholder rather than a wrong number when the count cannot be loaded', async ({
     page,
     payerManagementPage,
     steps,

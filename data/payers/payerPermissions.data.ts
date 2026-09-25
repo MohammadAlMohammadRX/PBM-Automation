@@ -191,3 +191,48 @@ export const ROLE_REQUIREMENTS = {
       + 'by someone other than the person who requested it.',
   },
 } as const;
+
+/**
+ * The top-level group the payer permissions live under, as the tree heads it.
+ *
+ * Read by scrolling to this section rather than by searching: the term "Payer"
+ * also matches rows in other modules, so a name found after a search is no
+ * evidence that the PAYERS group offers it.
+ */
+export const PAYER_PERMISSION_GROUP = ['Payers'] as const;
+
+/**
+ * The group holding the approve/reject permission, which sits elsewhere.
+ *
+ * Both spellings, because THIS heading is translated where the Payers one is
+ * not: in Arabic the section reads "إدارة الموافقات", so looking for the
+ * English name finds no section at all and the case reports a missing group
+ * rather than a missing translation.
+ */
+export const PAYER_APPROVALS_GROUP = ['Approval Management', 'إدارة الموافقات'] as const;
+
+/**
+ * A label reduced to the letters that carry its meaning.
+ *
+ * "ExportPayers" and "Export Payers" are the SAME permission written two ways -
+ * the catalogue omits the space, the story writes it in - and comparing them
+ * literally reports a missing name where nothing is missing. Case, spaces,
+ * apostrophes and punctuation all go; the words and their order remain, so
+ * "GetPayer" still differs from "View Payer Details", which is a real gap
+ * rather than a spelling one.
+ */
+export const normalisePermissionLabel = (label: string): string =>
+  label.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+
+/** Whether two labels name the same permission, ignoring how it is written. */
+export const samePermission = (a: string, b: string): boolean =>
+  normalisePermissionLabel(a) === normalisePermissionLabel(b);
+
+/** The label the catalogue actually shows for a permission, or '' if absent. */
+export const findPermission = (
+  labels: readonly string[],
+  wanted: string,
+): string => labels.find((label) => samePermission(label, wanted)) ?? '';
+
+/** A label rendered in Arabic contains at least one Arabic letter. */
+export const ARABIC_LETTER = /[\u0600-\u06FF]/;

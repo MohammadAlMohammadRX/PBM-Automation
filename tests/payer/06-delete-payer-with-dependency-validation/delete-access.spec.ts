@@ -9,7 +9,8 @@ import { DELETE_MESSAGES } from '../../../data/payers/deletePayer.data';
  * Ownership rules, and confirming a deleted payer is really gone.
  */
 test.describe('Delete Payer with/without Dependency Validation - Access & deleted records', () => {
-  test('TC-006: should prevent a maker from discarding a draft created by a different maker', async ({
+  // Azure test case 14355
+  test('14355: should prevent a maker from discarding a draft created by a different maker', async ({
     payerManagementPage,
     draftPayer,
     browser,
@@ -60,7 +61,8 @@ test.describe('Delete Payer with/without Dependency Validation - Access & delete
       payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, 'Draft'));
   });
 
-  test('TC-007: should not return a payer in the search results once it has been deleted', async ({
+  // Azure test case 14357
+  test('14357: should not return a payer in the search results once it has been deleted', async ({
     payerManagementPage,
     draftPayer,
     steps,

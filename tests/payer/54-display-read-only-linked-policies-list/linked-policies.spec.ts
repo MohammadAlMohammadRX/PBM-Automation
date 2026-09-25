@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { Timeouts } from '../../../constants/Timeouts';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
@@ -19,7 +22,8 @@ import {
  * that needs a payer WITH policies is BLOCKED on one - see BLOCKED_CASES.
  */
 test.describe('Linked Policies tab', () => {
-  test('TC-003: should show an empty-state message when the payer has no linked policies', async ({
+  // Azure test case 14966
+  test('14966: should show an empty-state message when the payer has no linked policies', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -44,7 +48,8 @@ test.describe('Linked Policies tab', () => {
     });
   });
 
-  test('TC-010: should read the payer\'s policies from the policy records when the tab is opened', async ({
+  // Azure test case 14962
+  test('14962: should read the payer\'s policies from the policy records when the tab is opened', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -99,8 +104,53 @@ test.describe('Linked Policies tab', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 14970
+  test('14970: should withhold the Linked Policies tab from an unauthorised role', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the Linked Policies permission', async () => {
+      session = await shapedNonAdmin({ without: ['viewLinkedPolicies'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The Linked Policies tab is withheld from this role', async () => {
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      const tabs = await detail.getTabOrder();
+
+      // AND THE DATA BEHIND IT. A withheld tab is only half the claim: what the
+      // permission protects is the content, so if the tab IS offered the case
+      // opens it and reports how much of that content the role was served.
+      // "the tab was offered and rendered N rows" is a defect a developer can
+      // act on; "a tab id was in a list" is not.
+      if (tabs.includes('policies')) {
+        const section = await detail.getLinkedPoliciesSection().catch(() => ({ ids: [], text: '' }));
+        expect(
+          section.text.trim(),
+          `the Linked Policies tab was offered to a role without the permission, and it `
+            + `rendered: "${section.text.replace(/\s+/g, ' ').trim().slice(0, 160)}"`,
+        ).toBe('');
+      }
+      expect(
+        tabs,
+        `a role without the permission should not be offered the tab; offered: ${tabs.join(', ')}`,
+      ).not.toContain('policies');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-001 = 14954,  TC-002 = 14967,  TC-005 = 14959
+    //   TC-006 = 14955,  TC-007 = 14958,  TC-008 = 14978
+    //   TC-009 = 14963,  TC-013 = 14974
+    test(`${azureOrCase('54', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

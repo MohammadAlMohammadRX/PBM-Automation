@@ -1,10 +1,11 @@
 import { test, expect } from '../../../fixtures';
+import { env } from '../../../constants/EnvironmentConfig';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
+import { PAYER_STATUS_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
-import { nonAdminBlockReason } from '../../../data/accounts/nonAdminAccount.data';
 import {
   DISPLAY_DETAILS,
   DISPLAY_REASON,
-  INACTIVATION_DISPLAY_ROLE_REQUIREMENT,
   SECOND_CYCLE,
 } from '../../../data/payers/inactivationDisplay.data';
 
@@ -65,7 +66,8 @@ async function reactivate(
 }
 
 test.describe('Inactivation fields while a payer is inactive', () => {
-  test('TC-001: should show the reason and details on the Overview once a payer is inactivated', async ({
+  // Azure test case 15860
+  test('15860: should show the reason and details on the Overview once a payer is inactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -104,7 +106,8 @@ test.describe('Inactivation fields while a payer is inactive', () => {
     });
   });
 
-  test('TC-002: should not show the inactivation fields while the payer is still Active', async ({
+  // Azure test case 15871
+  test('15871: should not show the inactivation fields while the payer is still Active', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -151,7 +154,8 @@ test.describe('Inactivation fields while a payer is inactive', () => {
     });
   });
 
-  test('TC-003: should hide the inactivation fields again once the payer is reactivated', async ({
+  // Azure test case 15862
+  test('15862: should hide the inactivation fields again once the payer is reactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -185,7 +189,8 @@ test.describe('Inactivation fields while a payer is inactive', () => {
     });
   });
 
-  test('TC-004: should show only the latest inactivation on a second cycle', async ({
+  // Azure test case 15863
+  test('15863: should show only the latest inactivation on a second cycle', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -233,7 +238,8 @@ test.describe('Inactivation fields while a payer is inactive', () => {
     });
   });
 
-  test('TC-005: should offer no editable field for the acting user or timestamp', async ({
+  // Azure test case 15869
+  test('15869: should offer no editable field for the acting user or timestamp', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -265,11 +271,33 @@ test.describe('Inactivation fields while a payer is inactive', () => {
 
 /** Access control - who may inactivate and see the fields. */
 test.describe('Inactivation fields - Access control', () => {
-  test('TC-006: should keep inactivation and its fields behind the administrator role', async ({
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  // Azure test case 15870
+  test('15870: should keep inactivation and its fields behind the administrator role', async ({
+    shapeRole,
+    loginPage,
+    payerManagementPage,
     steps,
   }) => {
-    steps.blocked(
-      `${nonAdminBlockReason({ lacking: ['changePayerStatus'] })} ${INACTIVATION_DISPLAY_ROLE_REQUIREMENT.reason} Provide ${INACTIVATION_DISPLAY_ROLE_REQUIREMENT.role} and re-run.`,
-    );
+    // The role the case needs is BUILT rather than waited for: the administrator
+    // takes both status rights off the shared "Payer Admin" role, and puts them
+    // back when the case ends.
+    await shapeRole({ without: PAYER_STATUS_PERMISSIONS });
+
+    await steps.critical('Sign in as a user without the status rights', async () => {
+      await loginPage.open();
+      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+      await payerManagementPage.navigate();
+    });
+
+    // The fields this story is about live INSIDE the inactivation drawer, so a
+    // role that cannot open the drawer cannot reach them: withholding the action
+    // is what keeps the fields behind the role.
+    await steps.step('Neither lifecycle action is offered to this role', async () => {
+      const payerName = NON_ADMIN_PROFILE.scopedPayers[0];
+      await payerManagementPage.expectRowActionUnavailable(payerName, 'inactivate');
+      await payerManagementPage.expectRowActionUnavailable(payerName, 'activate');
+    });
   });
 });

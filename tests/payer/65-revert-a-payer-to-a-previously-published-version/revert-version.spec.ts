@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
@@ -72,7 +73,8 @@ async function publishEdit(
 }
 
 test.describe('Revert to a previously published version', () => {
-  test('TC-001: should offer Revert on an earlier published version when the payer has two', async ({
+  // Azure test case 15683
+  test('15683: should offer Revert on an earlier published version when the payer has two', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -99,7 +101,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-002: should append a new version holding the reverted configuration rather than rewrite history', async ({
+  // Azure test case 15684
+  test('15684: should append a new version holding the reverted configuration rather than rewrite history', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -141,7 +144,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-003: should route a revert request through the standard approval workflow before it takes effect', async ({
+  // Azure test case 15685
+  test('15685: should route a revert request through the standard approval workflow before it takes effect', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -193,7 +197,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-004: should refuse a revert while another submission for the payer is in flight', async ({
+  // Azure test case 15686
+  test('15686: should refuse a revert while another submission for the payer is in flight', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -217,7 +222,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-005: should allow the revert once the in-flight submission is withdrawn', async ({
+  // Azure test case 15687
+  test('15687: should allow the revert once the in-flight submission is withdrawn', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -255,7 +261,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-006: should revert to the earliest published version when several exist', async ({
+  // Azure test case 15689
+  test('15689: should revert to the earliest published version when several exist', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -283,7 +290,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-007: should offer no Revert on the currently published version', async ({
+  // Azure test case 15688
+  test('15688: should offer no Revert on the currently published version', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -306,7 +314,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-008: should not offer Revert on a draft version', async ({
+  // Azure test case 15690
+  test('15690: should not offer Revert on a draft version', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -330,7 +339,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-009: should refuse a revert that names a version which does not exist', async ({
+  // Azure test case 15691
+  test('15691: should refuse a revert that names a version which does not exist', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -377,7 +387,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-011: should leave version history unaffected when an approver rejects a revert', async ({
+  // Azure test case 15692
+  test('15692: should leave version history unaffected when an approver rejects a revert', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -411,7 +422,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-013: should record the approved revert in the audit trail with user, time and source version', async ({
+  // Azure test case 15695
+  test('15695: should record the approved revert in the audit trail with user, time and source version', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -437,7 +449,8 @@ test.describe('Revert to a previously published version', () => {
     });
   });
 
-  test('TC-010: should let only the System Administrator initiate a revert', async ({
+  // Azure test case 15693
+  test('15693: should let only the System Administrator initiate a revert', async ({
     nonAdminSession,
     steps,
   }) => {
@@ -467,7 +480,9 @@ test.describe('Revert to a previously published version', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-012 = 15694,  TC-014 = 15696
+    test(`${azureOrCase('65', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -18,7 +18,8 @@ import { ROLE_REQUIREMENTS } from '../../../data/payers/payerPermissions.data';
  * configuration can be read alongside the behaviour rather than assumed.
  */
 test.describe('Define Bilingual Names for All Payer Module Permissions - Enforcement', () => {
-  test('TC-014: should refuse the decision when the submitter tries to approve their own payer request', async ({
+  // Azure test case 15390
+  test('15390: should refuse the decision when the submitter tries to approve their own payer request', async ({
     payerManagementPage,
     approvalManagementPage,
     roleAdministrationPage,
@@ -74,7 +75,8 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Enforce
     });
   });
 
-  test('TC-018: should reject the request with an authorization error when a submitter approves their own change outside the interface', async ({
+  // Azure test case 15394
+  test('15394: should reject the request with an authorization error when a submitter approves their own change outside the interface', async ({
     payerManagementPage,
     steps,
   }) => {

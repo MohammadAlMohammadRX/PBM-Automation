@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { APPROVAL_STATE, SUBMISSION_PROMPT } from '../../../data/payers/withdrawApproval.data';
@@ -18,7 +21,8 @@ import {
  * wire. The re-check and role cases are BLOCKED - see submitDraft.data.ts.
  */
 test.describe('Submit a payer draft for approval', () => {
-  test('TC-001: should raise an approval request when Send for Approval is confirmed from the detail header', async ({
+  // Azure test case 15611
+  test('15611: should raise an approval request when Send for Approval is confirmed from the detail header', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -43,7 +47,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-002: should raise the same approval request when Send for Approval is used from the list row', async ({
+  // Azure test case 15612
+  test('15612: should raise the same approval request when Send for Approval is used from the list row', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -61,7 +66,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-003: should raise no approval request when the Send for Approval confirmation is cancelled', async ({
+  // Azure test case 15613
+  test('15613: should raise no approval request when the Send for Approval confirmation is cancelled', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -88,7 +94,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-004: should raise an approval request only through Send for Approval and not through saving edits', async ({
+  // Azure test case 15614
+  test('15614: should raise an approval request only through Send for Approval and not through saving edits', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -112,7 +119,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-007: should move the draft through Pending Approval to Approved and, after a rejection, back into the cycle', async ({
+  // Azure test case 15617
+  test('15617: should move the draft through Pending Approval to Approved and, after a rejection, back into the cycle', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -162,7 +170,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-008: should offer nothing to send when the payer has no changes since its last approved version', async ({
+  // Azure test case 15618
+  test('15618: should offer nothing to send when the payer has no changes since its last approved version', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -189,7 +198,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-011: should hold exactly one approval request when two sessions send the same draft at once', async ({
+  // Azure test case 15621
+  test('15621: should hold exactly one approval request when two sessions send the same draft at once', async ({
     payerManagementPage,
     approvalManagementPage,
     staleSession,
@@ -224,7 +234,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-013: should leave no partial request when the submission fails on the wire, and succeed on retry', async ({
+  // Azure test case 15624
+  test('15624: should leave no partial request when the submission fails on the wire, and succeed on retry', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -257,7 +268,8 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
-  test('TC-014: should refuse to save an incomplete draft so it can never be sent for approval', async ({
+  // Azure test case 15623
+  test('15623: should refuse to save an incomplete draft so it can never be sent for approval', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -287,8 +299,56 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 15620
+  test('15620: should refuse Send for Approval to a user without the System Administrator role', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    // THE BASELINE COMES FIRST. Send for Approval is offered only to a record
+    // with a staged change to submit, so on a published payer it is absent
+    // whatever the role holds - and the case would pass while proving nothing.
+    // Asked for WITH the right first, a state-withheld control is reported as
+    // BLOCKED rather than as a permission the application honoured.
+    await steps.critical('Send for Approval IS offered while the role holds the right', async () => {
+      const held = await shapedNonAdmin({ with: ['sendForApproval'] });
+      await held.payers.navigate();
+      await held.payers.expectRowsRendered();
+      const offered = await held.payers.getRowActionAvailability(
+        NON_ADMIN_PROFILE.scopedPayers[0],
+        'submit-for-approval',
+      );
+      if (offered !== 'available') {
+        steps.blocked(
+          `"${NON_ADMIN_PROFILE.scopedPayers[0]}" does not offer Send for Approval even to a role `
+            + `that HOLDS the right (the control is ${offered}), because the record has nothing `
+            + 'staged to submit. The state withholds the action, not the permission. The case '
+            + 'needs a payer with a pending draft inside the account\'s scope.',
+        );
+      }
+    });
+
+    await steps.critical('Sign in as a user without Send for Approval', async () => {
+      session = await shapedNonAdmin({ without: ['sendForApproval'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('Send for Approval is withheld from this role', async () => {
+      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'submit-for-approval');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-005 = 15615,  TC-006 = 15616,  TC-009 = 15619
+    //   TC-012 = 15622,  TC-015 = 15625
+    test(`${azureOrCase('63', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

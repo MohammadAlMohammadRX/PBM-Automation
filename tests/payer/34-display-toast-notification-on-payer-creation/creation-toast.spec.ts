@@ -28,7 +28,8 @@ import {
  *   control exists so the gap is reported rather than quietly skipped.
  */
 test.describe('Display Toast Notification on Payer Creation - Draft saved', () => {
-  test('TC-001: should display the draft-saved toast when a valid payer is created', async ({
+  // Azure test case 14523
+  test('14523: should display the draft-saved toast when a valid payer is created', async ({
     payerManagementPage,
     toast,
     uniquePayer,
@@ -64,7 +65,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
     });
   });
 
-  test('TC-002: should match the specified wording word-for-word when the toast is compared in both languages', async ({
+  // Azure test case 14525
+  test('14525: should match the specified wording word-for-word when the toast is compared in both languages', async ({
     payerManagementPage,
     languageSwitcher,
     toast,
@@ -98,7 +100,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
     });
   });
 
-  test('TC-003: should record the payer as draft version 1 when it is created', async ({
+  // Azure test case 14526
+  test('14526: should record the payer as draft version 1 when it is created', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -124,7 +127,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
     });
   });
 
-  test('TC-004: should show only the draft-saved toast when the payer is first created', async ({
+  // Azure test case 14528
+  test('14528: should show only the draft-saved toast when the payer is first created', async ({
     payerManagementPage,
     toast,
     uniquePayer,
@@ -154,7 +158,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
     });
   });
 
-  test('TC-005: should show the submitted-for-approval toast only after Send for Approval is used', async ({
+  // Azure test case 14531
+  test('14531: should show the submitted-for-approval toast only after Send for Approval is used', async ({
     payerManagementPage,
     toast,
     uniquePayer,
@@ -184,7 +189,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
     });
   });
 
-  test('TC-006: should return to the payer list showing the new record when creation completes', async ({
+  // Azure test case 14533
+  test('14533: should return to the payer list showing the new record when creation completes', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -208,7 +214,8 @@ test.describe('Display Toast Notification on Payer Creation - Draft saved', () =
 });
 
 test.describe('Display Toast Notification on Payer Creation - Lifetime', () => {
-  test('TC-007: should auto-dismiss the toast when it has been on screen for five seconds', async ({
+  // Azure test case 14534
+  test('14534: should auto-dismiss the toast when it has been on screen for five seconds', async ({
     payerManagementPage,
     toast,
     uniquePayer,
@@ -234,7 +241,8 @@ test.describe('Display Toast Notification on Payer Creation - Lifetime', () => {
       toast.expectDismissedWithin(TOAST_GONE_BY_MS));
   });
 
-  test('TC-008: should dismiss the toast immediately when its close control is used', async ({
+  // Azure test case 14538
+  test('14538: should dismiss the toast immediately when its close control is used', async ({
     payerManagementPage,
     toast,
     uniquePayer,
@@ -265,7 +273,8 @@ test.describe('Display Toast Notification on Payer Creation - Lifetime', () => {
       toast.expectDismissedWithin(TOAST_GONE_BY_MS));
   });
 
-  test('TC-009: should show a correct toast for each creation when payers are created in quick succession', async ({
+  // Azure test case 14537
+  test('14537: should show a correct toast for each creation when payers are created in quick succession', async ({
     payerManagementPage,
     toast,
     steps,
@@ -299,7 +308,8 @@ test.describe('Display Toast Notification on Payer Creation - Lifetime', () => {
     );
   });
 
-  test('TC-010: should show no draft-saved toast when creation fails validation', async ({
+  // Azure test case 14543
+  test('14543: should show no draft-saved toast when creation fails validation', async ({
     payerManagementPage,
     toast,
     steps,

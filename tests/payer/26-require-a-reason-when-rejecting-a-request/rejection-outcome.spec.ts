@@ -17,7 +17,8 @@ import {
  * who is not a reviewer.
  */
 test.describe('Require a reason when rejecting - Outcome', () => {
-  test('TC-006: should move the payer to its post-rejection state and record the reason', async ({
+  // Azure test case 15513
+  test('15513: should move the payer to its post-rejection state and record the reason', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -63,7 +64,8 @@ test.describe('Require a reason when rejecting - Outcome', () => {
     });
   });
 
-  test('TC-008: should offer no reject action on a request that has already been decided', async ({
+  // Azure test case 15515
+  test('15515: should offer no reject action on a request that has already been decided', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -105,7 +107,8 @@ test.describe('Require a reason when rejecting - Outcome', () => {
     });
   });
 
-  test('TC-009: should state the requirement clearly and record who rejected what', async ({
+  // Azure test case 15516
+  test('15516: should state the requirement clearly and record who rejected what', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -173,7 +176,8 @@ test.describe('Require a reason when rejecting - Outcome', () => {
 test.describe('Require a reason when rejecting - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-010: should withhold the Reject action from a user who is not a reviewer', async ({
+  // Azure test case 15517
+  test('15517: should withhold the Reject action from a user who is not a reviewer', async ({
     requireNonAdmin,
     loginPage,
     approvalManagementPage,

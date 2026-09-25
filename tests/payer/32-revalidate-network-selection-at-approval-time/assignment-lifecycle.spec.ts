@@ -20,7 +20,8 @@ import { ASSIGNMENT_CAVEAT, ASSIGNMENT_CHANGE_TYPE, networkNameOf } from '../../
  * itself had consumed.
  */
 test.describe('Network selection re-validation - Assignment lifecycle', () => {
-  test('TC-001: should create a pending request without linking the network when an assignment is submitted', async ({
+  // Azure test case 15584
+  test('15584: should create a pending request without linking the network when an assignment is submitted', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -81,7 +82,8 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     });
   });
 
-  test('TC-002: should link the network to the payer once the request is approved', async ({
+  // Azure test case 15585
+  test('15585: should link the network to the payer once the request is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -123,7 +125,8 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     });
   });
 
-  test('TC-005: should keep the network attached until a submitted removal is approved', async ({
+  // Azure test case 15588
+  test('15588: should keep the network attached until a submitted removal is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -183,7 +186,8 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     });
   });
 
-  test('TC-008: should move the network through each assignment state in turn', async ({
+  // Azure test case 15591
+  test('15591: should move the network through each assignment state in turn', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,

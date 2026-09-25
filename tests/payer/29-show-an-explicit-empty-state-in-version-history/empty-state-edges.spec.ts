@@ -23,7 +23,8 @@ import {
  * against it rather than accommodating it.
  */
 test.describe('Version history empty state - Edges', () => {
-  test('TC-008: should match each payer to its own history state, whatever its status', async ({
+  // Azure test case 15553
+  test('15553: should match each payer to its own history state, whatever its status', async ({
     payerManagementPage,
     payerSample,
     draftPayer,
@@ -103,7 +104,8 @@ test.describe('Version history empty state - Edges', () => {
     });
   });
 
-  test('TC-010: should present the empty panel with a message, an icon and a consistent layout', async ({
+  // Azure test case 15555
+  test('15555: should present the empty panel with a message, an icon and a consistent layout', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -151,7 +153,8 @@ test.describe('Version history empty state - Edges', () => {
     });
   });
 
-  test('TC-011: should follow the current history rather than keep a stale empty state', async ({
+  // Azure test case 15556
+  test('15556: should follow the current history rather than keep a stale empty state', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -201,7 +204,8 @@ test.describe('Version history empty state - Edges', () => {
     });
   });
 
-  test('TC-012: should report a load failure distinctly from an absence of history', async ({
+  // Azure test case 15557
+  test('15557: should report a load failure distinctly from an absence of history', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -274,15 +278,18 @@ test.describe('Version history empty state - Edges', () => {
 test.describe('Version history empty state - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should withhold the Version History tab from a user without history rights', async ({
-    requireNonAdmin,
+  // Azure test case 15554
+  test('15554: should withhold the Version History tab from a user without history rights', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['viewVersionHistory'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['viewVersionHistory'] });
 
     let payerName!: string;
 
@@ -298,8 +305,24 @@ test.describe('Version history empty state - Access control', () => {
     await steps.step('The Version History tab is withheld or refuses access', async () => {
       const detail = await payerManagementPage.openDetails(payerName);
       const versions = detail.versionHistory();
+      const offered = await versions.isAvailable();
+
+      // AND THE DATA BEHIND IT. A withheld tab is only half the claim: what the
+      // permission protects is the content, so if the tab IS offered the case
+      // opens it and reports how much of that content the role was served.
+      // "the tab was offered and rendered N rows" is a defect a developer can
+      // act on; "a tab id was in a list" is not.
+      if (offered) {
+        await versions.open().catch(() => undefined);
+        const rows = await versions.getEntryCount().catch(() => -1);
+        expect(
+          rows,
+          `the Version History tab was offered to a role without history rights, and it `
+            + `rendered ${rows} version row(s)`,
+        ).toBe(0);
+      }
       expect(
-        await versions.isAvailable(),
+        offered,
         'a role without history rights should not be offered the tab',
       ).toBe(false);
     });

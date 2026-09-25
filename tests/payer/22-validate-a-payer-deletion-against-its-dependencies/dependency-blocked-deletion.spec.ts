@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import {
   DELETE_CHANGE_TYPE,
   DELETE_MESSAGES,
@@ -34,7 +35,8 @@ import {
  * module view keyed by payer; those cases report BLOCKED with what to seed.
  */
 test.describe('Payer deletion dependencies - Blocked deletions', () => {
-  test('TC-003: should refuse the deletion when the payer is linked to a network', async ({
+  // Azure test case 15463
+  test('15463: should refuse the deletion when the payer is linked to a network', async ({
     payerManagementPage,
     approvalManagementPage,
     steps,
@@ -87,7 +89,8 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
     });
   });
 
-  test('TC-006: should name every applicable dependency when a deletion is refused', async ({
+  // Azure test case 15466
+  test('15466: should name every applicable dependency when a deletion is refused', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -134,7 +137,8 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
     });
   });
 
-  test('TC-002: should refuse the deletion and name Plans when the payer is linked to a plan', async ({
+  // Azure test case 15462
+  test('15462: should refuse the deletion and name Plans when the payer is linked to a plan', async ({
     steps,
   }) => {
     // Reported before anything is touched. See the data file for the full
@@ -147,7 +151,9 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
   for (const type of DISCOVERY.undiscoverable) {
     const caseId = type === 'Facilities' ? 'TC-004' : 'TC-005';
 
-    test(`${caseId}: should refuse the deletion and name ${type} when the payer is linked to one`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-004 = 15464,  TC-005 = 15465
+    test(`${azureOrCase('22', caseId)}: should refuse the deletion and name ${type} when the payer is linked to one`, async ({
       steps,
     }) => {
       // BLOCKED rather than approximated. A case that attempted this against an
@@ -157,7 +163,8 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
     });
   }
 
-  test('TC-014: should name the blocking dependency precisely, in both languages', async ({
+  // Azure test case 15474
+  test('15474: should name the blocking dependency precisely, in both languages', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -211,7 +218,8 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
     });
   });
 
-  test('TC-013: should apply the same rule whatever state the dependency is in', async ({
+  // Azure test case 15473
+  test('15473: should apply the same rule whatever state the dependency is in', async ({
     payerManagementPage,
     networkManagementPage,
     steps,

@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
 import type { AssignNetworkDrawer } from '../../../pages/payer/AssignNetworkDrawer';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
@@ -21,7 +22,8 @@ import {
  * cases that must SUBMIT an assignment are BLOCKED on a free network.
  */
 test.describe('Manage linked networks from payer details', () => {
-  test('TC-001: should not offer an Inactive network when adding a network', async ({
+  // Azure test case 15062
+  test('15062: should not offer an Inactive network when adding a network', async ({
     payerManagementPage,
     networkManagementPage,
     assignableNetwork,
@@ -67,7 +69,8 @@ test.describe('Manage linked networks from payer details', () => {
     });
   });
 
-  test('TC-002: should keep the submit action disabled when no network is selected', async ({
+  // Azure test case 15088
+  test('15088: should keep the submit action disabled when no network is selected', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -137,7 +140,10 @@ test.describe('Manage linked networks from payer details', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-003 = 15068,  TC-004 = 15072,  TC-005 = 15078
+    //   TC-007 = 15071,  TC-009 = 15084
+    test(`${azureOrCase('55', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

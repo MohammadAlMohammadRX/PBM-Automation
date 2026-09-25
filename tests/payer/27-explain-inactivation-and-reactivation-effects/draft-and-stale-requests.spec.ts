@@ -30,7 +30,8 @@ import {
  * own payer, then replays it against an already-inactive one.
  */
 test.describe('Inactivation and reactivation effects - Drafts and forced requests', () => {
-  test('TC-009: should hold the change as a draft pending approval rather than applying it', async ({
+  // Azure test case 15526
+  test('15526: should hold the change as a draft pending approval rather than applying it', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -95,7 +96,8 @@ test.describe('Inactivation and reactivation effects - Drafts and forced request
     });
   });
 
-  test('TC-012: should refuse a forced inactivation when the payer is already Inactive', async ({
+  // Azure test case 15529
+  test('15529: should refuse a forced inactivation when the payer is already Inactive', async ({
     page,
     payerManagementPage,
     payerInactivateDialog,
@@ -171,7 +173,8 @@ test.describe('Inactivation and reactivation effects - Drafts and forced request
     });
   });
 
-  test('TC-014: should keep the payer state intact when the confirmation is interrupted', async ({
+  // Azure test case 15531
+  test('15531: should keep the payer state intact when the confirmation is interrupted', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,

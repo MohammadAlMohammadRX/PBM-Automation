@@ -35,7 +35,8 @@ async function rejectAFreshRegistration(
 }
 
 test.describe('Rejected registration stays visible and editable', () => {
-  test('TC-001: should keep a rejected registration listed at version 0 and marked Rejected', async ({
+  // Azure test case 15753
+  test('15753: should keep a rejected registration listed at version 0 and marked Rejected', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -60,7 +61,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-002: should show the reviewer\'s reason on the rejected registration', async ({
+  // Azure test case 15754
+  test('15754: should show the reviewer\'s reason on the rejected registration', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -87,7 +89,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-003: should keep a rejected registration editable', async ({
+  // Azure test case 15755
+  test('15755: should keep a rejected registration editable', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -117,7 +120,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-004: should return a rejected registration to Draft when it is edited', async ({
+  // Azure test case 15756
+  test('15756: should return a rejected registration to Draft when it is edited', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -150,7 +154,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-005: should hold the version at 0 through the whole reject-and-edit cycle', async ({
+  // Azure test case 15757
+  test('15757: should hold the version at 0 through the whole reject-and-edit cycle', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -191,7 +196,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-006: should route an edited rejected registration back into the approval queue', async ({
+  // Azure test case 15764
+  test('15764: should route an edited rejected registration back into the approval queue', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -220,7 +226,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-007: should keep the rejected state through a reload', async ({
+  // Azure test case 15762
+  test('15762: should keep the rejected state through a reload', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -243,7 +250,8 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 
-  test('TC-008: should show correct, non-blank fields on a rejected row', async ({
+  // Azure test case 15761
+  test('15761: should show correct, non-blank fields on a rejected row', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -271,13 +279,25 @@ test.describe('Rejected registration stays visible and editable', () => {
 
 /** Access control - who may edit a rejected registration. */
 test.describe('Rejected registration - Edit permission', () => {
-  test('TC-009: should restrict editing a rejected registration to users with edit permission', async ({
+  // Azure test case 15763
+  test('15763: should restrict editing a rejected registration to users with edit permission', async ({
     steps,
   }) => {
+    // STILL BLOCKED, but no longer for the reason it was. The ROLE is now
+    // buildable - shapedNonAdmin can take Edit Payer off the shared role - so
+    // what is missing is the RECORD: the case needs a REJECTED registration the
+    // restricted account can see, and that account is scoped to two live payers
+    // (Al Dawaa, NUPCO) which must not be driven through a rejection. A fresh
+    // rejected draft, which TC-003 builds, is outside its scope and invisible to
+    // it. Assign the non-admin account to a disposable payer and this case can
+    // be written exactly like the other shaped-role cases.
     steps.blocked(
-      `${nonAdminBlockReason({ lacking: ['editPayer'] })} ${EDIT_ROLE_REQUIREMENT.reason} The reachable half - that the administrator CAN edit a rejected registration - is proven `
-        + 'by TC-003; the withheld half needs a user without payer-edit permission. Provide '
-        + `${EDIT_ROLE_REQUIREMENT.role} and re-run.`,
+      'The restricted ROLE can now be built by shapedNonAdmin, so the account is no longer the '
+        + "blocker; the REGISTRATION is. The case needs a rejected registration inside the "
+        + "non-admin account's scope, and that account sees only two shared live payers which "
+        + "must not be rejected. The reachable half - that the administrator CAN edit a rejected "
+        + "registration - is proven by TC-003. Assign the non-admin account to a disposable payer "
+        + 'and re-run.',
     );
   });
 });

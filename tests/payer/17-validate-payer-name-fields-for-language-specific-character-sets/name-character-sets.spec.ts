@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import { PAYER_NAME_AR_LABEL, buildUniquePayer } from '../../../data/payers/payer.data';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -37,7 +38,8 @@ const labelFor = (field: 'english' | 'arabic') =>
  * anything useful. See data/payers/payerNameFields.data.ts.
  */
 test.describe('Validate Payer Name Fields - Character sets', () => {
-  test('TC-001: should save the payer when both the English and Arabic names are valid', async ({
+  // Azure test case 15395
+  test('15395: should save the payer when both the English and Arabic names are valid', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -100,7 +102,10 @@ test.describe('Validate Payer Name Fields - Character sets', () => {
       ? 'should refuse the value and report the character-set violation'
       : 'should accept the value without a character-set violation';
 
-    test(`${characterSet.caseId}: ${behaviour} when the form contains ${characterSet.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15396,  TC-003 = 15397,  TC-008 = 15402
+    //   TC-009 = 15403,  TC-011 = 15406
+    test(`${azureOrCase('17', characterSet.caseId)}: ${behaviour} when the form contains ${characterSet.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -162,7 +167,8 @@ test.describe('Validate Payer Name Fields - Character sets', () => {
     });
   }
 
-  test('TC-015: should handle emoji and hidden bidirectional characters consistently when they are entered into a name field', async ({
+  // Azure test case 15409
+  test('15409: should handle emoji and hidden bidirectional characters consistently when they are entered into a name field', async ({
     payerManagementPage,
     steps,
   }) => {

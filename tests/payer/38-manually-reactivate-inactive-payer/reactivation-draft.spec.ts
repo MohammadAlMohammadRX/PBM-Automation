@@ -23,7 +23,8 @@ import {
  * a product decision to settle, not something a test should paper over.
  */
 test.describe('Reactivate an inactive payer', () => {
-  test('TC-001: should return the payer to Active when a reactivation draft is approved', async ({
+  // Azure test case 14754
+  test('14754: should return the payer to Active when a reactivation draft is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     inactivePayer,
@@ -76,7 +77,8 @@ test.describe('Reactivate an inactive payer', () => {
     });
   });
 
-  test('TC-002: should refuse a reactivation draft that carries no reason', async ({
+  // Azure test case 14762
+  test('14762: should refuse a reactivation draft that carries no reason', async ({
     payerManagementPage,
     inactivePayer,
     steps,
@@ -118,7 +120,8 @@ test.describe('Reactivate an inactive payer', () => {
     });
   });
 
-  test('TC-003: should change nothing but the status when a payer is reactivated', async ({
+  // Azure test case 14753
+  test('14753: should change nothing but the status when a payer is reactivated', async ({
     payerManagementPage,
     approvalManagementPage,
     inactivePayer,

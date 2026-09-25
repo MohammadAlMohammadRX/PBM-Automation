@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { EntityWizardDialog } from '../components/EntityWizardDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Timeouts } from '../../constants/Timeouts';
-import { PAYER_FORM_FIELD, PAYER_FORM_STEPS, SCREEN } from '../../constants/ElementIds';
+import { PAYER_FORM_FIELD, PAYER_FORM_STEPS, SCREEN, TOAST } from '../../constants/ElementIds';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import { Logger } from '../../utils/Logger';
 import { NetworkUtils } from '../../utils/NetworkUtils';
@@ -118,10 +118,10 @@ export class PayerFormDialog extends EntityWizardDialog {
       // takes only the subscriber number.
       'Phone Number': () => this.fillTextField('Phone Number', data.phone),
       'License Number': () => this.fillTextField('License Number', data.licenseNumber),
+      // Country is NOT filled: it is a new field on this step and it arrives
+      // preset to "Saudi Arabia", so the wizard advances without it. Setting it
+      // from test data belongs with the rest of the business-change work.
       City: () => this.selectDropdownOption('City', data.city),
-      'Preferred Language': () => this.selectDropdownOption('Preferred Language', data.language),
-      'Preferred Contact Method': () =>
-        this.selectDropdownOption('Preferred Contact Method', data.contactMethod),
     };
   }
 
@@ -178,12 +178,9 @@ export class PayerFormDialog extends EntityWizardDialog {
     await this.fillTextField('Email Address', data.email);
     await this.fillTextField('Phone Number', data.phone);
     await this.fillTextField('License Number', data.licenseNumber);
+    // Country is left at its preset value here for the same reason as in the
+    // English filler above.
     await this.selectDropdownOption('City', CITY_AR[data.city]);
-    await this.selectDropdownOption('Preferred Language', LANGUAGE_AR[data.language]);
-    await this.selectDropdownOption(
-      'Preferred Contact Method',
-      CONTACT_METHOD_AR[data.contactMethod],
-    );
   }
 
   /** Creates a payer end to end through the ARABIC interface. */
@@ -852,25 +849,44 @@ export class PayerFormDialog extends EntityWizardDialog {
    * carries anything at all, which is a claim worth making carefully.
    */
   async getVisibleMessages(): Promise<string[]> {
-    return this.page.evaluate(() => {
-      const selectors = [
-        '.p-toast-summary',
-        '.p-toast-detail',
-        '[id$="-error"]',
-        '.p-error',
-        '#pbm-dialog-message',
-        '#pbm-dialog-alert',
-      ];
+    // THE APPLICATION'S OWN TOAST IDS COME FIRST, and their absence here was a
+    // long-running false negative. This list used to name PrimeNG's
+    // `.p-toast-summary`, which the application does not render: it wraps the
+    // toast in its own markup and puts the text in `#pbm-toast-summary`. The
+    // two read almost identically, so a duplicate-email save that DID show
+    // "Email 'dd@dd.dd' is already taken." was reported as showing nothing at
+    // all. PayerDetailPage has always read the right id; only this copy drifted.
+    //
+    // `offsetParent` is no longer the visibility test either. It is null for
+    // any position:fixed element, and a toast is exactly that - so even the
+    // right selector would have been discarded. A laid-out box is the honest
+    // check.
+    const selectors = [
+      `#${TOAST.summary}`,
+      `#${TOAST.detail}`,
+      '.p-toast-summary',
+      '.p-toast-detail',
+      '[id$="-error"]',
+      '.p-error',
+      '#pbm-dialog-message',
+      '#pbm-dialog-alert',
+    ];
+    return this.page.evaluate((queries) => {
       const seen = new Set<string>();
-      selectors.forEach((selector) => {
+      queries.forEach((selector) => {
         document.querySelectorAll(selector).forEach((node) => {
           const element = node as HTMLElement;
           const text = (element.innerText || '').trim().replace(/\s+/g, ' ');
-          if (element.offsetParent !== null && text !== '') seen.add(text);
+          if (text === '') return;
+          const style = window.getComputedStyle(element);
+          const laidOut = element.getBoundingClientRect().height > 0;
+          if (laidOut && style.visibility !== 'hidden' && style.display !== 'none') {
+            seen.add(text);
+          }
         });
       });
       return [...seen];
-    });
+    }, selectors);
   }
 
   /**

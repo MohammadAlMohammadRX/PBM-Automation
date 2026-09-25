@@ -657,6 +657,15 @@ export const PAYER_DETAIL_HEADER = {
  * Two independent consumers is what makes the cross-module consistency case
  * checkable at all.
  */
+/**
+ * The "Select a Payer" gate a SCOPED account meets before any payer screen
+ * shows data. Added by the application on or before 21 September 2026; the
+ * administrator never sees it. See pages/components/PayerScopeDialog.ts.
+ */
+export const PAYER_SCOPE_DIALOG = {
+  select: 'pbm-dialog-select',
+} as const;
+
 export const PAYER_SELECT = {
   planForm: 'plan-form-drawer-payer-id-select',
   planListFilter: 'plan-list-filter-payer-select',
@@ -1018,17 +1027,29 @@ export const ROLE_LIST = {
   toolbar: 'role-list-toolbar',
   search: 'role-list-search',
   searchInput: 'role-list-search-input',
-  cards: 'role-list-cards',
+  table: 'role-list-table',
+  tableBody: 'role-list-table-body',
+  /** Every row's id begins with this; the rest is the role's GUID. */
+  rowPrefix: 'role-list-table-row-',
   addButton: 'role-list-add-button',
 } as const;
 
-/** A role card's id segments, `role-card-{id}-{segment}`. */
-export const ROLE_CARD_FIELD = {
-  name: 'name',
-  description: 'description',
-  edit: 'edit-button',
-  view: 'view-button',
-  delete: 'delete-button',
+/**
+ * A role ROW's id segments, `role-list-table-row-{guid}-{segment}`.
+ *
+ * The screen used to render cards (`role-card-{id}-name`) and was rebuilt as a
+ * table on or before 20 September 2026. The ids are now shaped exactly like the
+ * payer list's, which is why a role is found by its name CELL and acted on
+ * through its row - the same approach every other list in this suite uses.
+ */
+export const ROLE_ROW_FIELD = {
+  name: 'cell-name',
+  description: 'cell-description',
+  status: 'cell-status',
+  edit: 'edit',
+  view: 'view',
+  toggleActive: 'toggle-active',
+  delete: 'delete',
 } as const;
 
 /**

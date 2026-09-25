@@ -15,18 +15,19 @@ import {
 test.describe('Enforce Payer Email Uniqueness - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should withhold the create and edit controls when the module is opened by a restricted role', async ({
-    requireNonAdmin,
+  // Azure test case 15418
+  test('15418: should withhold the create and edit controls when the module is opened by a restricted role', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a restricted account the withholding this case
-    // exists to prove can never be exercised, so nothing would be learned about
     // the application.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();
@@ -46,7 +47,8 @@ test.describe('Enforce Payer Email Uniqueness - Access control', () => {
 });
 
 test.describe('Enforce Payer Email Uniqueness - Bypass exploration', () => {
-  test('TC-010: should enforce the check on every creation path when alternative routes are explored', async ({
+  // Azure test case 15419
+  test('15419: should enforce the check on every creation path when alternative routes are explored', async ({
     payerManagementPage,
     uniquePayer,
     steps,

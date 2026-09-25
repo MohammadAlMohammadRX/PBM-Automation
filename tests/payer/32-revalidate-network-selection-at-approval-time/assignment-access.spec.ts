@@ -25,7 +25,8 @@ import {
 test.describe('Network selection re-validation - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-006: should refuse to apply a pending request whose network no longer exists', async ({
+  // Azure test case 15589
+  test('15589: should refuse to apply a pending request whose network no longer exists', async ({
     steps,
   }) => {
     // Reported before anything is touched: the case cannot be run safely here,
@@ -34,16 +35,19 @@ test.describe('Network selection re-validation - Access control', () => {
     steps.blocked(DELETION_CONFLICT_BLOCKER.reason);
   });
 
-  test('TC-012: should withhold assignment from an unauthorized user and block self-approval', async ({
-    requireNonAdmin,
+  // Azure test case 15594
+  test('15594: should withhold assignment from an unauthorized user and block self-approval', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     approvalManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['assignNetwork'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['assignNetworks', 'unassignNetwork'] });
 
     let payerName!: string;
 
@@ -59,6 +63,18 @@ test.describe('Network selection re-validation - Access control', () => {
     await steps.step('The assignment control is withheld from this role', async () => {
       const detail = await payerManagementPage.openDetails(payerName);
       const availability = await detail.getAssignNetworkAvailability();
+      // MEASURED 21 September 2026: this control is ABSENT on the scoped payers
+      // even for a role that HOLDS the assignment rights (see folder 59 TC-006,
+      // whose baseline reports BLOCKED for exactly that). A pass here therefore
+      // proves nothing about the permission, so the case says so instead of
+      // claiming a refusal it did not observe.
+      if (availability === 'absent') {
+        steps.blocked(
+          `"${payerName}" does not offer the Assign Network control even to a role that HOLDS `
+            + 'the assignment rights, so withdrawing them proves nothing. The case needs a payer '
+            + 'whose detail page offers the control - one with assignable networks in scope.',
+        );
+      }
       expect(
         availability,
         'a role without assignment rights must not be offered the Assign Network control',

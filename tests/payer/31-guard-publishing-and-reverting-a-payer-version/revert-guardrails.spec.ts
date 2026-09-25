@@ -31,7 +31,8 @@ import {
  * assertion is that nothing can be done with it.
  */
 test.describe('Revert guardrails', () => {
-  test('TC-005: should make a previously published version live again when reverted', async ({
+  // Azure test case 15573
+  test('15573: should make a previously published version live again when reverted', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -87,7 +88,8 @@ test.describe('Revert guardrails', () => {
     });
   });
 
-  test('TC-006: should offer no revert to a draft version', async ({
+  // Azure test case 15574
+  test('15574: should offer no revert to a draft version', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -135,7 +137,8 @@ test.describe('Revert guardrails', () => {
     });
   });
 
-  test('TC-007: should offer no revert to the version that is already live', async ({
+  // Azure test case 15575
+  test('15575: should offer no revert to the version that is already live', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -181,7 +184,8 @@ test.describe('Revert guardrails', () => {
     });
   });
 
-  test('TC-008: should do nothing with a version identifier that does not exist', async ({
+  // Azure test case 15576
+  test('15576: should do nothing with a version identifier that does not exist', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -223,7 +227,8 @@ test.describe('Revert guardrails', () => {
     });
   });
 
-  test('TC-013: should record every legitimate transition and no false ones', async ({
+  // Azure test case 15581
+  test('15581: should record every legitimate transition and no false ones', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -287,7 +292,8 @@ test.describe('Revert guardrails', () => {
 
 /** The reviewer-separation case, which needs a second account. */
 test.describe('Revert guardrails - Segregation of duties', () => {
-  test('TC-012: should block a submitter from approving their own version', async ({
+  // Azure test case 15580
+  test('15580: should block a submitter from approving their own version', async ({
     requireNonAdmin,
     payerManagementPage,
     approvalManagementPage,

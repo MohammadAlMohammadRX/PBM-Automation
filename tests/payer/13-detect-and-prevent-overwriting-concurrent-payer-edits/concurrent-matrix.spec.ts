@@ -22,7 +22,8 @@ import {
  * under test - the case would pass while proving nothing.
  */
 test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Field categories', () => {
-  test('TC-010: should raise the same conflict for every field category when each is edited concurrently', async ({
+  // Azure test case 15348
+  test('15348: should raise the same conflict for every field category when each is edited concurrently', async ({
     payerManagementPage,
     staleSession,
     steps,

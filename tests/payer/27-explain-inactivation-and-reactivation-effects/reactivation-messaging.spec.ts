@@ -21,7 +21,8 @@ import {
  * than a drawer: no reason, no details, just the explanation and two actions.
  */
 test.describe('Inactivation and reactivation effects - Reactivation messaging', () => {
-  test('TC-004: should confirm the reactivation was saved when an inactive payer is reactivated', async ({
+  // Azure test case 15520
+  test('15520: should confirm the reactivation was saved when an inactive payer is reactivated', async ({
     payerManagementPage,
     inactivePayer,
     toast,
@@ -65,7 +66,8 @@ test.describe('Inactivation and reactivation effects - Reactivation messaging', 
       toast.expectText(SUCCESS_TOAST));
   });
 
-  test('TC-006: should leave the payer Inactive and restore nothing when the reactivation is cancelled', async ({
+  // Azure test case 15523
+  test('15523: should leave the payer Inactive and restore nothing when the reactivation is cancelled', async ({
     payerManagementPage,
     payerSample,
     steps,

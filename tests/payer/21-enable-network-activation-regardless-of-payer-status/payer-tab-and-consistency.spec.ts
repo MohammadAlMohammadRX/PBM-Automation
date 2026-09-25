@@ -19,7 +19,8 @@ import { NETWORK_STATUS } from '../../../data/networks/networkActivation.data';
  * released. Reading an existing link costs nothing and changes nothing.
  */
 test.describe('Network activation - Status consistency across the interface', () => {
-  test('TC-010: should report one consistent network status wherever it is shown, independent of the payer', async ({
+  // Azure test case 15459
+  test('15459: should report one consistent network status wherever it is shown, independent of the payer', async ({
     payerManagementPage,
     networkManagementPage,
     steps,

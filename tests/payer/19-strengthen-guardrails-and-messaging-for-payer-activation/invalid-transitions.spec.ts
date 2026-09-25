@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import {
   EXPIRY_GUARDRAIL_MESSAGE,
@@ -45,7 +46,8 @@ test.describe('Payer lifecycle guardrails - Invalid transitions', () => {
   const transitionOf = (caseId: string) =>
     INVALID_TRANSITIONS.find((candidate) => candidate.caseId === caseId)!;
 
-  test('TC-002: should refuse the inactivation when the payer is already Inactive', async ({
+  // Azure test case 15423
+  test('15423: should refuse the inactivation when the payer is already Inactive', async ({
     payerManagementPage,
     payerSample,
     steps,
@@ -84,7 +86,8 @@ test.describe('Payer lifecycle guardrails - Invalid transitions', () => {
       payerManagementPage.expectLifecycleStatus(payerName, LIFECYCLE_STATUS.inactive.en));
   });
 
-  test('TC-004: should refuse the activation when the payer is already Active', async ({
+  // Azure test case 15425
+  test('15425: should refuse the activation when the payer is already Active', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -138,7 +141,9 @@ test.describe('Payer lifecycle guardrails - Invalid transitions', () => {
   for (const caseId of ['TC-005', 'TC-007'] as const) {
     const attempt = caseId === 'TC-005' ? 'activated' : 'reactivated';
 
-    test(`${caseId}: should refuse and explain when an Expired payer is ${attempt}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-005 = 15426,  TC-007 = 15428
+    test(`${azureOrCase('19', caseId)}: should refuse and explain when an Expired payer is ${attempt}`, async ({
       payerManagementPage,
       payerSample,
       steps,
@@ -176,7 +181,8 @@ test.describe('Payer lifecycle guardrails - Invalid transitions', () => {
     });
   }
 
-  test('TC-006: should refuse and explain when an Expired payer is inactivated', async ({
+  // Azure test case 15427
+  test('15427: should refuse and explain when an Expired payer is inactivated', async ({
     payerManagementPage,
     payerSample,
     steps,

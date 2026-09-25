@@ -21,7 +21,8 @@ import {
  * missing filtered scope once rather than at every boundary.
  */
 test.describe('Export scope prompt - Boundaries', () => {
-  test('TC-006: should prompt in the same way with exactly one filter applied', async ({
+  // Azure test case 15538
+  test('15538: should prompt in the same way with exactly one filter applied', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -53,7 +54,8 @@ test.describe('Export scope prompt - Boundaries', () => {
     });
   });
 
-  test('TC-007: should prompt in the same way with several filters applied', async ({
+  // Azure test case 15539
+  test('15539: should prompt in the same way with several filters applied', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -88,7 +90,8 @@ test.describe('Export scope prompt - Boundaries', () => {
     });
   });
 
-  test('TC-010: should report a failure and deliver no file when the export service is unavailable', async ({
+  // Azure test case 15542
+  test('15542: should report a failure and deliver no file when the export service is unavailable', async ({
     page,
     payerManagementPage,
     exportMenu,
@@ -152,7 +155,8 @@ test.describe('Export scope prompt - Boundaries', () => {
     });
   });
 
-  test('TC-012: should keep the prompt consistent across filter changes and repeated triggers', async ({
+  // Azure test case 15544
+  test('15544: should keep the prompt consistent across filter changes and repeated triggers', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -200,7 +204,8 @@ test.describe('Export scope prompt - Boundaries', () => {
     });
   });
 
-  test('TC-013: should move from filtered list to completed export in the expected steps', async ({
+  // Azure test case 15545
+  test('15545: should move from filtered list to completed export in the expected steps', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -252,16 +257,19 @@ test.describe('Export scope prompt - Boundaries', () => {
 test.describe('Export scope prompt - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should withhold the export control from a user without export rights', async ({
-    requireNonAdmin,
+  // Azure test case 15541
+  test('15541: should withhold the export control from a user without export rights', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     exportMenu,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['exportPayers'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['exportPayers'] });
 
     await steps.critical('Open the payer list as the restricted user', async () => {
       await loginPage.open();
@@ -280,6 +288,6 @@ test.describe('Export scope prompt - Access control', () => {
       await payerManagementPage.expectRowsRendered();
     });
 
-    await steps.step('The export control is withheld', () => exportMenu.expectDenied());
+    await steps.step('The export is refused to this role', () => exportMenu.expectExportRefused());
   });
 });

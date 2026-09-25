@@ -29,7 +29,8 @@ const NAME_COLUMN = PAYER_COLUMN.payerName;
  * than a coincidence of similar strings. It is removed in teardown.
  */
 test.describe('Display Payer Names in the Interface Language - Language selection', () => {
-  test('TC-001: should display the Arabic name across list, card and detail when the UI is Arabic', async ({
+  // Azure test case 15274
+  test('15274: should display the Arabic name across list, card and detail when the UI is Arabic', async ({
     payerManagementPage,
     payerCards,
     languageSwitcher,
@@ -63,7 +64,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-002: should display the English name across list, card and detail when the UI is English', async ({
+  // Azure test case 15275
+  test('15275: should display the English name across list, card and detail when the UI is English', async ({
     payerManagementPage,
     payerCards,
     languageSwitcher,
@@ -97,7 +99,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-007: should update displayed payer names when the interface language is switched', async ({
+  // Azure test case 15279
+  test('15279: should update displayed payer names when the interface language is switched', async ({
     payerManagementPage,
     languageSwitcher,
     publishedPayer,
@@ -136,7 +139,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-006: should resolve every language and name-availability combination correctly', async ({
+  // Azure test case 15278
+  test('15278: should resolve every language and name-availability combination correctly', async ({
     payerManagementPage,
     languageSwitcher,
     publishedPayer,
@@ -202,7 +206,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-009: should show the same localized name in the list, the card and the detail header', async ({
+  // Azure test case 15282
+  test('15282: should show the same localized name in the list, the card and the detail header', async ({
     payerManagementPage,
     payerCards,
     languageSwitcher,
@@ -247,7 +252,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-008: should render Arabic right-to-left and English left-to-right without corruption', async ({
+  // Azure test case 15280
+  test('15280: should render Arabic right-to-left and English left-to-right without corruption', async ({
     payerManagementPage,
     languageSwitcher,
     publishedPayer,
@@ -292,7 +298,8 @@ test.describe('Display Payer Names in the Interface Language - Language selectio
     });
   });
 
-  test('TC-012: should stay consistent across repeated language toggling', async ({
+  // Azure test case 15285
+  test('15285: should stay consistent across repeated language toggling', async ({
     payerManagementPage,
     languageSwitcher,
     publishedPayer,

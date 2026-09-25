@@ -20,7 +20,8 @@ import {
  * documented history of exactly that shape of silence.
  */
 test.describe('Country catalogue - Edges', () => {
-  test('TC-007: should report a failure rather than an empty list when the catalogue is unavailable', async ({
+  // Azure test case 14873
+  test('14873: should report a failure rather than an empty list when the catalogue is unavailable', async ({
     page,
     payerManagementPage,
     steps,
@@ -81,7 +82,8 @@ test.describe('Country catalogue - Edges', () => {
     });
   });
 
-  test('TC-008: should narrow the list to the matching country when a partial name is typed', async ({
+  // Azure test case 14867
+  test('14867: should narrow the list to the matching country when a partial name is typed', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -131,7 +133,8 @@ test.describe('Country catalogue - Edges', () => {
 test.describe('Country catalogue - Permission', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should let a payer administrator select a country but not maintain the catalogue', async ({
+  // Azure test case 14866
+  test('14866: should let a payer administrator select a country but not maintain the catalogue', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,

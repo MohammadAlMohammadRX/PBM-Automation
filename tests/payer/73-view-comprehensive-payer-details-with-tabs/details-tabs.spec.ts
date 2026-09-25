@@ -1,4 +1,6 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import { UNMODIFIED_INDICATORS } from '../../../data/payers/overviewMetadata.data';
 import { EMPTY_STATE_PATTERN } from '../../../data/payers/linkedPolicies.data';
@@ -33,7 +35,8 @@ async function cycleTabs(detail: PayerDetailPage): Promise<void> {
 }
 
 test.describe('Comprehensive payer details', () => {
-  test('TC-001: should show every Overview attribute as a read-only field', async ({
+  // Azure test case 14638
+  test('14638: should show every Overview attribute as a read-only field', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -53,7 +56,8 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-002: should list the assigned networks with their management actions on the Linked Networks tab', async ({
+  // Azure test case 14637
+  test('14637: should list the assigned networks with their management actions on the Linked Networks tab', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -76,7 +80,8 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-004: should show empty states on the Linked Networks and Linked Policies tabs when nothing is linked', async ({
+  // Azure test case 14646
+  test('14646: should show empty states on the Linked Networks and Linked Policies tabs when nothing is linked', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -99,7 +104,8 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-007: should preserve each tab\'s data when switching between tabs', async ({
+  // Azure test case 14650
+  test('14650: should preserve each tab\'s data when switching between tabs', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -123,7 +129,8 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-009: should keep a consistent view through rapid tab switching and browser navigation', async ({
+  // Azure test case 14658
+  test('14658: should keep a consistent view through rapid tab switching and browser navigation', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -153,7 +160,8 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-010: should present every required Overview attribute, labelled and formatted', async ({
+  // Azure test case 14644
+  test('14644: should present every required Overview attribute, labelled and formatted', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -214,8 +222,42 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 14654
+  test('14654: should deny the Payer Details view to a user without Payer Management view permission', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without View Payer Details', async () => {
+      session = await shapedNonAdmin({ without: ['viewPayerDetails'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The payer record is not reachable by this role', async () => {
+      // Two refusals are acceptable and they are not the same: the row may
+      // withhold the route, or the page may refuse the record. Only a rendered
+      // record is a failure.
+      const route = await session.payers.getRowActionAvailability(NON_ADMIN_PROFILE.scopedPayers[0], 'view');
+      if (route !== 'available') return;
+
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      expect(
+        (await detail.getTabOrder()).length,
+        'a role without View Payer Details should not be shown the tabbed record',
+      ).toBe(0);
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-003 = 14639,  TC-005 = 14652,  TC-012 = 14661
+    test(`${azureOrCase('73', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -17,7 +17,8 @@ import { NetworkUtils } from '../../../utils/NetworkUtils';
  * the next one report.
  */
 test.describe('Create New Payer Organization Record - Mandatory field validation', () => {
-  test('TC-009: should block saving and show a required-field error when mandatory data is missing', async ({
+  // Azure test case 15608
+  test('15608: should block saving and show a required-field error when mandatory data is missing', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -128,7 +129,8 @@ test.describe('Create New Payer Organization Record - Field format validation', 
  * dev team, not a test error.
  */
 test.describe('Create New Payer Organization Record - Duplicate detection', () => {
-  test('TC-015: should flag a potential duplicate when a new payer matches an approved payer', async ({
+  // Azure test case 15610
+  test('15610: should flag a potential duplicate when a new payer matches an approved payer', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,

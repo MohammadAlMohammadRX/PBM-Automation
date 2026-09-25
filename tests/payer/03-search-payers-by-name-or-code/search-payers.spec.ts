@@ -22,7 +22,8 @@ import {
  *                        one must not hide the result of the next.
  */
 test.describe('Search Payers by Name or Code - Real-time search', () => {
-  test('TC-015: should filter the list in real time when a partial English payer name is typed', async ({
+  // Azure test case 14407
+  test('14407: should filter the list in real time when a partial English payer name is typed', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -39,7 +40,8 @@ test.describe('Search Payers by Name or Code - Real-time search', () => {
       payerManagementPage.expectResultsInclude(KNOWN_PAYER.name));
   });
 
-  test('TC-016: should filter the list when a partial Arabic payer name is typed', async ({
+  // Azure test case 14406
+  test('14406: should filter the list when a partial Arabic payer name is typed', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -56,7 +58,8 @@ test.describe('Search Payers by Name or Code - Real-time search', () => {
       payerManagementPage.expectResultsInclude(KNOWN_PAYER.name));
   });
 
-  test('TC-017: should filter the list to the matching payer when a Payer Code is entered', async ({
+  // Azure test case 14408
+  test('14408: should filter the list to the matching payer when a Payer Code is entered', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -77,7 +80,8 @@ test.describe('Search Payers by Name or Code - Real-time search', () => {
       payerManagementPage.expectAllPayerCodes(KNOWN_PAYER.code));
   });
 
-  test('TC-021: should perform real-time matching from a single typed character', async ({
+  // Azure test case 14412
+  test('14412: should perform real-time matching from a single typed character', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -102,7 +106,8 @@ test.describe('Search Payers by Name or Code - Real-time search', () => {
  * Clearing the search, and how the box handles boundary inputs.
  */
 test.describe('Search Payers by Name or Code - Clearing & boundaries', () => {
-  test('TC-020: should restore the full unfiltered list when the search input is cleared', async ({
+  // Azure test case 14411
+  test('14411: should restore the full unfiltered list when the search input is cleared', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -130,7 +135,8 @@ test.describe('Search Payers by Name or Code - Clearing & boundaries', () => {
       payerManagementPage.expectMixedPayerTypes());
   });
 
-  test('TC-022: should handle an excessively long search term without error', async ({
+  // Azure test case 14413
+  test('14413: should handle an excessively long search term without error', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -161,7 +167,8 @@ test.describe('Search Payers by Name or Code - Clearing & boundaries', () => {
       payerManagementPage.expectResultsFound());
   });
 
-  test('TC-023: should show a no-matching-results message when the search term matches nothing', async ({
+  // Azure test case 14414
+  test('14414: should show a no-matching-results message when the search term matches nothing', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -183,7 +190,10 @@ test.describe('Search Payers by Name or Code - Clearing & boundaries', () => {
 test.describe('Search Payers by Name or Code - Robustness', () => {
   // TC-025: special and injection-style input, one iteration per term.
   for (const unsafe of UNSAFE_SEARCH_CASES) {
-    test(`TC-025: should treat the search term as literal text when it contains ${unsafe.label}`, async ({
+    // Azure test case 14416
+    // Azure test cases - one per generated case:
+    //   TC-025 = 14416
+    test(`14416: should treat the search term as literal text when it contains ${unsafe.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -206,7 +216,10 @@ test.describe('Search Payers by Name or Code - Robustness', () => {
 
   // TC-026: mixed-language input, and terms with surrounding whitespace.
   for (const loose of LOOSE_SEARCH_CASES) {
-    test(`TC-026: should handle a search term with ${loose.label}`, async ({
+    // Azure test case 14417
+    // Azure test cases - one per generated case:
+    //   TC-026 = 14417
+    test(`14417: should handle a search term with ${loose.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -229,7 +242,8 @@ test.describe('Search Payers by Name or Code - Robustness', () => {
  * Search must combine with an active Type/Status filter, not replace it.
  */
 test.describe('Search Payers by Name or Code - Combined with filters', () => {
-  test('TC-029: should apply the search term together with an active Type and Status filter', async ({
+  // Azure test case 14420
+  test('14420: should apply the search term together with an active Type and Status filter', async ({
     payerManagementPage,
     steps,
   }) => {

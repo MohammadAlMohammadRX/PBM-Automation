@@ -42,7 +42,8 @@ import {
  * does surface it: the list's Approval Status cell. Recorded as a divergence.
  */
 test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict detection', () => {
-  test('TC-001: should save without any conflict warning when a single user edits a payer alone', async ({
+  // Azure test case 15339
+  test('15339: should save without any conflict warning when a single user edits a payer alone', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -86,7 +87,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-002: should update the record for the first saver when two sessions hold the same version', async ({
+  // Azure test case 15340
+  test('15340: should update the record for the first saver when two sessions hold the same version', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -132,7 +134,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-003: should block the save and warn the user when a stale copy is submitted', async ({
+  // Azure test case 15341
+  test('15341: should block the save and warn the user when a stale copy is submitted', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -190,7 +193,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-004: should report the conflict before writing anything when the stale save follows immediately', async ({
+  // Azure test case 15342
+  test('15342: should report the conflict before writing anything when the stale save follows immediately', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -241,7 +245,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-005: should save successfully when the stale session refreshes and reapplies its change', async ({
+  // Azure test case 15343
+  test('15343: should save successfully when the stale session refreshes and reapplies its change', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -307,7 +312,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-006: should let the second user recover their change when they refresh after the conflict', async ({
+  // Azure test case 15344
+  test('15344: should let the second user recover their change when they refresh after the conflict', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -379,7 +385,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     });
   });
 
-  test('TC-007: should still report a conflict when the two sessions edited different fields', async ({
+  // Azure test case 15345
+  test('15345: should still report a conflict when the two sessions edited different fields', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -424,7 +431,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     );
   });
 
-  test('TC-008: should keep blocking the save when the stale form is submitted repeatedly without refreshing', async ({
+  // Azure test case 15346
+  test('15346: should keep blocking the save when the stale form is submitted repeatedly without refreshing', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -467,7 +475,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
     }
   });
 
-  test('TC-009: should report the same conflict when the stale copy belongs to the same user in another tab', async ({
+  // Azure test case 15347
+  test('15347: should report the same conflict when the stale copy belongs to the same user in another tab', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -522,7 +531,8 @@ test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Conflict 
   // 'the version advanced' assertion false against an application that was
   // behaving correctly. A published record genuinely advances a version when a
   // change is staged against it, which is the condition this case is about.
-  test('TC-011: should detect the version mismatch and block the save when the held version is out of date', async ({
+  // Azure test case 15349
+  test('15349: should detect the version mismatch and block the save when the held version is out of date', async ({
     payerManagementPage,
     staleSession,
     publishedPayer,

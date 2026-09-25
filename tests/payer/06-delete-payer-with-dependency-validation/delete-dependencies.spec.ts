@@ -28,7 +28,8 @@ import { DELETE_MESSAGES } from '../../../data/payers/deletePayer.data';
  * owner's request; those paths are covered by TC-001 and TC-002.
  */
 test.describe('Delete Payer with/without Dependency Validation - Dependency checks', () => {
-  test('TC-002: should block the deletion and show the dependency error when the payer is linked to a network', async ({
+  // Azure test case 14349
+  test('14349: should block the deletion and show the dependency error when the payer is linked to a network', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -55,7 +56,8 @@ test.describe('Delete Payer with/without Dependency Validation - Dependency chec
       payerManagementPage.expectRowVersionUnchanged(subject.rowId, versionBefore));
   });
 
-  test('TC-003: should display the dependency error in Arabic right-to-left when the UI language is Arabic', async ({
+  // Azure test case 14347
+  test('14347: should display the dependency error in Arabic right-to-left when the UI language is Arabic', async ({
     payerManagementPage,
     steps,
   }) => {

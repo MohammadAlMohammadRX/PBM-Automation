@@ -21,7 +21,8 @@ import { NO_CHANGE, networkNameOf } from '../../../data/networks/networkAssignme
  * the only way the interface permits, and is what TC-011 does.
  */
 test.describe('Network selection re-validation - Net-change detection', () => {
-  test('TC-004: should offer no way to resubmit a network that is already linked', async ({
+  // Azure test case 15587
+  test('15587: should offer no way to resubmit a network that is already linked', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -75,7 +76,8 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     });
   });
 
-  test('TC-009: should request only the net-new network when a linked one is selected alongside it', async ({
+  // Azure test case 15592
+  test('15592: should request only the net-new network when a linked one is selected alongside it', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -140,7 +142,8 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     });
   });
 
-  test('TC-011: should offer nothing to submit when the selection is reverted before submitting', async ({
+  // Azure test case 15595
+  test('15595: should offer nothing to submit when the selection is reverted before submitting', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,

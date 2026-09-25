@@ -45,17 +45,11 @@ const needsOtherAccount = (detail: string): string => `${detail} ${ENFORCEMENT_R
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
   { id: '001', title: 'should let a user with Inactivate Payer inactivate an active payer', reason: MUTATES_SCOPED_PAYER },
-  { id: '002', title: 'should refuse inactivation to a user without Inactivate Payer', reason: nonAdminBlockReason({ lacking: ['changePayerStatus'] }) },
   { id: '003', title: 'should let a user with Activate Payer reactivate an inactive payer', reason: MUTATES_SCOPED_PAYER },
-  { id: '004', title: 'should refuse reactivation to a user without Activate Payer', reason: nonAdminBlockReason({ lacking: ['changePayerStatus'] }) },
-  { id: '006', title: 'should deny payer details to a user without View Payer Details', reason: nonAdminBlockReason({ lacking: ['viewPayerDetails'] }) },
-  { id: '008', title: 'should refuse the export to a user without Export Payer List', reason: nonAdminBlockReason({ lacking: ['exportPayers'] }) },
   { id: '009', title: 'should let a user with View Dashboard open the payer dashboard', reason: needsOtherAccount('The analytics dashboard turns the configured non-admin account away ("Access Restricted"), so the granted half needs an account holding View Dashboard.') },
   { id: '011', title: 'should let a user with Manage Network Links change network links', reason: MUTATES_SCOPED_PAYER },
   { id: '012', title: 'should let a user with Approval Management · Payer act as checker on approval requests', reason: needsOtherAccount('The only checker here is the shared administrator, whose approvals every workflow case already exercises; the case needs a SECOND account holding the permission.') },
   { id: '014', title: 'should expose exactly the actions each permission combination grants', reason: needsOtherAccount('The decision table needs a role per combination.') },
-  { id: '016', title: 'should give no payer module access to a role with zero payer permissions', reason: nonAdminBlockReason({ lacking: ['viewPayerList'] }) },
   { id: '018', title: 'should apply a permission change to an active session', reason: needsOtherAccount('The case also changes the role of a logged-in test user mid-session, which would alter the shared non-admin account for every later case.') },
-  { id: '019', title: 'should block a direct API inactivation from a user without Inactivate Payer', reason: nonAdminBlockReason({ lacking: ['changePayerStatus'] }) },
   { id: '020', title: 'should gate the two directions of the Active/Inactive transition independently', reason: needsOtherAccount('It needs an account with Activate but not Inactivate.') },
 ];

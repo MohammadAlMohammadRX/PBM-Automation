@@ -26,7 +26,8 @@ import { ROLE_REQUIREMENTS } from '../../../data/payers/payerPermissions.data';
 test.describe('Define Bilingual Names for All Payer Module Permissions - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-011: should expose only the permitted payer actions when each of three roles opens the module', async ({
+  // Azure test case 15386
+  test('15386: should expose only the permitted payer actions when each of three roles opens the module', async ({
     steps,
   }) => {
     steps.blocked(
@@ -37,7 +38,8 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
     );
   });
 
-  test('TC-012: should hide the approve and reject controls when a reviewer lacking the approval permission opens a pending request', async ({
+  // Azure test case 15388
+  test('15388: should hide the approve and reject controls when a reviewer lacking the approval permission opens a pending request', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,
@@ -64,7 +66,8 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
       approvalManagementPage.expectApprovalActionsDenied());
   });
 
-  test('TC-013: should apply the change when a reviewer other than the submitter approves the request', async ({
+  // Azure test case 15389
+  test('15389: should apply the change when a reviewer other than the submitter approves the request', async ({
     steps,
   }) => {
     steps.blocked(
@@ -74,7 +77,8 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
     );
   });
 
-  test('TC-015: should block or flag the decision when a reviewer cannot view the change they are approving', async ({
+  // Azure test case 15391
+  test('15391: should block or flag the decision when a reviewer cannot view the change they are approving', async ({
     steps,
   }) => {
     steps.blocked(
@@ -84,7 +88,8 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
     );
   });
 
-  test('TC-016: should deny every payer action to a role with no permissions and allow every one to a full role', async ({
+  // Azure test case 15392
+  test('15392: should deny every payer action to a role with no permissions and allow every one to a full role', async ({
     steps,
   }) => {
     steps.blocked(

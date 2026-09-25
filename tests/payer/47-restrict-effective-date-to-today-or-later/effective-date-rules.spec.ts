@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { env } from '../../../constants/EnvironmentConfig';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
@@ -25,7 +26,8 @@ import {
  * so the precondition cannot be built here without a pre-existing record.
  */
 test.describe('Restrict Effective Date - Registration', () => {
-  test('TC-001: should accept an effective date of today when a new payer is registered', async ({
+  // Azure test case 15844
+  test('15844: should accept an effective date of today when a new payer is registered', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -62,7 +64,8 @@ test.describe('Restrict Effective Date - Registration', () => {
     });
   });
 
-  test('TC-002: should accept a future effective date when a new payer is registered', async ({
+  // Azure test case 15845
+  test('15845: should accept a future effective date when a new payer is registered', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -97,7 +100,9 @@ test.describe('Restrict Effective Date - Registration', () => {
   });
 
   for (const rejected of REJECTED_EFFECTIVE) {
-    test(`TC-00${REJECTED_EFFECTIVE.indexOf(rejected) + 3}: should reject an effective date ${rejected.label} at registration`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-003 = 15846,  TC-004 = 15847
+    test(`${azureOrCase('47', 'TC-00' + (REJECTED_EFFECTIVE.indexOf(rejected) + 3))}: should reject an effective date ${rejected.label} at registration`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -126,7 +131,8 @@ test.describe('Restrict Effective Date - Registration', () => {
     });
   }
 
-  test('TC-005: should block registration when the effective date is left empty', async ({
+  // Azure test case 15853
+  test('15853: should block registration when the effective date is left empty', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -160,7 +166,8 @@ test.describe('Restrict Effective Date - Registration', () => {
     });
   });
 
-  test('TC-006: should reject a malformed effective date at registration', async ({
+  // Azure test case 15854
+  test('15854: should reject a malformed effective date at registration', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -186,7 +193,8 @@ test.describe('Restrict Effective Date - Registration', () => {
     });
   });
 
-  test('TC-007: should register a payer end to end with a valid effective date', async ({
+  // Azure test case 15858
+  test('15858: should register a payer end to end with a valid effective date', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -214,7 +222,8 @@ test.describe('Restrict Effective Date - Registration', () => {
 });
 
 test.describe('Restrict Effective Date - Editing', () => {
-  test('TC-008: should accept moving the effective date to today during an edit', async ({
+  // Azure test case 15850
+  test('15850: should accept moving the effective date to today during an edit', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -235,7 +244,8 @@ test.describe('Restrict Effective Date - Editing', () => {
     });
   });
 
-  test('TC-009: should accept moving the effective date to the future during an edit', async ({
+  // Azure test case 15851
+  test('15851: should accept moving the effective date to the future during an edit', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -256,7 +266,8 @@ test.describe('Restrict Effective Date - Editing', () => {
     });
   });
 
-  test('TC-010: should reject moving the effective date to yesterday during an edit', async ({
+  // Azure test case 15852
+  test('15852: should reject moving the effective date to yesterday during an edit', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -284,7 +295,8 @@ test.describe('Restrict Effective Date - Editing', () => {
     });
   });
 
-  test('TC-011: should walk the effective date through today and future and refuse a step back to the past', async ({
+  // Azure test case 15855
+  test('15855: should walk the effective date through today and future and refuse a step back to the past', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -315,7 +327,8 @@ test.describe('Restrict Effective Date - Editing', () => {
     });
   });
 
-  test('TC-012: should allow editing a payer that already carries a past effective date', async ({
+  // Azure test case 15848
+  test('15848: should allow editing a payer that already carries a past effective date', async ({
     steps,
   }) => {
     steps.blocked(
@@ -332,15 +345,21 @@ test.describe('Restrict Effective Date - Editing', () => {
 test.describe('Restrict Effective Date - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-013: should withhold effective-date registration and editing from a non-administrator', async ({
-    requireNonAdmin,
+  // Azure test case 15859
+  test('15859: should withhold effective-date registration and editing from a non-administrator', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    // BOTH rights, because the case asserts that CREATION is withheld and creation
+    // is gated by its own permission: shaping only Update Payer left Add Payer on
+    // offer, and the case failed against a screen that was behaving correctly.
+    await shapeRole({ without: ['createPayer', 'editPayer'] });
 
     await steps.critical('Sign in as the restricted user and open the payer module', async () => {
       await loginPage.open();

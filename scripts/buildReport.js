@@ -349,9 +349,16 @@ function statusOf(c) {
   return 'FAIL';
 }
 
-/** `TC-014: should block ...` -> { id: 'TC-014', expected: 'Should block ...' } */
+/**
+ * `15803: should block ...` -> { id: '15803', expected: 'Should block ...' }
+ *
+ * The bare number is an AZURE DEVOPS test-case id, which is what the titles now
+ * lead with. The `TC-`/`AC-`/`ST-` forms are still accepted: 43 cases have no
+ * Azure id yet and keep their sheet number, and older result files still carry
+ * the previous titles.
+ */
 function splitTitle(title) {
-  const m = title.match(/^\s*((?:TC|AC|ST)-\d+)\s*:\s*(.*)$/);
+  const m = title.match(/^\s*((?:TC|AC|ST)-\d+|\d{4,})\s*:\s*(.*)$/);
   if (!m) return { id: '-', expected: title.trim() };
   const text = m[2].trim();
   return { id: m[1], expected: text.charAt(0).toUpperCase() + text.slice(1) };

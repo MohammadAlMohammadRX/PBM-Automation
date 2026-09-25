@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
@@ -33,7 +36,8 @@ test.describe('Toast on payer update', () => {
     await languageSwitcher.switchTo('en');
   });
 
-  test('TC-001: should show the bilingual draft-saved toast naming the payer when an edit is saved', async ({
+  // Azure test case 14609
+  test('14609: should show the bilingual draft-saved toast naming the payer when an edit is saved', async ({
     payerManagementPage,
     languageSwitcher,
     toast,
@@ -73,7 +77,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-002: should not show the submitted-for-approval message when an edit is merely saved', async ({
+  // Azure test case 14614
+  test('14614: should not show the submitted-for-approval message when an edit is merely saved', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -111,7 +116,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-004: should show the submitted-for-approval toast only after Send for Approval is used', async ({
+  // Azure test case 14617
+  test('14617: should show the submitted-for-approval toast only after Send for Approval is used', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -131,7 +137,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-005: should show the toast correctly when the payer name is at its maximum length', async ({
+  // Azure test case 14623
+  test('14623: should show the toast correctly when the payer name is at its maximum length', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -176,7 +183,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-007: should show no success toast when the save fails on the wire', async ({
+  // Azure test case 14627
+  test('14627: should show no success toast when the save fails on the wire', async ({
     page,
     payerManagementPage,
     toast,
@@ -199,7 +207,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-008: should not stack duplicate toasts when saves follow in quick succession', async ({
+  // Azure test case 14632
+  test('14632: should not stack duplicate toasts when saves follow in quick succession', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -220,7 +229,8 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-009: should match the specified wording and dismiss both automatically and on demand', async ({
+  // Azure test case 14635
+  test('14635: should match the specified wording and dismiss both automatically and on demand', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -278,8 +288,30 @@ test.describe('Toast on payer update', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 14630
+  test('14630: should not let a user without edit permission reach the save and toast flow', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without Edit Payer', async () => {
+      session = await shapedNonAdmin({ without: ['editPayer'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The edit route, and so the save and its toast, is withheld', async () => {
+      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'edit');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    test(`${azureOrCase('72', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -27,7 +27,8 @@ import {
  * needs to observe "Inactive" carries that approval as its own step.
  */
 test.describe('Manually inactivate an active payer', () => {
-  test('TC-001: should accept an inactivation only when a reason is chosen, with or without details', async ({
+  // Azure test case 14691
+  test('14691: should accept an inactivation only when a reason is chosen, with or without details', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -83,7 +84,8 @@ test.describe('Manually inactivate an active payer', () => {
     });
   });
 
-  test('TC-002: should record only the last reason chosen when the selection is changed before submitting', async ({
+  // Azure test case 14702
+  test('14702: should record only the last reason chosen when the selection is changed before submitting', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -150,7 +152,8 @@ test.describe('Manually inactivate an active payer', () => {
     });
   });
 
-  test('TC-003: should leave two distinct audit entries when a payer is inactivated and then reactivated', async ({
+  // Azure test case 14705
+  test('14705: should leave two distinct audit entries when a payer is inactivated and then reactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,

@@ -61,11 +61,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: 'Failure injection on one plan\'s cascade needs a locked record or a downstream fault the environment does not expose.',
   },
   {
-    id: '010',
-    title: 'should let only authorised roles inactivate or reactivate a payer',
-    reason: `${nonAdminBlockReason({ lacking: ['changePayerStatus'] })} ${CASCADE_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '011',
     title: 'should keep claim references intact when a payer with cascaded records is reactivated',
     reason: 'This case needs an integrated Claims module holding a claim against the cascaded policy - outside this framework.',

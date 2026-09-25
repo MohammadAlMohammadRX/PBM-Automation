@@ -21,7 +21,8 @@ import { CONFLICT_MESSAGE_CHECKLIST, networkNameOf } from '../../../data/network
  * competed over.
  */
 test.describe('Network selection re-validation - Conflicting claims', () => {
-  test('TC-003: should not offer a network that is already assigned to another payer', async ({
+  // Azure test case 15586
+  test('15586: should not offer a network that is already assigned to another payer', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -76,7 +77,8 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
     });
   });
 
-  test('TC-007: should refuse to apply a pending request whose network was claimed in the meantime', async ({
+  // Azure test case 15590
+  test('15590: should refuse to apply a pending request whose network was claimed in the meantime', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -139,7 +141,8 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
     });
   });
 
-  test('TC-010: should re-validate and name the conflict when two payers claim the same network', async ({
+  // Azure test case 15593
+  test('15593: should re-validate and name the conflict when two payers claim the same network', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,
@@ -191,7 +194,8 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
     });
   });
 
-  test('TC-013: should report a conflict clearly and record it rather than discard it', async ({
+  // Azure test case 15596
+  test('15596: should report a conflict clearly and record it rather than discard it', async ({
     payerManagementPage,
     approvalManagementPage,
     assignableNetwork,

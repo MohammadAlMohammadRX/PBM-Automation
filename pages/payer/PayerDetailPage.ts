@@ -325,9 +325,20 @@ export class PayerDetailPage extends BasePage {
    * which one it met instead of only that it was refused.
    */
   async getAssignNetworkAvailability(): Promise<'absent' | 'disabled' | 'available'> {
+    // WAITED FOR, not read once. This clicked the tab and counted the button in
+    // the same breath, so a panel that had not finished rendering answered
+    // "absent" - and absent is the answer a permission case reads as "correctly
+    // withheld". MEASURED: the same case, run twice back to back, reported
+    // BLOCKED then PASS with nothing changed but timing. The button is now
+    // waited for exactly as `openLinkedNetworks` waits for it, and a genuine
+    // absence still costs only the short timeout.
     await this.networksTab().click().catch(() => undefined);
     const button = this.assignNetworkButton();
-    if ((await button.count()) === 0) return 'absent';
+    const appeared = await button
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared && (await button.count()) === 0) return 'absent';
     return (await button.isEnabled().catch(() => false)) ? 'available' : 'disabled';
   }
 

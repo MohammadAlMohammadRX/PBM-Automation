@@ -31,7 +31,8 @@ import {
  * previews the affected counts - even for a payer with nothing to cascade.
  */
 test.describe('Inactivation and reactivation effects - Cascade to plans and policies', () => {
-  test('TC-002: should explain the cascade before applying it when the payer has linked plans and policies', async ({
+  // Azure test case 15519
+  test('15519: should explain the cascade before applying it when the payer has linked plans and policies', async ({
     payerManagementPage,
     payerInactivateDialog,
     payerWithActiveDependents,
@@ -89,7 +90,8 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     });
   });
 
-  test('TC-003: should explain the restoration before applying it when an inactive payer has cascaded records', async ({
+  // Azure test case 15521
+  test('15521: should explain the restoration before applying it when an inactive payer has cascaded records', async ({
     payerManagementPage,
     payerWithActiveDependents,
     steps,
@@ -134,7 +136,8 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     });
   });
 
-  test('TC-007: should inactivate the linked plans and policies when the payer is inactivated', async ({
+  // Azure test case 15524
+  test('15524: should inactivate the linked plans and policies when the payer is inactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -231,7 +234,8 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     });
   });
 
-  test('TC-008: should restore the cascaded plans and policies when the payer is reactivated', async ({
+  // Azure test case 15525
+  test('15525: should restore the cascaded plans and policies when the payer is reactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -316,7 +320,8 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     });
   });
 
-  test('TC-010: should carry the payer and its records down and back up across a full cycle', async ({
+  // Azure test case 15527
+  test('15527: should carry the payer and its records down and back up across a full cycle', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,

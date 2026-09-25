@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { DateUtils } from '../../../utils/DateUtils';
@@ -34,7 +35,10 @@ test.describe('Initial status derivation', () => {
     const index = DERIVATION_CASES.indexOf(row) + 1;
     const caseId = `TC-00${index}`;
 
-    test(`${caseId}: should set the status to ${row.expected} when ${row.label} at approval`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-001 = 14874,  TC-002 = 14875,  TC-003 = 14882
+    //   TC-004 = 14880
+    test(`${azureOrCase('43', caseId)}: should set the status to ${row.expected} when ${row.label} at approval`, async ({
       payerManagementPage,
       approvalManagementPage,
       steps,
@@ -88,7 +92,8 @@ test.describe('Initial status derivation', () => {
     });
   }
 
-  test('TC-005: should apply one rule across past, today and future effective dates', async ({
+  // Azure test case 14883
+  test('14883: should apply one rule across past, today and future effective dates', async ({
     payerManagementPage,
     approvalManagementPage,
     steps,
@@ -158,7 +163,8 @@ test.describe('Initial status derivation', () => {
     });
   });
 
-  test('TC-006: should record the status it assigned when the payer was approved', async ({
+  // Azure test case 14898
+  test('14898: should record the status it assigned when the payer was approved', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -208,7 +214,8 @@ test.describe('Initial status derivation', () => {
     });
   });
 
-  test('TC-007: should refuse the approval when the payer carries no effective date', async ({
+  // Azure test case 14890
+  test('14890: should refuse the approval when the payer carries no effective date', async ({
     page,
     payerManagementPage,
     draftPayer,

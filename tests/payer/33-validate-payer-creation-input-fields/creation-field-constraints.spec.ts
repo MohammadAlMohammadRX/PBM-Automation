@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import { DateUtils } from '../../../utils/DateUtils';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -40,7 +41,9 @@ test.describe('Validate Payer Creation Input Fields - Phone and location', () =>
       ? `should cap the subscriber number at ${PHONE_MAX_DIGITS} digits`
       : 'should accept the subscriber number';
 
-    test(`${phone.caseId}: ${behaviour} when ${phone.label} are entered`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-008 = 14486,  TC-009 = 14491,  TC-010 = 14492
+    test(`${azureOrCase('33', phone.caseId)}: ${behaviour} when ${phone.label} are entered`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -80,7 +83,8 @@ test.describe('Validate Payer Creation Input Fields - Phone and location', () =>
     });
   }
 
-  test('TC-011: should require the Country and Dial Code to be chosen rather than pre-selecting them', async ({
+  // Azure test case 14493
+  test('14493: should require the Country and Dial Code to be chosen rather than pre-selecting them', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -119,7 +123,8 @@ test.describe('Validate Payer Creation Input Fields - Phone and location', () =>
     });
   });
 
-  test('TC-012: should scope the City list to the selected Country so a mismatched city cannot be chosen', async ({
+  // Azure test case 14502
+  test('14502: should scope the City list to the selected Country so a mismatched city cannot be chosen', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -159,7 +164,8 @@ test.describe('Validate Payer Creation Input Fields - Phone and location', () =>
     });
   });
 
-  test('TC-013: should reset the City and re-list its options when the Country selection changes', async ({
+  // Azure test case 14504
+  test('14504: should reset the City and re-list its options when the Country selection changes', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -228,7 +234,9 @@ test.describe('Validate Payer Creation Input Fields - Date relationship', () => 
       expectedMessage: CREATION_MESSAGES.expiryBeforeToday,
     },
   ] as const) {
-    test(`${dates.caseId}: should block the save and report the date rule when ${dates.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-014 = 14507,  TC-016 = 14510,  TC-017 = 14512
+    test(`${azureOrCase('33', dates.caseId)}: should block the save and report the date rule when ${dates.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -265,7 +273,8 @@ test.describe('Validate Payer Creation Input Fields - Date relationship', () => 
     });
   }
 
-  test('TC-015: should submit without a date error when the expiry date is one day after the effective date', async ({
+  // Azure test case 14509
+  test('14509: should submit without a date error when the expiry date is one day after the effective date', async ({
     payerManagementPage,
     steps,
   }) => {

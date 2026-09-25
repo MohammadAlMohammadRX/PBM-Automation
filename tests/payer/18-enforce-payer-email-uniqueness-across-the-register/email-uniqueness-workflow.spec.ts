@@ -17,7 +17,8 @@ import {
  * defect that runs through every case in this story.
  */
 test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
-  test('TC-004: should save without a duplicate-email error when a different field is edited and the email is left alone', async ({
+  // Azure test case 15413
+  test('15413: should save without a duplicate-email error when a different field is edited and the email is left alone', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -58,7 +59,8 @@ test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
     });
   });
 
-  test('TC-005: should refuse the pending change when an edited email duplicates another payer at approval time', async ({
+  // Azure test case 15414
+  test('15414: should refuse the pending change when an edited email duplicates another payer at approval time', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -112,7 +114,8 @@ test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
     });
   });
 
-  test('TC-006: should report both violations when a single change carries a duplicate email and a deletion dependency', async ({
+  // Azure test case 15415
+  test('15415: should report both violations when a single change carries a duplicate email and a deletion dependency', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -128,7 +131,8 @@ test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
     await steps.step('The payer module is reachable', () => payerManagementPage.open());
   });
 
-  test('TC-011: should name the already-used address in both languages when a duplicate save is refused', async ({
+  // Azure test case 15420
+  test('15420: should name the already-used address in both languages when a duplicate save is refused', async ({
     payerManagementPage,
     uniquePayer,
     languageSwitcher,
@@ -195,7 +199,8 @@ test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
     });
   });
 
-  test('TC-012: should let only the first save through when two sessions submit the same address', async ({
+  // Azure test case 15421
+  test('15421: should let only the first save through when two sessions submit the same address', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,

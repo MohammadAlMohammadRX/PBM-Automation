@@ -1,3 +1,4 @@
+import { PayerScopeDialog } from '../components/PayerScopeDialog';
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { ListPageBase } from '../components/ListPageBase';
@@ -89,6 +90,14 @@ export class PayerManagementPage extends ListPageBase {
 
   async open(): Promise<void> {
     await this.goto(AppRoutes.payerManagement);
+    // THE SCOPE GATE IS ANSWERED HERE, for whoever opens this screen. A scoped
+    // account is asked which payer it is working with before any payer screen
+    // shows data, and until it answers the list renders no rows at all. Putting
+    // it here rather than in a fixture covers every session however it signed
+    // in - several cases log themselves in and would otherwise meet the gate
+    // and report an empty list as an access defect. Costs one DOM query for an
+    // administrator, who never sees it.
+    await new PayerScopeDialog(this.page).chooseIfShowingNow();
     await this.ensureTableView(this.screen);
     // Post-condition: the list is genuinely on screen. Without it `open()` can
     // return on a page that never rendered its table - the cards-view case - and
@@ -102,6 +111,9 @@ export class PayerManagementPage extends ListPageBase {
    *  RBAC test, where a non-admin may be denied the page or its controls. */
   async navigate(): Promise<void> {
     await this.goto(AppRoutes.payerManagement);
+    // Answered here too - see `open()`. This is the path the access cases use,
+    // and they are precisely the ones a scoped session runs.
+    await new PayerScopeDialog(this.page).chooseIfShowingNow();
     // The list opens in the user's remembered view. VERIFIED: the Payer Admin's
     // is Cards, which renders no table rows, so the access cases that read the
     // list after navigate() saw an empty table. Switched only when the toggle
@@ -304,6 +316,19 @@ export class PayerManagementPage extends ListPageBase {
       await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
       return;
     }
+
+    // THE RECORDS FIRST, then the controls. This used to assert only that the
+    // Filters control was absent, which is a PROXY for the list rather than the
+    // list: a module serving every payer while happening not to render one
+    // button would have passed, and a module serving nothing while rendering it
+    // would have been reported as a defect. Both halves are asserted now, and
+    // the records are NAMED, so the report can quote what the role was actually
+    // shown rather than only that a count came back wrong.
+    const listed = await this.getVisiblePayerNames();
+    expect(
+      listed,
+      `a role without payer read rights should be shown no payer records; it was shown: ${listed.join(', ') || 'none'}`,
+    ).toHaveLength(0);
     await expect(this.searchControl('Filters')).toHaveCount(0, { timeout: Timeouts.default });
   }
 
@@ -1200,9 +1225,22 @@ export class PayerManagementPage extends ListPageBase {
       await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
       return;
     }
-    await expect(this.addButtonInternal(), 'the Add control should be withheld from this role').toHaveCount(0, {
-      timeout: Timeouts.default,
-    });
+    // The same reasoning as expectEditActionDenied: when the control is there,
+    // report whether it actually leads to the create form rather than only that
+    // a locator matched.
+    const offered = await this.addButtonInternal().count();
+    let reached = '';
+    if (offered > 0) {
+      const opened = await this.openCreateForm()
+        .then(() => true)
+        .catch(() => false);
+      reached = opened ? ', and the create form OPENED' : ', though the create form did not open';
+      if (opened) await this.form().closeAndDiscard().catch(() => undefined);
+    }
+    expect(
+      offered,
+      `the Add control should be withheld from this role; it was offered ${offered} time(s)${reached}`,
+    ).toBe(0);
   }
 
   /**
@@ -1240,10 +1278,32 @@ export class PayerManagementPage extends ListPageBase {
         .waitFor({ state: 'visible', timeout: Timeouts.short })
         .catch(() => undefined);
     }
-    await expect(
-      this.page.locator(`[id^="${this.screen}-table-row-"][id$="-edit"]`),
-      'the Edit control should be withheld from this role',
-    ).toHaveCount(0, { timeout: Timeouts.default });
+
+    // WHEN THE CONTROL IS THERE, SAY WHAT IT DOES. A count of 1 is a true
+    // statement about a locator and a weak one about the application: the
+    // question a permission case answers is whether this role can reach the
+    // edit form at all. So if the control is offered the helper tries it, and
+    // the message reports what happened - a form that opens to a role without
+    // Update Payer is a defect a developer can act on.
+    const editControls = this.page.locator(`[id^="${this.screen}-table-row-"][id$="-edit"]`);
+    const offered = await editControls.count();
+    let reached = '';
+    if (offered > 0) {
+      const names = await this.getVisiblePayerNames();
+      if (names.length > 0) {
+        const opened = await this.openEditForm(names[0])
+          .then(() => true)
+          .catch(() => false);
+        reached = opened
+          ? `, and the edit form OPENED for "${names[0]}"`
+          : `, though the edit form did not open for "${names[0]}"`;
+        if (opened) await this.form().closeAndDiscard().catch(() => undefined);
+      }
+    }
+    expect(
+      offered,
+      `the Edit control should be withheld from this role; it was offered on ${offered} row(s)${reached}`,
+    ).toBe(0);
   }
 
   private addButtonInternal(): Locator {

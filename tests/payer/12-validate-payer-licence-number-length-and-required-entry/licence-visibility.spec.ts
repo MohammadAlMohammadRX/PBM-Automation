@@ -15,7 +15,8 @@ import { RandomDataUtils } from '../../../utils/RandomDataUtils';
  * as "search by name or code", which would have made this case a failure.
  */
 test.describe('Validate Payer Licence Number Length and Required Entry - Visibility', () => {
-  test('TC-008: should show the new payer with its licence number in the list when creation completes', async ({
+  // Azure test case 15330
+  test('15330: should show the new payer with its licence number in the list when creation completes', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -40,7 +41,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Visibil
       ]));
   });
 
-  test('TC-009: should return only the matching record when its exact licence number is typed into the keyword search', async ({
+  // Azure test case 15331
+  test('15331: should return only the matching record when its exact licence number is typed into the keyword search', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -73,7 +75,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Visibil
       ));
   });
 
-  test('TC-010: should return only payers matching the criterion when the Licence Number filter is applied in advanced search', async ({
+  // Azure test case 15332
+  test('15332: should return only payers matching the criterion when the Licence Number filter is applied in advanced search', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -106,7 +109,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Visibil
       payerManagementPage.expectAllLicenseNumbers(licence));
   });
 
-  test('TC-011: should match the stored value when the list column displays a payer licence number', async ({
+  // Azure test case 15333
+  test('15333: should match the stored value when the list column displays a payer licence number', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -142,7 +146,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Visibil
     });
   });
 
-  test('TC-012: should include the licence number in the exported file when the payer list is exported', async ({
+  // Azure test case 15334
+  test('15334: should include the licence number in the exported file when the payer list is exported', async ({
     payerManagementPage,
     exportMenu,
     steps,

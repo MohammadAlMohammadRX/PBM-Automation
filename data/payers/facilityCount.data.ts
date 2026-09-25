@@ -68,12 +68,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: `${NEEDS_FACILITIES} It also needs the bulk-import path, which is not available to this suite.`,
   },
   {
-    id: '009',
-    title: 'should withhold facility counts from a user without Linked Networks permission',
-    reason:
-      `${nonAdminBlockReason({ lacking: ['viewPayerDetails'] })} ${FACILITY_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '011',
     title: 'should keep facility counts correct through sorting, filtering and pagination of the tab',
     reason:

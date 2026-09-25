@@ -21,7 +21,8 @@ import {
  * something to work with.
  */
 test.describe('Version check at save time - Partitions', () => {
-  test('TC-003: should reject the later save when two sessions save one after the other', async ({
+  // Azure test case 15560
+  test('15560: should reject the later save when two sessions save one after the other', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -76,7 +77,8 @@ test.describe('Version check at save time - Partitions', () => {
     });
   });
 
-  test('TC-004: should accept the unchanged case and refuse the modified one', async ({
+  // Azure test case 15561
+  test('15561: should accept the unchanged case and refuse the modified one', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -142,7 +144,8 @@ test.describe('Version check at save time - Partitions', () => {
     });
   });
 
-  test('TC-006: should meet the conflict checklist - message, retained input, untouched record', async ({
+  // Azure test case 15563
+  test('15563: should meet the conflict checklist - message, retained input, untouched record', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -225,7 +228,8 @@ test.describe('Version check at save time - Partitions', () => {
     });
   });
 
-  test('TC-010: should send the version it loaded with the save', async ({
+  // Azure test case 15567
+  test('15567: should send the version it loaded with the save', async ({
     page,
     payerManagementPage,
     uniquePayer,
@@ -279,7 +283,8 @@ test.describe('Version check at save time - Partitions', () => {
     });
   });
 
-  test('TC-011: should increment the version when nothing intervened', async ({
+  // Azure test case 15568
+  test('15568: should increment the version when nothing intervened', async ({
     payerManagementPage,
     approvalManagementPage,
     uniquePayer,
@@ -351,15 +356,18 @@ test.describe('Version check at save time - Partitions', () => {
 test.describe('Version check at save time - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should refuse the save for a read-only user', async ({
-    requireNonAdmin,
+  // Azure test case 15566
+  test('15566: should refuse the save for a read-only user', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     let payerName!: string;
 

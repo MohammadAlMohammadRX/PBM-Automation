@@ -19,7 +19,8 @@ import {
  * contradiction in the story (an expiry of today is unreachable).
  */
 test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', () => {
-  test('TC-005: should report the right combination of messages when each decision-table row is exercised', async ({
+  // Azure test case 15442
+  test('15442: should report the right combination of messages when each decision-table row is exercised', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -82,7 +83,8 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
     );
   });
 
-  test('TC-006: should block the save and keep the stored date when an existing expiry is changed to the past', async ({
+  // Azure test case 15443
+  test('15443: should block the save and keep the stored date when an existing expiry is changed to the past', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -118,7 +120,8 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
     });
   });
 
-  test('TC-007: should display the saved expiry date when the newly created payer is reopened', async ({
+  // Azure test case 15444
+  test('15444: should display the saved expiry date when the newly created payer is reopened', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -152,7 +155,8 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
     });
   });
 
-  test('TC-010: should record the intended calendar day when an expiry is submitted close to local midnight', async ({
+  // Azure test case 15447
+  test('15447: should record the intended calendar day when an expiry is submitted close to local midnight', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -187,7 +191,8 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
     });
   });
 
-  test('TC-011: should state the boundary in both languages when a past expiry date is refused', async ({
+  // Azure test case 15448
+  test('15448: should state the boundary in both languages when a past expiry date is refused', async ({
     payerManagementPage,
     languageSwitcher,
     steps,
@@ -245,17 +250,18 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
 test.describe('Restrict Expiry Date to Today or Later - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-012: should withhold the Expiry Date field when a payer is opened by a non-administrator', async ({
-    requireNonAdmin,
+  // Azure test case 15449
+  test('15449: should withhold the Expiry Date field when a payer is opened by a non-administrator', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a restricted account the withholding this case
-    // exists to prove can never be exercised.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

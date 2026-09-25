@@ -24,7 +24,8 @@ import {
  * so a failure on one column must not stop the other thirteen from reporting.
  */
 test.describe('Sort Payer List by Column Headers - Default and per-column sorting', () => {
-  test('TC-030: should sort by Payer Name ascending by default when the list is first opened', async ({
+  // Azure test case 14421
+  test('14421: should sort by Payer Name ascending by default when the list is first opened', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -42,7 +43,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectColumnSorted(DEFAULT_SORT.column, DEFAULT_SORT.direction));
   });
 
-  test('TC-031: should reorder the list Z-to-A when Payer Name descending is selected', async ({
+  // Azure test case 14422
+  test('14422: should reorder the list Z-to-A when Payer Name descending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -58,7 +60,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectSortIndicator('payerName', 'desc'));
   });
 
-  test('TC-032: should reorder then reverse the list when Payer Type ascending and descending are selected', async ({
+  // Azure test case 14423
+  test('14423: should reorder then reverse the list when Payer Type ascending and descending are selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -98,7 +101,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
     });
   });
 
-  test('TC-033: should reorder the list by Payer Code when Code ascending is selected', async ({
+  // Azure test case 14424
+  test('14424: should reorder the list by Payer Code when Code ascending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -119,7 +123,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectColumnSortedOnLastPages('code', 'asc'));
   });
 
-  test('TC-034: should reorder the list by License Number when License Number descending is selected', async ({
+  // Azure test case 14425
+  test('14425: should reorder the list by License Number when License Number descending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -135,7 +140,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectSortIndicator('licenseNumber', 'desc'));
   });
 
-  test('TC-035: should reorder the list alphabetically by Email when Email ascending is selected', async ({
+  // Azure test case 14426
+  test('14426: should reorder the list alphabetically by Email when Email ascending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -151,7 +157,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectSortIndicator('email', 'asc'));
   });
 
-  test('TC-036: should reorder the list by Phone when Phone descending is selected', async ({
+  // Azure test case 14427
+  test('14427: should reorder the list by Phone when Phone descending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -167,7 +174,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.expectSortIndicator('phone', 'desc'));
   });
 
-  test('TC-037: should group payers by status value when Status ascending is selected', async ({
+  // Azure test case 14428
+  test('14428: should group payers by status value when Status ascending is selected', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -193,7 +201,8 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
  * transitions between successive sort selections.
  */
 test.describe('Sort Payer List by Column Headers - Matrix and state transitions', () => {
-  test('TC-038: should produce the correct order and indicator for every column and direction combination', async ({
+  // Azure test case 14429
+  test('14429: should produce the correct order and indicator for every column and direction combination', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -212,7 +221,8 @@ test.describe('Sort Payer List by Column Headers - Matrix and state transitions'
     }
   });
 
-  test('TC-039: should update the indicator and order at every transition and return to the default state', async ({
+  // Azure test case 14430
+  test('14430: should update the indicator and order at every transition and return to the default state', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -248,7 +258,8 @@ test.describe('Sort Payer List by Column Headers - Matrix and state transitions'
  * cells can be blank.
  */
 test.describe('Sort Payer List by Column Headers - Boundary and blank values', () => {
-  test('TC-040: should sort without error when the result set contains exactly one record', async ({
+  // Azure test case 14434
+  test('14434: should sort without error when the result set contains exactly one record', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -276,7 +287,8 @@ test.describe('Sort Payer List by Column Headers - Boundary and blank values', (
     }
   });
 
-  test('TC-042: should place blank values consistently without losing or duplicating rows', async ({
+  // Azure test case 14436
+  test('14436: should place blank values consistently without losing or duplicating rows', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -306,7 +318,8 @@ test.describe('Sort Payer List by Column Headers - Boundary and blank values', (
  * Business use case, sorting combined with filter/search, and the UI checklist.
  */
 test.describe('Sort Payer List by Column Headers - Use case, combined state and checklist', () => {
-  test('TC-041: should let the administrator group payers by Status in either interface language', async ({
+  // Azure test case 14437
+  test('14437: should let the administrator group payers by Status in either interface language', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -356,7 +369,8 @@ test.describe('Sort Payer List by Column Headers - Use case, combined state and 
     }
   });
 
-  test('TC-043: should keep filter and search applied while sorting the narrowed result set', async ({
+  // Azure test case 14438
+  test('14438: should keep filter and search applied while sorting the narrowed result set', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -397,7 +411,8 @@ test.describe('Sort Payer List by Column Headers - Use case, combined state and 
       payerManagementPage.expectListStateAfterReload());
   });
 
-  test('TC-044: should offer all seven columns in both directions with an accurate sort indicator', async ({
+  // Azure test case 14442
+  test('14442: should offer all seven columns in both directions with an accurate sort indicator', async ({
     payerManagementPage,
     steps,
   }) => {

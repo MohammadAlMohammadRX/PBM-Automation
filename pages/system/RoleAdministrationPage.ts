@@ -3,9 +3,10 @@ import { expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { RolePermissionsStep } from './RolePermissionsStep';
 import { AppRoutes } from '../../constants/AppRoutes';
-import { ROLE_CARD_FIELD, ROLE_FORM, ROLE_LIST, buttonSelector } from '../../constants/ElementIds';
+import { ROLE_FORM, ROLE_LIST, ROLE_ROW_FIELD, TOAST, buttonSelector } from '../../constants/ElementIds';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
+import { ROLE_SAVED } from '../../data/accounts/payerAdminRole.data';
 
 /**
  * Role Administration - the screen that owns the permission catalogue.
@@ -14,12 +15,16 @@ import { Logger } from '../../utils/Logger';
  * permissions are DEFINED on a role, so "what is this payer permission called
  * in Arabic" is a question only this screen can answer.
  *
- * CARDS ONLY. Unlike every other list in the application this screen has no
- * table view and no view toggle, so it does not extend ListPageBase - inheriting
- * pager, column and table-view behaviour that does not exist here would offer
- * callers methods that can only time out. The card ids carry the role's GUID
- * (`role-card-{id}-name`), which is why a role is addressed by NAME and resolved
- * to its id, the same approach the payer list uses for rows.
+ * A TABLE, since on or before 20 September 2026. This screen used to render
+ * role CARDS (`role-card-{id}-name`) and was rebuilt into a table with the same
+ * id convention every other list in the application uses:
+ * `role-list-table-row-{guid}` for the row, `-cell-name` for the name and
+ * `-edit` for the action. So a role is addressed by NAME, resolved to its GUID,
+ * and acted on through its row.
+ *
+ * It still does not extend ListPageBase: that base carries pager, column and
+ * view-toggle behaviour this screen does not offer, and inheriting it would hand
+ * callers methods that can only time out.
  */
 export class RoleAdministrationPage extends BasePage {
   constructor(page: Page) {
@@ -40,7 +45,7 @@ export class RoleAdministrationPage extends BasePage {
     await expect(this.page.locator(`#${ROLE_LIST.root}`)).toBeVisible({
       timeout: Timeouts.default,
     });
-    await expect(this.cardNames().first()).toBeVisible({ timeout: Timeouts.default });
+    await expect(this.roleNames().first()).toBeVisible({ timeout: Timeouts.default });
   }
 
   /**
@@ -54,13 +59,16 @@ export class RoleAdministrationPage extends BasePage {
     await this.goto(AppRoutes.roleAdministration);
   }
 
-  private cardNames(): Locator {
-    return this.page.locator(`[id^="role-card-"][id$="-${ROLE_CARD_FIELD.name}"]`);
+  /** Every role's NAME cell - the handle a caller has for a role. */
+  private roleNames(): Locator {
+    return this.page.locator(
+      `[id^="${ROLE_LIST.rowPrefix}"][id$="-${ROLE_ROW_FIELD.name}"]`,
+    );
   }
 
   /** Every role currently listed. */
   async getRoleNames(): Promise<string[]> {
-    return this.cardNames().evaluateAll((elements) =>
+    return this.roleNames().evaluateAll((elements) =>
       elements.map((element) => ((element as HTMLElement).innerText || '').trim()),
     );
   }
@@ -83,11 +91,14 @@ export class RoleAdministrationPage extends BasePage {
    * `getRowPairs` was written to avoid.
    */
   private async roleIdOf(roleName: string): Promise<string> {
-    const card = this.cardNames().filter({ hasText: roleName }).first();
-    await expect(card).toBeVisible({ timeout: Timeouts.default });
-    const id = await card.getAttribute('id');
-    if (!id) throw new Error(`[RoleAdministration] Role card for "${roleName}" carries no id.`);
-    return id.replace(/^role-card-/, '').replace(new RegExp(`-${ROLE_CARD_FIELD.name}$`), '');
+    const cell = this.roleNames().filter({ hasText: roleName }).first();
+    await expect(cell, `Role Administration should list a role named "${roleName}"`)
+      .toBeVisible({ timeout: Timeouts.default });
+    const id = await cell.getAttribute('id');
+    if (!id) throw new Error(`[RoleAdministration] The name cell for "${roleName}" carries no id.`);
+    return id
+      .replace(new RegExp(`^${ROLE_LIST.rowPrefix}`), '')
+      .replace(new RegExp(`-${ROLE_ROW_FIELD.name}$`), '');
   }
 
   /** Whether the role list offers the action to create a new role. */
@@ -107,7 +118,7 @@ export class RoleAdministrationPage extends BasePage {
   async openEditDrawer(roleName: string): Promise<void> {
     const id = await this.roleIdOf(roleName);
     Logger.step(`Opening the edit drawer for role "${roleName}"`);
-    await this.page.locator(buttonSelector(`role-card-${id}-${ROLE_CARD_FIELD.edit}`)).click();
+    await this.page.locator(buttonSelector(`${ROLE_LIST.rowPrefix}${id}-${ROLE_ROW_FIELD.edit}`)).click();
     await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeVisible({
       timeout: Timeouts.default,
     });
@@ -137,16 +148,16 @@ export class RoleAdministrationPage extends BasePage {
    */
   async openFirstRolePermissionCatalogue(): Promise<RolePermissionsStep> {
     await this.open();
-    const card = this.cardNames().first();
-    await expect(card).toBeVisible({ timeout: Timeouts.default });
-    const cardId = await card.getAttribute('id');
-    if (!cardId) throw new Error('[RoleAdministration] The first role card carries no id.');
-    const id = cardId
-      .replace(/^role-card-/, '')
-      .replace(new RegExp(`-${ROLE_CARD_FIELD.name}$`), '');
+    const cell = this.roleNames().first();
+    await expect(cell).toBeVisible({ timeout: Timeouts.default });
+    const cellId = await cell.getAttribute('id');
+    if (!cellId) throw new Error('[RoleAdministration] The first role row carries no id.');
+    const id = cellId
+      .replace(new RegExp(`^${ROLE_LIST.rowPrefix}`), '')
+      .replace(new RegExp(`-${ROLE_ROW_FIELD.name}$`), '');
 
     Logger.step('Opening the permission catalogue of the first listed role');
-    await this.page.locator(buttonSelector(`role-card-${id}-${ROLE_CARD_FIELD.edit}`)).click();
+    await this.page.locator(buttonSelector(`${ROLE_LIST.rowPrefix}${id}-${ROLE_ROW_FIELD.edit}`)).click();
     await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeVisible({
       timeout: Timeouts.default,
     });
@@ -197,6 +208,35 @@ export class RoleAdministrationPage extends BasePage {
   /** Closes the drawer without saving, so the catalogue is only ever read. */
   async closeDrawer(): Promise<void> {
     await this.page.locator(`#${ROLE_FORM.close}`).click();
+    await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeHidden({
+      timeout: Timeouts.default,
+    });
+  }
+
+  /**
+   * Saves the role and waits for the application to confirm it.
+   *
+   * Confirmation is not optional here. A role change is the precondition of
+   * whatever runs next, and a save that silently failed would hand the next
+   * case an account with the WRONG rights - which would then report a
+   * permission defect that does not exist. So the toast is awaited rather than
+   * assumed, and a missing one fails here, where the cause is visible.
+   *
+   * VERIFIED: saving the Privileges step raises "Role updated" and takes effect
+   * immediately - a role edit is not a maker-checker change and needs no
+   * approval.
+   */
+  async saveRole(): Promise<void> {
+    Logger.step('Saving the role');
+    await this.page
+      .locator(`#${ROLE_FORM.root}`)
+      // locator-exception: the drawer's Save button is the one control here with no id; scoped to the drawer.
+      .getByRole('button', { name: 'Save', exact: true })
+      .click();
+    await expect(
+      this.page.locator(`#${TOAST.summary}`),
+      'saving a role should be confirmed - without it the next case would run on unknown rights',
+    ).toContainText(ROLE_SAVED, { timeout: Timeouts.toast });
     await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeHidden({
       timeout: Timeouts.default,
     });

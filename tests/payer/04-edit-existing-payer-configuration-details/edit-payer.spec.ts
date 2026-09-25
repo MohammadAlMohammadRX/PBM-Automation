@@ -26,7 +26,8 @@ type PayerManagement = import('../../../pages/payer/PayerManagementPage').PayerM
  * failure that says nothing about the application.
  */
 test.describe('Edit Existing Payer Configuration Details - Draft lifecycle', () => {
-  test('TC-007: should discard the change when the user leaves an in-progress edit without saving', async ({
+  // Azure test case 14372
+  test('14372: should discard the change when the user leaves an in-progress edit without saving', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -67,7 +68,8 @@ test.describe('Edit Existing Payer Configuration Details - Draft lifecycle', () 
       payerManagementPage.expectPayerCodeEquals(publishedPayer.nameEn, codeBefore));
   });
 
-  test('TC-010: should save the edit to a private draft when an editable field is changed', async ({
+  // Azure test case 14360
+  test('14360: should save the edit to a private draft when an editable field is changed', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -88,7 +90,8 @@ test.describe('Edit Existing Payer Configuration Details - Draft lifecycle', () 
       payerManagementPage.expectVersionAndStatus(publishedPayer.nameEn, liveVersion, 'Draft'));
   });
 
-  test('TC-011: should leave the live payer untouched while the edit is only saved as a draft', async ({
+  // Azure test case 14363
+  test('14363: should leave the live payer untouched while the edit is only saved as a draft', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -123,7 +126,8 @@ test.describe('Edit Existing Payer Configuration Details - Draft lifecycle', () 
       payerManagementPage.expectRowNotVisible(newName));
   });
 
-  test('TC-012: should move the edited draft to Pending Approval when it is sent for approval', async ({
+  // Azure test case 14365
+  test('14365: should move the edited draft to Pending Approval when it is sent for approval', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -158,7 +162,8 @@ test.describe('Edit Existing Payer Configuration Details - Draft lifecycle', () 
  * System-generated identifiers must never be editable, and must survive an edit.
  */
 test.describe('Edit Existing Payer Configuration Details - Non-editable identifiers', () => {
-  test('TC-001: should keep the PayerID unchanged and non-editable when the payer is opened in edit mode', async ({
+  // Azure test case 14361
+  test('14361: should keep the PayerID unchanged and non-editable when the payer is opened in edit mode', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -195,7 +200,8 @@ test.describe('Edit Existing Payer Configuration Details - Non-editable identifi
     });
   });
 
-  test('TC-002: should keep the PayerCode unchanged and non-editable when the payer is opened in edit mode', async ({
+  // Azure test case 14362
+  test('14362: should keep the PayerCode unchanged and non-editable when the payer is opened in edit mode', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -241,7 +247,8 @@ test.describe('Edit Existing Payer Configuration Details - Non-editable identifi
  * reach a saveable state with invalid data.
  */
 test.describe('Edit Existing Payer Configuration Details - Validation', () => {
-  test('TC-003: should keep the wizard on the same step and show a required-field error when a mandatory field is cleared', async ({
+  // Azure test case 14367
+  test('14367: should keep the wizard on the same step and show a required-field error when a mandatory field is cleared', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -269,7 +276,8 @@ test.describe('Edit Existing Payer Configuration Details - Validation', () => {
     await steps.critical('Close the form, discarding', () => form.closeAndDiscard());
   });
 
-  test('TC-004: should keep the wizard on the same step and show a format error when an edited field is invalid', async ({
+  // Azure test case 14368
+  test('14368: should keep the wizard on the same step and show a format error when an edited field is invalid', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -302,7 +310,10 @@ test.describe('Edit Existing Payer Configuration Details - Validation', () => {
 
   // TC-005: max-length boundary - exactly the limit, and one character over.
   for (const boundary of NAME_LENGTH_BOUNDARY_CASES) {
-    test(`TC-005: should ${boundary.expectAccepted ? 'accept' : 'reject'} the edit when Payer Name is ${boundary.label}`, async ({
+    // Azure test case 14369
+    // Azure test cases - one per generated case:
+    //   TC-005 = 14369
+    test(`14369: should ${boundary.expectAccepted ? 'accept' : 'reject'} the edit when Payer Name is ${boundary.label}`, async ({
       payerManagementPage,
       publishedPayer,
       steps,
@@ -342,7 +353,10 @@ test.describe('Edit Existing Payer Configuration Details - Validation', () => {
  */
 test.describe('Edit Existing Payer Configuration Details - Editable field checklist', () => {
   for (const field of EDITABLE_FIELD_CHECKLIST) {
-    test(`TC-008: should save the change when the editable field "${field.label}" is edited on its own`, async ({
+    // Azure test case 14373
+    // Azure test cases - one per generated case:
+    //   TC-008 = 14373
+    test(`14373: should save the change when the editable field "${field.label}" is edited on its own`, async ({
       payerManagementPage,
       publishedPayer,
       steps,

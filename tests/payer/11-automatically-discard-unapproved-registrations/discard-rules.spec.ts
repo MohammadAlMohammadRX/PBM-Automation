@@ -1,6 +1,41 @@
 import { test, expect } from '../../../fixtures';
 import { env } from '../../../constants/EnvironmentConfig';
 import {
+/**
+ * MOVED TO MANUAL TESTING.
+ *
+ * This story is verified by hand, so every case below is skipped and carries
+ * [MANUAL] at its name. Nothing is deleted: the cases still record what each
+ * check is, and the story returns to automation by removing the `.skip` on
+ * the describes.
+ *
+ * WHY IT SUITS A MANUAL PASS. The outcome is produced by a scheduled back-end
+ * job, and this suite can neither trigger it nor move the clock. A record has
+ * to be created today and read after the job has had its chance, which is a
+ * calendar wait rather than a test step. The job runs on CRON 15 0 * * * UTC
+ * (00:15 daily).
+ *
+ * WHAT A MANUAL TESTER SHOULD KNOW, as at 19 September 2026:
+ *
+ *   - The application exposes NO job-run log and NO schedule display, so a
+ *     scheduled run cannot be confirmed from the interface. "It did not
+ *     happen" and "it happened and did nothing" look identical on screen.
+ *   - The EXPIRY half of the lifecycle job demonstrably runs: a payer whose
+ *     expiry fell on 13 September read Active on the 14th and Expired by the
+ *     16th. So the scheduler itself is alive.
+ *   - The DISCARD half has not been seen to work. Eight rows were seeded on
+ *     6 September, four of them due to be discarded. On 12 September the
+ *     lapsed one still read "v0 · Pending Approval", six days overdue. By
+ *     16 September those four were no longer listed at all, and the export
+ *     cannot say whether they were discarded or removed by cleanup - which is
+ *     exactly the ambiguity a person checking on screen can resolve.
+ *
+ * HOW TO SET UP A RUN. `npm run seed:discard` plants the eight rows and
+ * records them in reports/discard-seed.json; `npm run seed:check` reports
+ * what became of them. Seeded rows are named "DISCARD-SEED <date> <key>" and
+ * are protected from other stories' cleanup. Seed today, read tomorrow.
+ */
+
   AUTO_DISCARD_REASON_PATTERN,
   BLOCKED_DECISION_ROWS,
   BLOCKED_REASONS,
@@ -20,8 +55,9 @@ import {
  * See discard-boundaries.spec.ts and data/payers/discardRegistration.data.ts
  * for why most of this story is BLOCKED rather than failing.
  */
-test.describe('Automatically Discard Unapproved Registrations - Non-zero versions', () => {
-  test('TC-002: should keep the approved version and ignore a lapsed pending change', async ({
+test.describe.skip('Automatically Discard Unapproved Registrations - Non-zero versions [MANUAL]', () => {
+  // Azure test case 15310
+  test('15310: [MANUAL] should keep the approved version and ignore a lapsed pending change', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -76,7 +112,8 @@ test.describe('Automatically Discard Unapproved Registrations - Non-zero version
     // BLOCKED for the reason recorded there.
   });
 
-  test('TC-006: should never discard a Pending Approval change when an approved version exists', async ({
+  // Azure test case 15314
+  test('15314: [MANUAL] should never discard a Pending Approval change when an approved version exists', async ({
     payerManagementPage,
     discardSeed,
     steps,
@@ -114,7 +151,8 @@ test.describe('Automatically Discard Unapproved Registrations - Non-zero version
     });
   });
 
-  test('TC-008: should apply the discard rule per the full decision matrix', async ({
+  // Azure test case 15317
+  test('15317: [MANUAL] should apply the discard rule per the full decision matrix', async ({
     payerManagementPage,
     discardSeed,
     steps,
@@ -175,13 +213,15 @@ test.describe('Automatically Discard Unapproved Registrations - Non-zero version
     });
   });
 
-  test('TC-010: should handle a registration with a missing effective date without discarding it', async ({
+  // Azure test case 15318
+  test('15318: [MANUAL] should handle a registration with a missing effective date without discarding it', async ({
     steps,
   }) => {
     steps.blocked(BLOCKED_REASONS.noNullEffectiveDate);
   });
 
-  test('TC-012: should not discard a registration approved just before its window lapsed', async ({
+  // Azure test case 15320
+  test('15320: [MANUAL] should not discard a registration approved just before its window lapsed', async ({
     payerManagementPage,
     discardSeed,
     steps,
@@ -220,13 +260,15 @@ test.describe('Automatically Discard Unapproved Registrations - Non-zero version
     });
   });
 
-  test('TC-011: should run the discard job automatically on its schedule', async ({ steps }) => {
+  // Azure test case 15319
+  test('15319: [MANUAL] should run the discard job automatically on its schedule', async ({ steps }) => {
     steps.blocked(BLOCKED_REASONS.noScheduleVisibility);
   });
 });
 
-test.describe('Automatically Discard Unapproved Registrations - Audit and visibility', () => {
-  test('TC-009: should remove a discarded registration from the queue but keep it in history', async ({
+test.describe.skip('Automatically Discard Unapproved Registrations - Audit and visibility [MANUAL]', () => {
+  // Azure test case 15316
+  test('15316: [MANUAL] should remove a discarded registration from the queue but keep it in history', async ({
     payerManagementPage,
     approvalManagementPage,
     discardSeed,
@@ -262,7 +304,8 @@ test.describe('Automatically Discard Unapproved Registrations - Audit and visibi
       payerManagementPage.expectResultsInclude(seeded.nameEn));
   });
 
-  test('TC-014: should record the discard reason and details in the audit trail', async ({
+  // Azure test case 15323
+  test('15323: [MANUAL] should record the discard reason and details in the audit trail', async ({
     payerManagementPage,
     discardSeed,
     steps,
@@ -306,7 +349,8 @@ test.describe('Automatically Discard Unapproved Registrations - Audit and visibi
     });
   });
 
-  test('TC-013: should restrict discarded registration records to authorized roles', async ({
+  // Azure test case 15321
+  test('15321: [MANUAL] should restrict discarded registration records to authorized roles', async ({
     steps,
   }) => {
     // Two independent blockers, both worth naming: there is no discarded record

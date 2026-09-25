@@ -21,7 +21,8 @@ import { SECOND_ROLE_REQUIREMENT } from '../../../data/payers/concurrentEdit.dat
 test.describe('Detect and Prevent Overwriting Concurrent Payer Edits - Cross-role', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-012: should report the conflict regardless of role when the two sessions belong to different roles', async ({
+  // Azure test case 15350
+  test('15350: should report the conflict regardless of role when the two sessions belong to different roles', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,

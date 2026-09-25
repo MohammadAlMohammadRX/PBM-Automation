@@ -99,10 +99,4 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     title: 'should sort, filter and scroll correctly across multiple linked policies',
     reason: `${NEEDS_POLICY_OWNER} The exploratory session needs several policies spanning statuses and expiry dates.`,
   },
-  {
-    id: '014',
-    title: 'should withhold the Linked Policies tab from an unauthorised role',
-    reason:
-      `${nonAdminBlockReason({ lacking: ['viewPayerDetails'] })} ${LINKED_POLICIES_ROLE_REQUIREMENT.reason}`,
-  },
 ];

@@ -36,7 +36,8 @@ import {
  * asserted as separate steps.
  */
 test.describe('Payer lifecycle guardrails - Reason and details validation', () => {
-  test('TC-009: should refuse to confirm the inactivation when no reason is selected', async ({
+  // Azure test case 15430
+  test('15430: should refuse to confirm the inactivation when no reason is selected', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -97,7 +98,8 @@ test.describe('Payer lifecycle guardrails - Reason and details validation', () =
     });
   });
 
-  test('TC-010: should reject the inactivation when the reason is not on the managed list', async ({
+  // Azure test case 15431
+  test('15431: should reject the inactivation when the reason is not on the managed list', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -174,7 +176,8 @@ test.describe('Payer lifecycle guardrails - Reason and details validation', () =
     });
   });
 
-  test('TC-012: should keep the details within 500 characters when a longer entry is attempted', async ({
+  // Azure test case 15433
+  test('15433: should keep the details within 500 characters when a longer entry is attempted', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,

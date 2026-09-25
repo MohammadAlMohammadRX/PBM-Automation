@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import {
   ACTIVATION_PROMPT,
@@ -35,7 +36,8 @@ test.describe('Network activation - Status combinations', () => {
   const combinationOf = (caseId: string) =>
     STATUS_COMBINATIONS.find((candidate) => candidate.caseId === caseId)!;
 
-  test('TC-001: should activate a linked network when the payer is Active', async ({
+  // Azure test case 15450
+  test('15450: should activate a linked network when the payer is Active', async ({
     payerManagementPage,
     networkManagementPage,
     networkApprovalsPage,
@@ -126,7 +128,9 @@ test.describe('Network activation - Status combinations', () => {
     const combination = combinationOf(caseId);
     const verb = combination.action === 'activate' ? 'activate' : 'deactivate';
 
-    test(`${caseId}: should ${verb} the network when its payer is Inactive`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15451,  TC-003 = 15452
+    test(`${azureOrCase('21', caseId)}: should ${verb} the network when its payer is Inactive`, async ({
       payerManagementPage,
       networkManagementPage,
       networkApprovalsPage,
@@ -217,7 +221,8 @@ test.describe('Network activation - Status combinations', () => {
     });
   }
 
-  test('TC-004: should deactivate the network when its payer is Active', async ({
+  // Azure test case 15453
+  test('15453: should deactivate the network when its payer is Active', async ({
     payerManagementPage,
     networkManagementPage,
     networkApprovalsPage,
@@ -280,7 +285,8 @@ test.describe('Network activation - Status combinations', () => {
     });
   });
 
-  test('TC-005: should offer the correct lifecycle action in every payer/network status combination', async ({
+  // Azure test case 15454
+  test('15454: should offer the correct lifecycle action in every payer/network status combination', async ({
     payerManagementPage,
     networkManagementPage,
     networkInStatus,
@@ -347,7 +353,8 @@ test.describe('Network activation - Status combinations', () => {
     });
   });
 
-  test('TC-006: should still offer the network action immediately after its payer status changes', async ({
+  // Azure test case 15455
+  test('15455: should still offer the network action immediately after its payer status changes', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,

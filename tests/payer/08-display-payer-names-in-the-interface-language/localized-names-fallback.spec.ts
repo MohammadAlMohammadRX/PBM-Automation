@@ -25,7 +25,8 @@ const NAME_COLUMN = PAYER_COLUMN.payerName;
  * Each case names exactly what seed data would unblock it.
  */
 test.describe('Display Payer Names in the Interface Language - Fallback rules', () => {
-  test('TC-003: should fall back to the English name when the Arabic name is blank', async ({
+  // Azure test case 15276
+  test('15276: should fall back to the English name when the Arabic name is blank', async ({
     steps,
   }) => {
     steps.blocked(
@@ -37,7 +38,8 @@ test.describe('Display Payer Names in the Interface Language - Fallback rules', 
     );
   });
 
-  test('TC-004: should fall back to the Arabic name when the English name is blank', async ({
+  // Azure test case 15273
+  test('15273: should fall back to the Arabic name when the English name is blank', async ({
     steps,
   }) => {
     steps.blocked(
@@ -48,7 +50,8 @@ test.describe('Display Payer Names in the Interface Language - Fallback rules', 
     );
   });
 
-  test('TC-005: should show a defined placeholder when both names are blank', async ({
+  // Azure test case 15277
+  test('15277: should show a defined placeholder when both names are blank', async ({
     steps,
   }) => {
     steps.blocked(
@@ -60,7 +63,8 @@ test.describe('Display Payer Names in the Interface Language - Fallback rules', 
     );
   });
 
-  test('TC-010: should display mismatched-language name data as stored, without breaking', async ({
+  // Azure test case 15281
+  test('15281: should display mismatched-language name data as stored, without breaking', async ({
     steps,
   }) => {
     steps.blocked(
@@ -71,7 +75,8 @@ test.describe('Display Payer Names in the Interface Language - Fallback rules', 
     );
   });
 
-  test('TC-011: should display a maximum-length name without breaking the layout', async ({
+  // Azure test case 15283
+  test('15283: should display a maximum-length name without breaking the layout', async ({
     payerManagementPage,
     steps,
   }) => {

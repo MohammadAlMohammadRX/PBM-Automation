@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
 import type { LinkedNetworkCandidate } from '../../../fixtures/networkLinkState.fixture';
 import type { LinkedNetworkRow, PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
@@ -27,7 +28,8 @@ test.describe('Draft and pending assignment states', () => {
     await languageSwitcher.switchTo('en');
   });
 
-  test('TC-001: should mark the row Draft Removal when the removal of a published network link is staged', async ({
+  // Azure test case 15669
+  test('15669: should mark the row Draft Removal when the removal of a published network link is staged', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -63,7 +65,8 @@ test.describe('Draft and pending assignment states', () => {
     });
   });
 
-  test('TC-009: should label every assignment state with the exact English and Arabic text', async ({
+  // Azure test case 15678
+  test('15678: should label every assignment state with the exact English and Arabic text', async ({
     payerManagementPage,
     languageSwitcher,
     linkedNetwork,
@@ -113,7 +116,8 @@ test.describe('Draft and pending assignment states', () => {
     });
   });
 
-  test('TC-010: should keep a network reserved to the payer while its removal is pending', async ({
+  // Azure test case 15671
+  test('15671: should keep a network reserved to the payer while its removal is pending', async ({
     payerManagementPage,
     networkManagementPage,
     linkedNetwork,
@@ -159,7 +163,11 @@ test.describe('Draft and pending assignment states', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15672,  TC-003 = 15675,  TC-004 = 15674
+    //   TC-005 = 15673,  TC-007 = 15677,  TC-008 = 15679
+    //   TC-011 = 15682
+    test(`${azureOrCase('58', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -27,7 +27,8 @@ import {
  * story does not even ask for.
  */
 test.describe('Inactivation and reactivation effects - Inactivation messaging', () => {
-  test('TC-001: should confirm the inactivation was saved when an active payer is inactivated', async ({
+  // Azure test case 15518
+  test('15518: should confirm the inactivation was saved when an active payer is inactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -73,7 +74,8 @@ test.describe('Inactivation and reactivation effects - Inactivation messaging', 
       toast.expectText(SUCCESS_TOAST));
   });
 
-  test('TC-005: should leave the payer Active and stage nothing when the inactivation is cancelled', async ({
+  // Azure test case 15522
+  test('15522: should leave the payer Active and stage nothing when the inactivation is cancelled', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -118,7 +120,8 @@ test.describe('Inactivation and reactivation effects - Inactivation messaging', 
     });
   });
 
-  test('TC-013: should offer a title, an explanation and both actions in the inactivation confirmation', async ({
+  // Azure test case 15530
+  test('15530: should offer a title, an explanation and both actions in the inactivation confirmation', async ({
     payerManagementPage,
     payerInactivateDialog,
     payerSample,
@@ -186,7 +189,8 @@ test.describe('Inactivation and reactivation effects - Inactivation messaging', 
     });
   });
 
-  test('TC-015: should still explain the cascade and succeed when the payer has nothing to cascade', async ({
+  // Azure test case 15532
+  test('15532: should still explain the cascade and succeed when the payer has nothing to cascade', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,

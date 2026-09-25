@@ -1,4 +1,5 @@
 import { test } from '../../../fixtures';
+import { PAYER_READ_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import { env } from '../../../constants/EnvironmentConfig';
 
 /**
@@ -6,24 +7,25 @@ import { env } from '../../../constants/EnvironmentConfig';
  * Withdrawn.
  * Role-based access to the statuses themselves.
  *
- * Requires NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD in .env. This spec opts out
- * of the shared administrator session so it can authenticate as the restricted
- * role, exactly as the other access specs in this suite do.
+ * The restricted role is shaped by the administrator before the case runs (see
+ * fixtures/shapedNonAdmin.fixture.ts). This spec opts out of the shared
+ * administrator session so it can authenticate as that role.
  */
 test.describe('Provide Arabic Labels for All Approval Status Values - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should deny the payer list and its statuses when the module is opened by an unauthorized role', async ({
-    requireNonAdmin,
+  // Azure test case 15372
+  test('15372: should deny the payer list and its statuses when the module is opened by an unauthorized role', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a restricted account the denial this case
-    // exists to prove can never be exercised.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['viewPayerList'] });
+    // The restricted account is BUILT, not waited for: the administrator takes the
+    // permission off the shared "Payer Admin" role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to report
+    // BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: PAYER_READ_PERMISSIONS });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

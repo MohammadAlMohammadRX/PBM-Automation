@@ -1,12 +1,11 @@
 import { test, expect } from '../../../fixtures';
+import { env } from '../../../constants/EnvironmentConfig';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
+import { PAYER_STATUS_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import { IMPACT_SUMMARY_PATTERN } from '../../../data/payers/cascadeMessaging.data';
 import { PRIMARY_REASON } from '../../../data/payers/inactivationDecisions.data';
-import { nonAdminBlockReason } from '../../../data/accounts/nonAdminAccount.data';
-import {
-  IMPACT_CATEGORIES,
-  IMPACT_ROLE_REQUIREMENT,
-} from '../../../data/payers/impactPreview.data';
+import { IMPACT_CATEGORIES } from '../../../data/payers/impactPreview.data';
 
 /**
  * User story: Preview Impact Before Confirming Inactivation.
@@ -165,11 +164,31 @@ test.describe('Impact preview before inactivation', () => {
 
 /** Access control - who may inactivate and see the preview. */
 test.describe('Impact preview - Access control', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('TC-006: should keep inactivation and its preview behind an authorised role', async ({
+    shapeRole,
+    loginPage,
+    payerManagementPage,
     steps,
   }) => {
-    steps.blocked(
-      `${nonAdminBlockReason({ lacking: ['changePayerStatus'] })} ${IMPACT_ROLE_REQUIREMENT.reason} Provide ${IMPACT_ROLE_REQUIREMENT.role} and re-run.`,
-    );
+    // The role the case needs is BUILT rather than waited for: the administrator
+    // takes both status rights off the shared "Payer Admin" role, and puts them
+    // back when the case ends.
+    await shapeRole({ without: PAYER_STATUS_PERMISSIONS });
+
+    await steps.critical('Sign in as a user without the status rights', async () => {
+      await loginPage.open();
+      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+      await payerManagementPage.navigate();
+    });
+
+    // The preview is raised BY the inactivation action, so a role that is not
+    // offered the action never reaches the preview - which is the whole of what
+    // this case has to prove.
+    await steps.step('The inactivation action, and so its preview, is withheld', async () => {
+      const payerName = NON_ADMIN_PROFILE.scopedPayers[0];
+      await payerManagementPage.expectRowActionUnavailable(payerName, 'inactivate');
+    });
   });
 });

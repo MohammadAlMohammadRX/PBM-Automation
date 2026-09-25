@@ -105,12 +105,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: NEEDS_FREE_NETWORK,
   },
   {
-    id: '006',
-    title: 'should withhold staging of assignment and removal drafts from a viewer role',
-    reason:
-      `${nonAdminBlockReason({ lacking: ['assignNetwork'] })} ${STAGING_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '007',
     title: 'should keep the row state consistent when a network is rapidly toggled between Draft Assignment and Draft Removal',
     reason:

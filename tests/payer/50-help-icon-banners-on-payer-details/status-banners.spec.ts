@@ -1,10 +1,10 @@
 import { test, expect } from '../../../fixtures';
+import { env } from '../../../constants/EnvironmentConfig';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { REJECTION_DIALOG_REASONS } from '../../../data/payers/rejectionReason.data';
-import { nonAdminBlockReason } from '../../../data/accounts/nonAdminAccount.data';
 import {
   BANNER_BY_STATE,
   BANNER_KEYWORDS,
-  BANNER_ROLE_REQUIREMENT,
 } from '../../../data/payers/statusBanners.data';
 
 /**
@@ -19,7 +19,8 @@ import {
  * reviewer's reason is that same finding appearing here.
  */
 test.describe('Status banners on payer details', () => {
-  test('TC-001: should show a draft banner with next-step guidance for a Draft payer', async ({
+  // Azure test case 15765
+  test('15765: should show a draft banner with next-step guidance for a Draft payer', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -49,7 +50,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-002: should show an awaiting-approval banner for a Pending payer', async ({
+  // Azure test case 15766
+  test('15766: should show an awaiting-approval banner for a Pending payer', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -77,7 +79,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-003: should show a rejected banner, and carry the reviewer reason within it', async ({
+  // Azure test case 15767
+  test('15767: should show a rejected banner, and carry the reviewer reason within it', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -122,7 +125,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-004: should show no status banner for an approved, active payer', async ({
+  // Azure test case 15768
+  test('15768: should show no status banner for an approved, active payer', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -145,7 +149,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-005: should map each lifecycle state to the right banner behaviour', async ({
+  // Azure test case 15769
+  test('15769: should map each lifecycle state to the right banner behaviour', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -191,7 +196,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-006: should update the banner as the payer transitions between states', async ({
+  // Azure test case 15770
+  test('15770: should update the banner as the payer transitions between states', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -222,7 +228,8 @@ test.describe('Status banners on payer details', () => {
     });
   });
 
-  test('TC-007: should keep the banner behaviour after a reload', async ({
+  // Azure test case 15774
+  test('15774: should keep the banner behaviour after a reload', async ({
     page,
     payerManagementPage,
     draftPayer,
@@ -247,12 +254,43 @@ test.describe('Status banners on payer details', () => {
 
 /** Access control - the banner-bearing detail page behind View permission. */
 test.describe('Status banners - View permission', () => {
-  test('TC-008: should keep the banner-bearing detail page behind View permission', async ({
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  // Azure test case 15775
+  test('15775: should keep the banner-bearing detail page behind View permission', async ({
+    shapeRole,
+    loginPage,
+    payerManagementPage,
     steps,
   }) => {
-    steps.blocked(
-      `${nonAdminBlockReason({ lacking: ['viewPayerDetails'] })} ${BANNER_ROLE_REQUIREMENT.reason} Provide ${BANNER_ROLE_REQUIREMENT.role} and re-run: the case opens the detail page as `
-        + 'that user and confirms the page - and therefore its banner - is not reachable.',
-    );
+    // The restricted account is BUILT, not waited for: the administrator takes
+    // View Payer Details off the shared "Payer Admin" role, this case signs in
+    // as that account, and the permission goes back when the case ends.
+    await shapeRole({ without: ['viewPayerDetails'] });
+
+    await steps.critical('Sign in as a user without View Payer Details', async () => {
+      await loginPage.open();
+      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+      await payerManagementPage.navigate();
+    });
+
+    // The banner lives on the detail page, so the detail page is what has to be
+    // unreachable - whether the row withholds the route or the page itself
+    // refuses. Both are a refusal; neither may be a rendered banner.
+    await steps.step('The detail page, and therefore its banner, is not reachable', async () => {
+      const payerName = NON_ADMIN_PROFILE.scopedPayers[0];
+      const availability = await payerManagementPage.getRowActionAvailability(payerName, 'view');
+      if (availability !== 'available') return;
+
+      // NOT "no banner": the banner-bearing states (draft, pending, rejected) are
+      // outside this account's scope, so an absent banner would be the record's
+      // state talking, not the permission. The tabbed record itself is what has to
+      // be unreachable, and that holds whatever state the payer is in.
+      const detail = await payerManagementPage.openDetails(payerName);
+      expect(
+        (await detail.getTabOrder()).length,
+        'a role without View Payer Details should not be shown the record that carries the banner',
+      ).toBe(0);
+    });
   });
 });

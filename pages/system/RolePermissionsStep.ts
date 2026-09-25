@@ -79,6 +79,88 @@ export class RolePermissionsStep {
       .toBe('settled');
   }
 
+  /**
+   * The permissions listed UNDER one top-level group, read from the tree
+   * itself rather than through the search box.
+   *
+   * WHY NOT SEARCH. Filtering to "Payer" answers a different question: the term
+   * also matches rows in OTHER modules - "Payer Approvals" lives under Approval
+   * Management - so a name found after searching is not evidence that the
+   * PAYERS group offers it. Reading the section directly is what the story
+   * actually asks about, and it is stricter.
+   *
+   * HOW A SECTION IS BOUNDED. The tree renders flat and marks nesting with
+   * indentation, so a top-level group is a row indented by nothing and its
+   * section runs to the next such row. Indentation is read as
+   * `padding-inline-start`, which is the left edge in English and the RIGHT
+   * edge in Arabic - measuring `padding-left` finds every Arabic row at zero
+   * and collapses the whole section to its heading.
+   *
+   * Group headings - the rows carrying an (n/m) counter, including nested ones
+   * such as "GetPayers (19/19)" - are dropped, leaving the permissions.
+   *
+   * locator-exception: see the class comment - the tree exposes no per-row ids.
+   */
+  async getGroupPermissions(groupLabels: string | readonly string[]): Promise<string[]> {
+    const candidates = typeof groupLabels === 'string' ? [groupLabels] : [...groupLabels];
+    const label = await this.scrollGroupIntoView(candidates);
+    return this.nodes().evaluateAll((rows, wanted) => {
+      const read = (row: Element): { text: string; indent: number } => {
+        const el = row as HTMLElement;
+        const style = window.getComputedStyle(el);
+        const inline = style.getPropertyValue('padding-inline-start')
+          || (style.direction === 'rtl' ? style.paddingRight : style.paddingLeft);
+        return {
+          text: (el.innerText || '').trim().split('\n')[0].trim(),
+          indent: parseInt(inline, 10) || 0,
+        };
+      };
+      const all = rows.map(read);
+      const isGroup = (text: string): boolean => /\(\d+\/\d+\)\s*$/.test(text);
+      const start = all.findIndex((r) => r.indent === 0 && isGroup(r.text)
+        && r.text.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim() === wanted);
+      if (start < 0) return [];
+      let end = all.length;
+      for (let i = start + 1; i < all.length; i += 1) {
+        if (all[i].indent === 0) { end = i; break; }
+      }
+      return all
+        .slice(start + 1, end)
+        .map((r) => r.text)
+        .filter((text) => text !== '' && !isGroup(text));
+    }, label);
+  }
+
+  /**
+   * Brings a group heading on screen, so the section is read the way a person
+   * reaches it - by scrolling the catalogue rather than filtering it.
+   *
+   * locator-exception: see the class comment - the tree exposes no per-row ids.
+   */
+  async scrollGroupIntoView(groupLabels: string | readonly string[]): Promise<string> {
+    const candidates = typeof groupLabels === 'string' ? [groupLabels] : [...groupLabels];
+    for (const label of candidates) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+      const heading = this.nodes()
+        .filter({ hasText: new RegExp(`^\\s*${escaped}\\s*\\(\\d+/\\d+\\)`) })
+        .first();
+      const present = await heading
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      // Tried in turn rather than asserted: a heading is translated in one
+      // language and not the other, so "absent" here means "not under THIS
+      // spelling", which is only a failure once every spelling has missed.
+      if (!present) continue;
+      await heading.scrollIntoViewIfNeeded();
+      return label;
+    }
+    throw new Error(
+      `[RolePermissions] The catalogue lists no group headed ${candidates.join(' or ')}.`,
+    );
+  }
+
+
   /** Every row's first line of text, groups and permissions alike. */
   async getAllLabels(): Promise<string[]> {
     return this.nodes().evaluateAll((rows) =>

@@ -29,7 +29,8 @@ import {
  * story.
  */
 test.describe('Country catalogue', () => {
-  test('TC-001: should offer a country outside the legacy set when the catalogue is central', async ({
+  // Azure test case 14850
+  test('14850: should offer a country outside the legacy set when the catalogue is central', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -73,7 +74,8 @@ test.describe('Country catalogue', () => {
     });
   });
 
-  test('TC-002: should refuse an unlisted country when one is submitted directly', async ({
+  // Azure test case 14857
+  test('14857: should refuse an unlisted country when one is submitted directly', async ({
     page,
     payerManagementPage,
     steps,
@@ -125,7 +127,8 @@ test.describe('Country catalogue', () => {
     });
   });
 
-  test('TC-003: should accept both the first and the last entry the catalogue lists', async ({
+  // Azure test case 14872
+  test('14872: should accept both the first and the last entry the catalogue lists', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -167,7 +170,8 @@ test.describe('Country catalogue', () => {
     });
   });
 
-  test('TC-004: should never let a payer be submitted without a country', async ({
+  // Azure test case 14856
+  test('14856: should never let a payer be submitted without a country', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -221,7 +225,8 @@ test.describe('Country catalogue', () => {
     });
   });
 
-  test('TC-005: should fetch the country list from a service rather than compile it in', async ({
+  // Azure test case 14849
+  test('14849: should fetch the country list from a service rather than compile it in', async ({
     page,
     payerManagementPage,
     steps,
@@ -265,7 +270,8 @@ test.describe('Country catalogue', () => {
     });
   });
 
-  test('TC-006: should offer the whole catalogue rather than the legacy three countries', async ({
+  // Azure test case 14864
+  test('14864: should offer the whole catalogue rather than the legacy three countries', async ({
     payerManagementPage,
     steps,
   }) => {

@@ -12,18 +12,18 @@ import { env } from '../../../constants/EnvironmentConfig';
 test.describe('Validate Payer Licence Number Length and Required Entry - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-016: should keep the licence number read-only when the payer is opened by a limited role', async ({
-    requireNonAdmin,
+  // Azure test case 15338
+  test('15338: should keep the licence number read-only when the payer is opened by a limited role', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a restricted account the denial this case
-    // exists to prove can never be exercised, so nothing would be learned about
-    // the application and a failure would be a false statement about it.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     await steps.critical('Navigate to the Payer Management module', async () => {
       await loginPage.open();

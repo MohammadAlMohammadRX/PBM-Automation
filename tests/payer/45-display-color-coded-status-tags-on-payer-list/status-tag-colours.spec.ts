@@ -28,7 +28,8 @@ import { PRIMARY_REASON } from '../../../data/payers/inactivationDecisions.data'
  * changes.
  */
 test.describe('Status tag colours', () => {
-  test('TC-001: should re-band the tag when the payer\'s status changes', async ({
+  // Azure test case 14937
+  test('14937: should re-band the tag when the payer\'s status changes', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -86,7 +87,8 @@ test.describe('Status tag colours', () => {
     });
   });
 
-  test('TC-002: should band every Inactive payer alike so they can be picked out at a glance', async ({
+  // Azure test case 14930
+  test('14930: should band every Inactive payer alike so they can be picked out at a glance', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -131,7 +133,8 @@ test.describe('Status tag colours', () => {
     });
   });
 
-  test('TC-003: should render a payer with no status safely rather than banding it wrongly', async ({
+  // Azure test case 14938
+  test('14938: should render a payer with no status safely rather than banding it wrongly', async ({
     page,
     payerManagementPage,
     steps,
@@ -182,7 +185,8 @@ test.describe('Status tag colours', () => {
     });
   });
 
-  test('TC-004: should band the tag from the stored status rather than from a cached view', async ({
+  // Azure test case 14950
+  test('14950: should band the tag from the stored status rather than from a cached view', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -245,7 +249,8 @@ test.describe('Status tag colours', () => {
 test.describe('Status tag colours - Roles', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-005: should band statuses identically for every role that can read the list', async ({
+  // Azure test case 14946
+  test('14946: should band statuses identically for every role that can read the list', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,

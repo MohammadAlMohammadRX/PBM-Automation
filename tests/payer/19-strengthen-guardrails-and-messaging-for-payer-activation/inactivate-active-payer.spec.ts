@@ -35,7 +35,8 @@ import {
  * shared payer would take that payer's status away from whatever else needs it.
  */
 test.describe('Payer lifecycle guardrails - Inactivating an active payer', () => {
-  test('TC-001: should stage and then apply the inactivation when a valid reason and details are given', async ({
+  // Azure test case 15422
+  test('15422: should stage and then apply the inactivation when a valid reason and details are given', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -104,7 +105,8 @@ test.describe('Payer lifecycle guardrails - Inactivating an active payer', () =>
     });
   });
 
-  test('TC-011: should keep the details intact when exactly 500 characters are entered', async ({
+  // Azure test case 15432
+  test('15432: should keep the details intact when exactly 500 characters are entered', async ({
     page,
     payerManagementPage,
     payerInactivateDialog,
@@ -158,7 +160,8 @@ test.describe('Payer lifecycle guardrails - Inactivating an active payer', () =>
     });
   });
 
-  test('TC-013: should accept the inactivation when the optional details field is left empty', async ({
+  // Azure test case 15434
+  test('15434: should accept the inactivation when the optional details field is left empty', async ({
     page,
     payerManagementPage,
     payerInactivateDialog,
@@ -223,7 +226,8 @@ test.describe('Payer lifecycle guardrails - Inactivating an active payer', () =>
     });
   });
 
-  test('TC-015: should process one inactivation when Confirm is clicked repeatedly in rapid succession', async ({
+  // Azure test case 15436
+  test('15436: should process one inactivation when Confirm is clicked repeatedly in rapid succession', async ({
     page,
     payerManagementPage,
     payerInactivateDialog,

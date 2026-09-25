@@ -26,7 +26,8 @@ import {
  * dependencies, so the clean path is exercised without touching shared data.
  */
 test.describe('Payer deletion dependencies - Clean deletions', () => {
-  test('TC-001: should stage the deletion when the payer has no dependencies', async ({
+  // Azure test case 15461
+  test('15461: should stage the deletion when the payer has no dependencies', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -74,7 +75,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
   });
 
-  test('TC-008: should show the pending-deletion state consistently in the list', async ({
+  // Azure test case 15468
+  test('15468: should show the pending-deletion state consistently in the list', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -118,7 +120,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
   });
 
-  test('TC-009: should not allow a second deletion while one is already pending', async ({
+  // Azure test case 15469
+  test('15469: should not allow a second deletion while one is already pending', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -165,7 +168,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
   });
 
-  test('TC-007: should block one payer and stage the other when both are attempted in turn', async ({
+  // Azure test case 15467
+  test('15467: should block one payer and stage the other when both are attempted in turn', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -218,7 +222,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
   });
 
-  test('TC-012: should queue a request only for the deletion that was accepted', async ({
+  // Azure test case 15472
+  test('15472: should queue a request only for the deletion that was accepted', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -265,7 +270,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
   });
 
-  test('TC-011: should report both outcomes in the active language', async ({
+  // Azure test case 15471
+  test('15471: should report both outcomes in the active language', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -309,7 +315,8 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
 test.describe('Payer deletion dependencies - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-010: should withhold the delete action from a user without delete rights', async ({
+  // Azure test case 15470
+  test('15470: should withhold the delete action from a user without delete rights', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,

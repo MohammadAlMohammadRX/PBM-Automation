@@ -35,7 +35,8 @@ import {
  * reading the API.
  */
 test.describe('Version check at save time', () => {
-  test('TC-001: should save successfully when the record has not changed since it loaded', async ({
+  // Azure test case 15558
+  test('15558: should save successfully when the record has not changed since it loaded', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -87,7 +88,8 @@ test.describe('Version check at save time', () => {
     });
   });
 
-  test('TC-002: should reject the save when another session has moved the record on', async ({
+  // Azure test case 15559
+  test('15559: should reject the save when another session has moved the record on', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -160,7 +162,8 @@ test.describe('Version check at save time', () => {
     });
   });
 
-  test('TC-005: should block the stale save, keep the input, and accept it after a refresh', async ({
+  // Azure test case 15562
+  test('15562: should block the stale save, keep the input, and accept it after a refresh', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -257,7 +260,8 @@ test.describe('Version check at save time', () => {
     });
   });
 
-  test('TC-007: should keep refusing repeated stale saves without changing the record', async ({
+  // Azure test case 15564
+  test('15564: should keep refusing repeated stale saves without changing the record', async ({
     payerManagementPage,
     staleSession,
     uniquePayer,
@@ -315,7 +319,8 @@ test.describe('Version check at save time', () => {
     });
   });
 
-  test('TC-008: should save once when Save is double-clicked', async ({
+  // Azure test case 15565
+  test('15565: should save once when Save is double-clicked', async ({
     page,
     payerManagementPage,
     uniquePayer,

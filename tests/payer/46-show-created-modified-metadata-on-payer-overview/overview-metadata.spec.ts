@@ -31,7 +31,8 @@ const modifiedIsAcceptable = (value: string): boolean =>
   || UNMODIFIED_INDICATORS.includes(value.trim() as (typeof UNMODIFIED_INDICATORS)[number]);
 
 test.describe('Payer overview metadata', () => {
-  test('TC-001: should show who created a payer and when as soon as it exists', async ({
+  // Azure test case 15797
+  test('15797: should show who created a payer and when as soon as it exists', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -67,7 +68,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-002: should move the Modified metadata forward once an edit is approved', async ({
+  // Azure test case 15798
+  test('15798: should move the Modified metadata forward once an edit is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -134,7 +136,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-003: should keep Created static while Modified advances across sequential edits', async ({
+  // Azure test case 15799
+  test('15799: should keep Created static while Modified advances across sequential edits', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -196,7 +199,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-004: should show a defined Modified value for a payer never edited since creation', async ({
+  // Azure test case 15800
+  test('15800: should show a defined Modified value for a payer never edited since creation', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -225,7 +229,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-005: should present every metadata field non-blank and correctly labelled', async ({
+  // Azure test case 15806
+  test('15806: should present every metadata field non-blank and correctly labelled', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -272,7 +277,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-006: should show the metadata for a Draft payer and for an Active one alike', async ({
+  // Azure test case 15803
+  test('15803: should show the metadata for a Draft payer and for an Active one alike', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -319,7 +325,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-007: should carry the same metadata however the payer is reached', async ({
+  // Azure test case 15804
+  test('15804: should carry the same metadata however the payer is reached', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -354,7 +361,8 @@ test.describe('Payer overview metadata', () => {
     });
   });
 
-  test('TC-008: should hold up when the creating user account no longer exists', async ({
+  // Azure test case 15802
+  test('15802: should hold up when the creating user account no longer exists', async ({
     steps,
   }) => {
     steps.blocked(
@@ -371,15 +379,18 @@ test.describe('Payer overview metadata', () => {
 test.describe('Payer overview metadata - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should withhold the metadata from a role without rights to see it', async ({
-    requireNonAdmin,
+  // Azure test case 15805
+  test('15805: should withhold the metadata from a role without rights to see it', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['viewPayerDetails'] });
+    // The restricted account is BUILT, not waited for: the administrator takes the
+    // permission off the shared "Payer Admin" role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to report
+    // BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['viewPayerDetails'] });
 
     await steps.critical('Sign in as the restricted user and open the payer list', async () => {
       await loginPage.open();

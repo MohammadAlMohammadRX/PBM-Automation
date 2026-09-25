@@ -56,11 +56,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: NEEDS_LATE_DUPLICATE,
   },
   {
-    id: '010',
-    title: 'should refuse Send for Approval to a user without the System Administrator role',
-    reason: `${nonAdminBlockReason({ lacking: ['sendForApproval'] })} ${SUBMIT_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '012',
     title: 'should show every edited field as a before/after change in the reviewer\'s queue entry',
     reason: 'The approvals hub lists the request and its change type; no field-level before/after payload view has been observed on it. Point this case at the payload view once one exists.',

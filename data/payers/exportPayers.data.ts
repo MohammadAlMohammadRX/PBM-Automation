@@ -79,11 +79,6 @@ export const EXPORT_ROLE_REQUIREMENT = {
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
   {
-    id: '013',
-    title: 'should withhold the Export functionality from a user without export permission',
-    reason: `${nonAdminBlockReason({ lacking: ['exportPayers'] })} ${EXPORT_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '015',
     title: 'should behave consistently across combined filters, sorting and column configurations',
     reason: 'An exploratory session across filter, sort and column combinations is a manual activity; its deterministic parts (scope, order, search) are the cases here.',

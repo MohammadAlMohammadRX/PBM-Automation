@@ -18,7 +18,8 @@ import { buildUniquePayer } from '../../../data/payers/payer.data';
  * still lets the next one report.
  */
 test.describe('Delete Payer with/without Dependency Validation - Core deletion', () => {
-  test('TC-001: should accept the deletion request when the payer has no dependencies', async ({
+  // Azure test case 14350
+  test('14350: should accept the deletion request when the payer has no dependencies', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -34,7 +35,8 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
       payerManagementPage.expectApprovalStatusContains(publishedPayer.nameEn, 'Draft'));
   });
 
-  test('TC-004: should discard the draft outright when deleting a payer that was never approved', async ({
+  // Azure test case 14348
+  test('14348: should discard the draft outright when deleting a payer that was never approved', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -55,7 +57,8 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
       payerManagementPage.expectRowNotVisible(draftPayer.nameEn));
   });
 
-  test('TC-005: should display a confirmation prompt and abort the deletion when the user cancels', async ({
+  // Azure test case 14352
+  test('14352: should display a confirmation prompt and abort the deletion when the user cancels', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -73,7 +76,8 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
       payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, 'Draft'));
   });
 
-  test('TC-012: should confirm the discard in the language selected in the page header', async ({
+  // Azure test case 14354
+  test('14354: should confirm the discard in the language selected in the page header', async ({
     payerManagementPage,
     draftPayer,
     cleanup,
@@ -121,7 +125,8 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
     }
   });
 
-  test('TC-013: should remove the discarded draft from every pending-work view', async ({
+  // Azure test case 14356
+  test('14356: should remove the discarded draft from every pending-work view', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -153,7 +158,8 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
  * then approved (logical removal) or rejected (payer stays active).
  */
 test.describe('Delete Payer with/without Dependency Validation - Deletion approval', () => {
-  test('TC-010: should logically remove the payer from active lists when the staged deletion is approved', async ({
+  // Azure test case 14353
+  test('14353: should logically remove the payer from active lists when the staged deletion is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -183,7 +189,8 @@ test.describe('Delete Payer with/without Dependency Validation - Deletion approv
       payerManagementPage.expectRowNotVisible(publishedPayer.nameEn));
   });
 
-  test('TC-011: should keep the payer active when the staged deletion is rejected', async ({
+  // Azure test case 14351
+  test('14351: should keep the payer active when the staged deletion is rejected', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -233,7 +240,8 @@ test.describe('Delete Payer with/without Dependency Validation - Deletion approv
       approvalManagementPage.expectNotInQueue(publishedPayer.nameEn));
   });
 
-  test('TC-009: should stage only one deletion request when delete is submitted repeatedly in quick succession', async ({
+  // Azure test case 14359
+  test('14359: should stage only one deletion request when delete is submitted repeatedly in quick succession', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { PAYER_EXPORT_COLUMN } from '../../../constants/ElementIds';
 import type { PayerData } from '../../../data/payers/payerTypes';
@@ -25,7 +28,8 @@ import {
  * sheet states them, so the conflict is reported rather than resolved here.
  */
 test.describe('Export the payer list', () => {
-  test('TC-001: should download a CSV holding the listed payers when the list is exported', async ({
+  // Azure test case 14545
+  test('14545: should download a CSV holding the listed payers when the list is exported', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -42,7 +46,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-002: should download a valid Excel workbook when the list is exported to Excel', async ({
+  // Azure test case 14548
+  test('14548: should download a valid Excel workbook when the list is exported to Excel', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -60,7 +65,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-003: should include every visible column plus Arabic Name, Dial Code and Licence Number in the export', async ({
+  // Azure test case 14554
+  test('14554: should include every visible column plus Arabic Name, Dial Code and Licence Number in the export', async ({
     payerManagementPage,
     exportMenu,
     publishedPayer,
@@ -83,7 +89,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-004: should ask whether to export all or only the filtered payers when a filter is applied', async ({
+  // Azure test case 14546
+  test('14546: should ask whether to export all or only the filtered payers when a filter is applied', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -104,7 +111,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-005: should export every payer when All Payers is chosen over a filtered list', async ({
+  // Azure test case 14553
+  test('14553: should export every payer when All Payers is chosen over a filtered list', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -125,7 +133,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-006: should export only the on-screen payers when Filtered Results Only is chosen', async ({
+  // Azure test case 14551
+  test('14551: should export only the on-screen payers when Filtered Results Only is chosen', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -176,7 +185,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-008: should name the file PayerList_YYYYMMDD_HHMMSS with a timestamp of the export moment', async ({
+  // Azure test case 14555
+  test('14555: should name the file PayerList_YYYYMMDD_HHMMSS with a timestamp of the export moment', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -199,7 +209,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-009: should produce headers and no data rows when the filtered list has no results', async ({
+  // Azure test case 14559
+  test('14559: should produce headers and no data rows when the filtered list has no results', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -241,7 +252,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-011: should encode Arabic names and special characters correctly in the export', async ({
+  // Azure test case 14563
+  test('14563: should encode Arabic names and special characters correctly in the export', async ({
     payerManagementPage,
     exportMenu,
     publishPayer,
@@ -290,7 +302,8 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-014: should report the failure and deliver no file when the export service is down, then succeed on retry', async ({
+  // Azure test case 14562
+  test('14562: should report the failure and deliver no file when the export service is down, then succeed on retry', async ({
     page,
     payerManagementPage,
     exportMenu,
@@ -359,8 +372,30 @@ test.describe('Export the payer list', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 14567
+  test('14567: should withhold the Export functionality from a user without export permission', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without Export Payers', async () => {
+      session = await shapedNonAdmin({ without: ['exportPayers'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The export control is withheld from this role', async () => {
+      await session.exportMenu.expectExportRefused();
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    test(`${azureOrCase('70', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

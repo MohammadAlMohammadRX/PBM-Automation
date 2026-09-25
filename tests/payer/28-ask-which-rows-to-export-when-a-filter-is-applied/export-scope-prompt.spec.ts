@@ -30,7 +30,8 @@ import {
  * an assertion about the file rather than about the click that produced it.
  */
 test.describe('Export scope prompt', () => {
-  test('TC-001: should ask which rows to export when a filter is applied', async ({
+  // Azure test case 15533
+  test('15533: should ask which rows to export when a filter is applied', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -69,7 +70,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-002: should prompt for a scope even when no filter is applied', async ({
+  // Azure test case 15534
+  test('15534: should prompt for a scope even when no filter is applied', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -107,7 +109,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-003: should export the whole register when Export All is chosen over a filtered list', async ({
+  // Azure test case 15535
+  test('15535: should export the whole register when Export All is chosen over a filtered list', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -159,7 +162,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-004: should export only the filtered rows when Export Filtered is chosen', async ({
+  // Azure test case 15536
+  test('15536: should export only the filtered rows when Export Filtered is chosen', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -199,7 +203,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-005: should generate no file when the scope prompt is cancelled', async ({
+  // Azure test case 15537
+  test('15537: should generate no file when the scope prompt is cancelled', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -230,7 +235,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-011: should present a complete scope prompt - title, options and a way out', async ({
+  // Azure test case 15543
+  test('15543: should present a complete scope prompt - title, options and a way out', async ({
     payerManagementPage,
     exportMenu,
     steps,
@@ -269,7 +275,8 @@ test.describe('Export scope prompt', () => {
     });
   });
 
-  test('TC-008: should handle an export of a filter that matches nothing', async ({
+  // Azure test case 15540
+  test('15540: should handle an export of a filter that matches nothing', async ({
     payerManagementPage,
     exportMenu,
     steps,

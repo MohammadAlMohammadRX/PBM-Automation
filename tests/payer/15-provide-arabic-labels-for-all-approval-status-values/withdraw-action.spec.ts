@@ -27,7 +27,8 @@ import {
  * and hide the gap.
  */
 test.describe('Provide Arabic Labels for All Approval Status Values - Withdraw and filtering', () => {
-  test('TC-006: should set the request to Withdrawn when a pending payer change is withdrawn', async ({
+  // Azure test case 15369
+  test('15369: should set the request to Withdrawn when a pending payer change is withdrawn', async ({
     payerManagementPage,
     approvalManagementPage,
     uniquePayer,
@@ -69,7 +70,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Withdraw a
     );
   });
 
-  test('TC-007: should refuse the withdrawal when the request has already been decided', async ({
+  // Azure test case 15370
+  test('15370: should refuse the withdrawal when the request has already been decided', async ({
     approvalManagementPage,
     steps,
   }) => {
@@ -88,7 +90,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Withdraw a
     await steps.step('The approvals hub is reachable', () => approvalManagementPage.open());
   });
 
-  test('TC-011: should list all five approval statuses in Arabic when the status filter is opened', async ({
+  // Azure test case 15374
+  test('15374: should list all five approval statuses in Arabic when the status filter is opened', async ({
     payerManagementPage,
     languageSwitcher,
     steps,
@@ -132,7 +135,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Withdraw a
     });
   });
 
-  test('TC-012: should offer exactly the five approval statuses when the status dropdown is inspected in both languages', async ({
+  // Azure test case 15375
+  test('15375: should offer exactly the five approval statuses when the status dropdown is inspected in both languages', async ({
     payerManagementPage,
     languageSwitcher,
     steps,
@@ -187,7 +191,8 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Withdraw a
     });
   });
 
-  test('TC-013: should keep every status label correct when the language is toggled while reading a payer\'s history', async ({
+  // Azure test case 15376
+  test('15376: should keep every status label correct when the language is toggled while reading a payer\'s history', async ({
     payerManagementPage,
     payerWithVersionStatus,
     languageSwitcher,

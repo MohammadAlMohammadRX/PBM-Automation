@@ -18,7 +18,8 @@ import {
  * who is not allowed to submit.
  */
 test.describe('Bilingual submission toast - No false confirmations', () => {
-  test('TC-002: should show no success toast when the payer cannot be submitted', async ({
+  // Azure test case 15504
+  test('15504: should show no success toast when the payer cannot be submitted', async ({
     payerManagementPage,
     toast,
     publishedPayer,
@@ -63,7 +64,8 @@ test.describe('Bilingual submission toast - No false confirmations', () => {
     });
   });
 
-  test('TC-006: should report an error and leave the payer in Draft when the submission fails', async ({
+  // Azure test case 15500
+  test('15500: should report an error and leave the payer in Draft when the submission fails', async ({
     page,
     payerManagementPage,
     toast,
@@ -126,15 +128,18 @@ test.describe('Bilingual submission toast - No false confirmations', () => {
 test.describe('Bilingual submission toast - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-009: should withhold Send for Approval from a user without submission rights', async ({
-    requireNonAdmin,
+  // Azure test case 15507
+  test('15507: should withhold Send for Approval from a user without submission rights', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['sendForApproval'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['sendForApproval'] });
 
     let payerName!: string;
 

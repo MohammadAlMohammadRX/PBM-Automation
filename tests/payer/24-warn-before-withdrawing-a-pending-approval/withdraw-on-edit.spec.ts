@@ -22,7 +22,8 @@ import {
  * withdrawing a request somebody else was waiting on.
  */
 test.describe('Withdraw a pending approval - On edit', () => {
-  test('TC-001: should create an approval request and move the payer to Pending Approval when a draft is submitted', async ({
+  // Azure test case 15488
+  test('15488: should create an approval request and move the payer to Pending Approval when a draft is submitted', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -69,7 +70,8 @@ test.describe('Withdraw a pending approval - On edit', () => {
     });
   });
 
-  test('TC-003: should warn that saving will withdraw the request when a pending payer is edited', async ({
+  // Azure test case 15489
+  test('15489: should warn that saving will withdraw the request when a pending payer is edited', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -133,7 +135,8 @@ test.describe('Withdraw a pending approval - On edit', () => {
     });
   });
 
-  test('TC-007: should abort the save and keep the request when the warning is cancelled', async ({
+  // Azure test case 15493
+  test('15493: should abort the save and keep the request when the warning is cancelled', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -193,7 +196,8 @@ test.describe('Withdraw a pending approval - On edit', () => {
     });
   });
 
-  test('TC-006: should warn only when a request is actually pending, across the three states', async ({
+  // Azure test case 15492
+  test('15492: should warn only when a request is actually pending, across the three states', async ({
     payerManagementPage,
     publishedPayer,
     steps,

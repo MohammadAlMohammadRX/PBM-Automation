@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { AppRoutes } from '../../../constants/AppRoutes';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
@@ -34,7 +35,8 @@ import {
 const sorted = (names: readonly string[]): string[] => [...names].sort();
 
 test.describe('Scope-restricted payer visibility', () => {
-  test('TC-001: should list only in-scope payers when a scoped user opens the payer list', async ({
+  // Azure test case 15626
+  test('15626: should list only in-scope payers when a scoped user opens the payer list', async ({
     nonAdminSession,
     steps,
   }) => {
@@ -50,7 +52,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-002: should let a scoped user open and edit an in-scope payer', async ({
+  // Azure test case 15627
+  test('15627: should let a scoped user open and edit an in-scope payer', async ({
     nonAdminSession,
     steps,
   }) => {
@@ -71,7 +74,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-003: should answer Not Found rather than Forbidden when a scoped user follows a direct link to an out-of-scope payer', async ({
+  // Azure test case 15628
+  test('15628: should answer Not Found rather than Forbidden when a scoped user follows a direct link to an out-of-scope payer', async ({
     payerManagementPage,
     publishedPayer,
     nonAdminSession,
@@ -103,7 +107,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-004: should answer Not Found without leaking data when a scoped session calls the API for an out-of-scope payer', async ({
+  // Azure test case 15629
+  test('15629: should answer Not Found without leaking data when a scoped session calls the API for an out-of-scope payer', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -132,7 +137,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-005: should show unassigned networks alongside the scoped payers', async ({
+  // Azure test case 15630
+  test('15630: should show unassigned networks alongside the scoped payers', async ({
     linkedNetwork,
     nonAdminSession,
     steps,
@@ -158,7 +164,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-010: should not leak out-of-scope payers through search, filter or export', async ({
+  // Azure test case 15636
+  test('15636: should not leak out-of-scope payers through search, filter or export', async ({
     publishedPayer,
     nonAdminSession,
     steps,
@@ -190,7 +197,8 @@ test.describe('Scope-restricted payer visibility', () => {
     });
   });
 
-  test('TC-011: should enforce scope consistently across list, detail, edit, delete and export', async ({
+  // Azure test case 15635
+  test('15635: should enforce scope consistently across list, detail, edit, delete and export', async ({
     payerManagementPage,
     publishedPayer,
     nonAdminSession,
@@ -236,7 +244,10 @@ test.describe('Scope-restricted payer visibility', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-006 = 15632,  TC-007 = 15631,  TC-008 = 15633
+    //   TC-009 = 15634,  TC-012 = 15638,  TC-013 = 15639
+    test(`${azureOrCase('57', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

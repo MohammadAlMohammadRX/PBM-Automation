@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import { PAYER_NAME_AR_LABEL, buildUniquePayer } from '../../../data/payers/payer.data';
 import { DateUtils } from '../../../utils/DateUtils';
@@ -26,7 +27,8 @@ import { DUPLICATE_EMAIL_RESPONSE } from '../../../data/payers/payerEmailUniquen
  * email is refused by the SERVER with 409 while the interface shows nothing.
  */
 test.describe('Validate Payer Creation Input Fields - Names and email', () => {
-  test('TC-001: should submit without validation errors when every mandatory field holds valid data', async ({
+  // Azure test case 14470
+  test('14470: should submit without validation errors when every mandatory field holds valid data', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -90,7 +92,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     });
   });
 
-  test('TC-002: should report a character-set violation when the English Name field contains Arabic characters', async ({
+  // Azure test case 14475
+  test('14475: should report a character-set violation when the English Name field contains Arabic characters', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -118,7 +121,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     });
   });
 
-  test('TC-003: should report a character-set violation when the Arabic Name field contains Latin characters', async ({
+  // Azure test case 14476
+  test('14476: should report a character-set violation when the Arabic Name field contains Latin characters', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -144,7 +148,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     });
   });
 
-  test('TC-004: should report both names as required when the English and Arabic name fields are left blank', async ({
+  // Azure test case 14477
+  test('14477: should report both names as required when the English and Arabic name fields are left blank', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -172,7 +177,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     });
   });
 
-  test('TC-005: should report an invalid-format message when the email address is malformed', async ({
+  // Azure test case 14483
+  test('14483: should report an invalid-format message when the email address is malformed', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -202,7 +208,9 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     { caseId: 'TC-006', label: 'an approved payer', approve: true },
     { caseId: 'TC-007', label: 'a payer still awaiting approval', approve: false },
   ] as const) {
-    test(`${stage.caseId}: should refuse the save when the email is already used by ${stage.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-006 = 14484,  TC-007 = 14485
+    test(`${azureOrCase('33', stage.caseId)}: should refuse the save when the email is already used by ${stage.label}`, async ({
       payerManagementPage,
       approvalManagementPage,
       uniquePayer,
@@ -263,7 +271,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
     });
   }
 
-  test('TC-018: should reject or safely sanitise hostile input when it is entered into the name and email fields', async ({
+  // Azure test case 14515
+  test('14515: should reject or safely sanitise hostile input when it is entered into the name and email fields', async ({
     payerManagementPage,
     steps,
   }) => {

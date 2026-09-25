@@ -18,7 +18,8 @@ import {
  * TC-002's first step and break this.
  */
 test.describe('Withdraw a pending approval - Pending-request ceiling', () => {
-  test('TC-005: should hold the pending count at one when a second submission is attempted', async ({
+  // Azure test case 15491
+  test('15491: should hold the pending count at one when a second submission is attempted', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -83,15 +84,18 @@ test.describe('Withdraw a pending approval - Pending-request ceiling', () => {
 test.describe('Withdraw a pending approval - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-011: should withhold edit and delete on a pending payer from an unauthorized user', async ({
-    requireNonAdmin,
+  // Azure test case 15497
+  test('15497: should withhold edit and delete on a pending payer from an unauthorized user', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer'] });
 
     let payerName!: string;
 

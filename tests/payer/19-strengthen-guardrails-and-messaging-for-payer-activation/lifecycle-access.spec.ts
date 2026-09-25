@@ -20,16 +20,19 @@ import { RESTRICTED_ROLE_REQUIREMENT } from '../../../data/payers/lifecycleGuard
 test.describe('Payer lifecycle guardrails - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-014: should withhold the activation and inactivation actions when the user is not authorized to change a payer status', async ({
-    requireNonAdmin,
+  // Azure test case 15435
+  test('15435: should withhold the activation and inactivation actions when the user is not authorized to change a payer status', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     payerSample,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['changePayerStatus'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['inactivatePayer', 'activatePayer'] });
 
     let activePayer!: string;
 

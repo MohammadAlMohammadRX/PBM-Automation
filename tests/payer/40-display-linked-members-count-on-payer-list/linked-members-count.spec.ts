@@ -33,7 +33,8 @@ import {
  * traceability matrix as Not Covered, with the module boundary as the reason.
  */
 test.describe('Linked members count', () => {
-  test('TC-001: should show a distinct member total for the payer', async ({
+  // Azure test case 14794
+  test('14794: should show a distinct member total for the payer', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -80,7 +81,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-002: should present a zero member total as a dash rather than as "0"', async ({
+  // Azure test case 14801
+  test('14801: should present a zero member total as a dash rather than as "0"', async ({
     linkedCounts,
     steps,
   }) => {
@@ -122,7 +124,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-003: should show exactly one when the payer has a single member', async ({
+  // Azure test case 14802
+  test('14802: should show exactly one when the payer has a single member', async ({
     linkedCounts,
     steps,
   }) => {
@@ -157,7 +160,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-004: should render the largest member total in full and still load the list', async ({
+  // Azure test case 14804
+  test('14804: should render the largest member total in full and still load the list', async ({
     payerManagementPage,
     linkedCounts,
     steps,
@@ -199,7 +203,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-005: should de-duplicate members across policies rather than summing policy totals', async ({
+  // Azure test case 14799
+  test('14799: should de-duplicate members across policies rather than summing policy totals', async ({
     payerManagementPage,
     policyManagementPage,
     linkedCounts,
@@ -255,7 +260,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-006: should source the member total from the list service', async ({
+  // Azure test case 14811
+  test('14811: should source the member total from the list service', async ({
     page,
     payerManagementPage,
     linkedCounts,
@@ -313,7 +319,8 @@ test.describe('Linked members count', () => {
     });
   });
 
-  test('TC-007: should not present a member total the service could not supply', async ({
+  // Azure test case 14816
+  test('14816: should not present a member total the service could not supply', async ({
     page,
     payerManagementPage,
     steps,

@@ -18,7 +18,8 @@ import {
  * The validation rules themselves - the checklist, editing, and input handling.
  */
 test.describe('Validate Payer Licence Number Length and Required Entry - Rules', () => {
-  test('TC-006: should enforce every licence-number rule when each is exercised in turn', async ({
+  // Azure test case 15328
+  test('15328: should enforce every licence-number rule when each is exercised in turn', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -39,7 +40,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Rules',
     }
   });
 
-  test('TC-007: should block the save and keep the stored value when the licence number is cleared on an existing payer', async ({
+  // Azure test case 15329
+  test('15329: should block the save and keep the stored value when the licence number is cleared on an existing payer', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -98,7 +100,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Rules',
     });
   });
 
-  test('TC-013: should reject a whitespace-only licence number as if the field were empty', async ({
+  // Azure test case 15335
+  test('15335: should reject a whitespace-only licence number as if the field were empty', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -131,7 +134,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Rules',
     );
   });
 
-  test('TC-014: should trim the stored licence number when it is entered with surrounding spaces', async ({
+  // Azure test case 15336
+  test('15336: should trim the stored licence number when it is entered with surrounding spaces', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -170,7 +174,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Rules',
     });
   });
 
-  test('TC-015: should handle a licence number containing special characters consistently when it is saved and read back', async ({
+  // Azure test case 15337
+  test('15337: should handle a licence number containing special characters consistently when it is saved and read back', async ({
     payerManagementPage,
     steps,
   }) => {

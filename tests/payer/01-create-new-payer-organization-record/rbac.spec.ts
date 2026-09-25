@@ -12,7 +12,8 @@ import { env } from '../../../constants/EnvironmentConfig';
 test.describe('Create New Payer Organization Record - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-012: should deny the Create New Payer action when the user lacks the System Administrator role', async ({
+  // Azure test case 14520
+  test('14520: should deny the Create New Payer action when the user lacks the System Administrator role', async ({
     requireNonAdmin,
     loginPage,
     payerManagementPage,

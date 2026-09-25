@@ -22,7 +22,8 @@ import {
  * id left out.
  */
 test.describe('Network activation - Direct requests and repeat toggles', () => {
-  test('TC-009: should refuse a redundant activation when the network is already Active', async ({
+  // Azure test case 15458
+  test('15458: should refuse a redundant activation when the network is already Active', async ({
     networkManagementPage,
     networkInStatus,
     steps,
@@ -69,7 +70,8 @@ test.describe('Network activation - Direct requests and repeat toggles', () => {
     });
   });
 
-  test('TC-011: should reject a status request that carries no network id', async ({
+  // Azure test case 15460
+  test('15460: should reject a status request that carries no network id', async ({
     networkManagementPage,
     networkInStatus,
     steps,
@@ -130,7 +132,8 @@ test.describe('Network activation - Direct requests and repeat toggles', () => {
     });
   });
 
-  test('TC-008: should apply both transitions when a network is activated and then deactivated', async ({
+  // Azure test case 15457
+  test('15457: should apply both transitions when a network is activated and then deactivated', async ({
     networkManagementPage,
     networkApprovalsPage,
     networkInStatus,

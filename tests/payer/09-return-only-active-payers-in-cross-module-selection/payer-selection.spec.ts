@@ -37,7 +37,8 @@ import {
  * one means a full inactivate-plus-approve round trip per test.
  */
 test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
-  test('TC-001: should offer only Active payers in a consuming module dropdown', async ({
+  // Azure test case 15287
+  test('15287: should offer only Active payers in a consuming module dropdown', async ({
     payerManagementPage,
     planManagementPage,
     payerSample,
@@ -95,7 +96,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     }
   });
 
-  test('TC-002: should exclude Pending, Inactive and Expired payers', async ({
+  // Azure test case 15284
+  test('15284: should exclude Pending, Inactive and Expired payers', async ({
     planManagementPage,
     payerSample,
     steps,
@@ -139,7 +141,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     }
   });
 
-  test('TC-007: should match the status decision table exactly', async ({
+  // Azure test case 15291
+  test('15291: should match the status decision table exactly', async ({
     planManagementPage,
     payerSample,
     steps,
@@ -191,7 +194,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     });
   });
 
-  test('TC-003: should carry each payer status alongside its identifying fields', async ({
+  // Azure test case 15286
+  test('15286: should carry each payer status alongside its identifying fields', async ({
     page,
     planManagementPage,
     steps,
@@ -240,7 +244,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     });
   });
 
-  test('TC-008: should return a well-formed payload restricted to Active payers', async ({
+  // Azure test case 15292
+  test('15292: should return a well-formed payload restricted to Active payers', async ({
     page,
     payerManagementPage,
     planManagementPage,
@@ -296,7 +301,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     });
   });
 
-  test('TC-012: should enforce the same rule in every consuming module', async ({
+  // Azure test case 15296
+  test('15296: should enforce the same rule in every consuming module', async ({
     planManagementPage,
     networkManagementPage,
     payerSample,
@@ -369,7 +375,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     });
   });
 
-  test('TC-011: should fail gracefully when the payer service is unavailable', async ({
+  // Azure test case 15295
+  test('15295: should fail gracefully when the payer service is unavailable', async ({
     page,
     planManagementPage,
     steps,
@@ -403,7 +410,8 @@ test.describe('Cross-Module Payer Selection - Active-only filtering', () => {
     });
   });
 
-  test('TC-013: should reflect the latest statuses on each fresh load, with no stale cache', async ({
+  // Azure test case 15297
+  test('15297: should reflect the latest statuses on each fresh load, with no stale cache', async ({
     planManagementPage,
     payerSample,
     steps,

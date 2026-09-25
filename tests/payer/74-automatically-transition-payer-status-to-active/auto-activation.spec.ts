@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import type { PayerData } from '../../../data/payers/payerTypes';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
@@ -7,6 +8,26 @@ import { APPROVAL_STATE } from '../../../data/payers/withdrawApproval.data';
 import { effectiveDate } from '../../../data/payers/effectiveDateRules.data';
 import { expiryDate } from '../../../data/payers/expiryDateRules.data';
 import {
+/**
+ * MOVED TO MANUAL TESTING.
+ *
+ * This story is verified by hand, so every case below is skipped and carries
+ * [MANUAL] at its name. Nothing is deleted: the cases still record what each
+ * check is, and the story returns to automation by removing the `.skip` on
+ * the describes.
+ *
+ * WHY IT SUITS A MANUAL PASS.
+ * The transition is performed by the nightly lifecycle job (CRON 15 0 * * *
+ * UTC). This suite can neither trigger it nor move the clock, so a record has
+ * to be created today and read tomorrow - a calendar wait rather than a test
+ * step. The application also exposes no job-run log, so "it did not run" and
+ * "it ran and did nothing" look identical on screen.
+ *
+ * `npm run seed:status` plants payers whose dates lapse within a day and
+ * `npm run check:status` reports what became of them. Seed today, read
+ * tomorrow.
+ */
+
   BLOCKED_CASES,
   FUTURE_EFFECTIVE_DAYS,
   SAFE_EXPIRY_DAYS,
@@ -38,8 +59,9 @@ async function publishFutureDatedPayer(
   return payer;
 }
 
-test.describe('Automatic activation - what holds before the job runs', () => {
-  test('TC-003: should keep a Pending payer Pending when its EffectiveDate is still in the future', async ({
+test.describe.skip('Automatic activation - what holds before the job runs [MANUAL]', () => {
+  // Azure test case 14668
+  test('14668: [MANUAL] should keep a Pending payer Pending when its EffectiveDate is still in the future', async ({
     payerManagementPage,
     publishPayer,
     steps,
@@ -64,7 +86,7 @@ test.describe('Automatic activation - what holds before the job runs', () => {
     });
   });
 
-  test('TC-011: should never activate a payer without an EffectiveDate because none can be saved', async ({
+  test('TC-011: [MANUAL] should never activate a payer without an EffectiveDate because none can be saved', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -96,7 +118,7 @@ test.describe('Automatic activation - what holds before the job runs', () => {
     });
   });
 
-  test('TC-013: should show a Pending status in the interface until the automated job actually runs', async ({
+  test('TC-013: [MANUAL] should show a Pending status in the interface until the automated job actually runs', async ({
     payerManagementPage,
     publishPayer,
     steps,
@@ -117,7 +139,11 @@ test.describe('Automatic activation - what holds before the job runs', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-001 = 14662,  TC-002 = 14665,  TC-004 = 14673
+    //   TC-006 = 14677,  TC-008 = 14674,  TC-009 = 14678
+    //   TC-010 = 14681,  TC-012 = 14688
+    test(`${azureOrCase('74', 'TC-' + blocked.id)}: [MANUAL] ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -1,5 +1,5 @@
 import { PAYER_EXPORT_COLUMN } from '../../constants/ElementIds';
-import { NON_ADMIN_PROFILE, nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
+import { NON_ADMIN_PROFILE } from '../accounts/nonAdminAccount.data';
 import { SCOPE_FILTER } from './exportScope.data';
 import type { BlockedCase } from './payerTypes';
 
@@ -61,7 +61,10 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
   {
     id: '008',
     title: 'should show exactly one payer when a user is assigned exactly one',
-    reason: `This case needs an account assigned to exactly ONE payer; the ${NON_ADMIN_PROFILE.role} is assigned two. ${nonAdminBlockReason({ lacking: ['viewPayerList'] }).replace(/^The configured.*?\. /, '')}`,
+    // Not a PERMISSION problem, and so not one the role shaping can solve: which
+    // payers an account is assigned is set in User and Access Management, not in
+    // the permission catalogue.
+    reason: `This case needs an account assigned to exactly ONE payer; the ${NON_ADMIN_PROFILE.role} is assigned two. Taking permissions off the role cannot change which payers it is assigned, so provide a one-payer account and re-run.`,
   },
   {
     id: '009',

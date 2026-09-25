@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import type { LinkedNetworkCandidate } from '../../../fixtures/networkLinkState.fixture';
 import {
   BLOCKED_CASES,
@@ -18,7 +21,8 @@ import {
  * so the above-zero classes report what was found.
  */
 test.describe('Facility count per linked network', () => {
-  test('TC-001: should show the real facility count when a linked network has several facilities', async ({
+  // Azure test case 15819
+  test('15819: should show the real facility count when a linked network has several facilities', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -39,7 +43,8 @@ test.describe('Facility count per linked network', () => {
     });
   });
 
-  test('TC-002: should show "0" rather than a placeholder when a linked network has no facilities', async ({
+  // Azure test case 15820
+  test('15820: should show "0" rather than a placeholder when a linked network has no facilities', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -64,7 +69,8 @@ test.describe('Facility count per linked network', () => {
     });
   });
 
-  test('TC-003: should show the singular count when a linked network has exactly one facility', async ({
+  // Azure test case 15821
+  test('15821: should show the singular count when a linked network has exactly one facility', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -84,7 +90,8 @@ test.describe('Facility count per linked network', () => {
     });
   });
 
-  test('TC-006: should show a real count on every linked network row when the tab is opened', async ({
+  // Azure test case 15824
+  test('15824: should show a real count on every linked network row when the tab is opened', async ({
     payerManagementPage,
     linkedNetwork,
     steps,
@@ -110,7 +117,8 @@ test.describe('Facility count per linked network', () => {
     });
   });
 
-  test('TC-010: should show no placeholder and agree with the network records across several payers', async ({
+  // Azure test case 15828
+  test('15828: should show no placeholder and agree with the network records across several payers', async ({
     payerManagementPage,
     networkManagementPage,
     steps,
@@ -162,8 +170,52 @@ test.describe('Facility count per linked network', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 15827
+  test('15827: should withhold facility counts from a user without Linked Networks permission', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the Linked Networks permission', async () => {
+      session = await shapedNonAdmin({ without: ['viewLinkedNetworks'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The Linked Networks tab, and so its facility counts, is withheld', async () => {
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      const tabs = await detail.getTabOrder();
+
+      // AND THE DATA BEHIND IT. A withheld tab is only half the claim: what the
+      // permission protects is the content, so if the tab IS offered the case
+      // opens it and reports how much of that content the role was served.
+      // "the tab was offered and rendered N rows" is a defect a developer can
+      // act on; "a tab id was in a list" is not.
+      if (tabs.includes('networks')) {
+        const rows = await detail.getLinkedNetworkRows().catch(() => []);
+        expect(
+          rows.length,
+          `the Linked Networks tab was offered to a role without the permission, and it `
+            + `rendered ${rows.length} network row(s) with their facility counts`,
+        ).toBe(0);
+      }
+      expect(
+        tabs,
+        `the counts live on the Linked Networks tab, which should be withheld; offered: ${tabs.join(', ')}`,
+      ).not.toContain('networks');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-004 = 15822,  TC-005 = 15823,  TC-007 = 15825
+    //   TC-008 = 15826,  TC-011 = 15829
+    test(`${azureOrCase('60', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

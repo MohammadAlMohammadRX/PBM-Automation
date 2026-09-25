@@ -19,7 +19,8 @@ import {
  * failure about a screen that was never exercised.
  */
 test.describe('View Paginated Payer List with Metrics - Table shape and formats', () => {
-  test('TC-001: should display every required column and offer working row actions', async ({
+  // Azure test case 14444
+  test('14444: should display every required column and offer working row actions', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -104,7 +105,8 @@ test.describe('View Paginated Payer List with Metrics - Table shape and formats'
       payerManagementPage.expectColumnValuesUnique(PAYER_COLUMN.code));
   });
 
-  test('TC-003: should colour-code Active, Pending, Inactive and Expired distinctly', async ({
+  // Azure test case 14445
+  test('14445: should colour-code Active, Pending, Inactive and Expired distinctly', async ({
     payerManagementPage,
     steps,
   }) => {

@@ -25,7 +25,8 @@ import {
  * case drives the route that does exist.
  */
 test.describe('Publish guardrails', () => {
-  test('TC-001: should make the approved version live when a pending version is approved', async ({
+  // Azure test case 15569
+  test('15569: should make the approved version live when a pending version is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -81,7 +82,8 @@ test.describe('Publish guardrails', () => {
     });
   });
 
-  test('TC-002: should offer no way to publish a draft version directly', async ({
+  // Azure test case 15570
+  test('15570: should offer no way to publish a draft version directly', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -140,7 +142,8 @@ test.describe('Publish guardrails', () => {
     });
   });
 
-  test('TC-003: should offer no way to publish a version that is already live', async ({
+  // Azure test case 15571
+  test('15571: should offer no way to publish a version that is already live', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -186,7 +189,8 @@ test.describe('Publish guardrails', () => {
     });
   });
 
-  test('TC-004: should offer no way to publish a rejected version', async ({
+  // Azure test case 15572
+  test('15572: should offer no way to publish a rejected version', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -242,7 +246,8 @@ test.describe('Publish guardrails', () => {
     });
   });
 
-  test('TC-015: should block a publish from every status except a pending approval', async ({
+  // Azure test case 15583
+  test('15583: should block a publish from every status except a pending approval', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

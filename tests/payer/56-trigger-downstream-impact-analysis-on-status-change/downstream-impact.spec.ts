@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
@@ -19,7 +20,8 @@ import {
  * analysis to find something is BLOCKED on a payer with active policies.
  */
 test.describe('Downstream impact analysis as a gate', () => {
-  test('TC-005: should block the status change when the impact analysis service fails', async ({
+  // Azure test case 15048
+  test('15048: should block the status change when the impact analysis service fails', async ({
     page,
     payerManagementPage,
     payerInactivateDialog,
@@ -140,7 +142,10 @@ test.describe('Downstream impact analysis as a gate', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-001 = 15029,  TC-003 = 15039,  TC-004 = 15040
+    //   TC-006 = 15032,  TC-009 = 15052
+    test(`${azureOrCase('56', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

@@ -76,6 +76,27 @@ export class ExportMenu {
   }
 
   /**
+   * Asserts the export is REFUSED, and proves it by trying to run it.
+   *
+   * WHY THIS IS NOT `expectDenied`. That one asserts the trigger is absent,
+   * which is a proxy: a hidden button and a refused export are different
+   * claims, and only the second is what an export permission is for. When the
+   * control IS offered this runs it, so the report can say whether the data
+   * actually left the application - "the file downloaded with 1 row" is a
+   * defect a developer can act on; "a locator had count 1" is not.
+   */
+  async expectExportRefused(): Promise<void> {
+    if (!(await this.isAvailable())) return;
+
+    const parsed = await this.exportCsv('all').catch(() => null);
+    expect(
+      parsed,
+      'the export control was offered to a role without export rights, and the export '
+      + 'then COMPLETED - the file was produced and downloaded',
+    ).toBeNull();
+  }
+
+  /**
    * The scopes the menu offers, as their logical id suffixes.
    *
    * Read rather than assumed, because this is exactly what the export-scope

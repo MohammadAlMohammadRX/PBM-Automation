@@ -31,7 +31,8 @@ import {
  * best-effort third check.
  */
 test.describe('Approval status across views', () => {
-  test('TC-001: should surface the default list order and whether Draft leads it', async ({
+  // Azure test case 15644
+  test('15644: should surface the default list order and whether Draft leads it', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -74,7 +75,8 @@ test.describe('Approval status across views', () => {
     });
   });
 
-  test('TC-002: should carry version 0 for a payer awaiting its first approval', async ({
+  // Azure test case 15645
+  test('15645: should carry version 0 for a payer awaiting its first approval', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -107,7 +109,8 @@ test.describe('Approval status across views', () => {
     });
   });
 
-  test('TC-003: should carry a higher version only once a prior approved version exists', async ({
+  // Azure test case 15647
+  test('15647: should carry a higher version only once a prior approved version exists', async ({
     payerManagementPage,
     draftPayer,
     publishedPayer,
@@ -150,7 +153,8 @@ test.describe('Approval status across views', () => {
     });
   });
 
-  test('TC-004: should not blank the whole list when a status value is unrecognised', async ({
+  // Azure test case 15648
+  test('15648: should not blank the whole list when a status value is unrecognised', async ({
     page,
     payerManagementPage,
     steps,
@@ -190,7 +194,8 @@ test.describe('Approval status across views', () => {
     });
   });
 
-  test('TC-005: should show a populated status on every visible record', async ({
+  // Azure test case 15653
+  test('15653: should show a populated status on every visible record', async ({
     payerManagementPage,
     steps,
   }) => {

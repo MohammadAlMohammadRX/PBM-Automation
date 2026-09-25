@@ -23,7 +23,8 @@ import {
  * these cases can be observed without reading a response.
  */
 test.describe('Validate Payer Name Fields - Mandatory and persistence', () => {
-  test('TC-004: should block the save and report the field as required when the Arabic name is left empty', async ({
+  // Azure test case 15398
+  test('15398: should block the save and report the field as required when the Arabic name is left empty', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -64,7 +65,8 @@ test.describe('Validate Payer Name Fields - Mandatory and persistence', () => {
     });
   });
 
-  test('TC-010: should store the Arabic name trimmed when it is entered with surrounding spaces', async ({
+  // Azure test case 15404
+  test('15404: should store the Arabic name trimmed when it is entered with surrounding spaces', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -111,7 +113,8 @@ test.describe('Validate Payer Name Fields - Mandatory and persistence', () => {
     });
   });
 
-  test('TC-012: should keep the record in Draft when submission is attempted with an invalid English name and an empty Arabic name', async ({
+  // Azure test case 15405
+  test('15405: should keep the record in Draft when submission is attempted with an invalid English name and an empty Arabic name', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -156,7 +159,8 @@ test.describe('Validate Payer Name Fields - Mandatory and persistence', () => {
     });
   });
 
-  test('TC-013: should block the save and keep the stored value when the Arabic name is cleared on an existing payer', async ({
+  // Azure test case 15407
+  test('15407: should block the save and keep the stored value when the Arabic name is cleared on an existing payer', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -195,7 +199,8 @@ test.describe('Validate Payer Name Fields - Mandatory and persistence', () => {
     });
   });
 
-  test('TC-014: should report each name violation in both languages when every violation is triggered in turn', async ({
+  // Azure test case 15408
+  test('15408: should report each name violation in both languages when every violation is triggered in turn', async ({
     payerManagementPage,
     languageSwitcher,
     steps,

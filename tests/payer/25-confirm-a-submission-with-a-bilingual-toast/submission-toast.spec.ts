@@ -35,7 +35,8 @@ import {
  * makes a correct five-second toast look like a two-second one.
  */
 test.describe('Bilingual submission toast', () => {
-  test('TC-001: should confirm the submission with a bilingual toast when a draft is sent for approval', async ({
+  // Azure test case 15499
+  test('15499: should confirm the submission with a bilingual toast when a draft is sent for approval', async ({
     payerManagementPage,
     toast,
     draftPayer,
@@ -80,7 +81,8 @@ test.describe('Bilingual submission toast', () => {
     });
   });
 
-  test('TC-003: should keep the toast on screen for its configured duration and then remove it', async ({
+  // Azure test case 15501
+  test('15501: should keep the toast on screen for its configured duration and then remove it', async ({
     payerManagementPage,
     toast,
     draftPayer,
@@ -107,7 +109,8 @@ test.describe('Bilingual submission toast', () => {
       toast.expectDismissedWithin(TOAST_GONE_BY_MS - TOAST_STILL_VISIBLE_AT_MS));
   });
 
-  test('TC-004: should render the toast in the active language, in English and in Arabic', async ({
+  // Azure test case 15502
+  test('15502: should render the toast in the active language, in English and in Arabic', async ({
     payerManagementPage,
     toast,
     draftPayer,
@@ -173,7 +176,8 @@ test.describe('Bilingual submission toast', () => {
     });
   });
 
-  test('TC-005: should update the status field alongside the confirmation', async ({
+  // Azure test case 15503
+  test('15503: should update the status field alongside the confirmation', async ({
     payerManagementPage,
     toast,
     draftPayer,
@@ -202,7 +206,8 @@ test.describe('Bilingual submission toast', () => {
     });
   });
 
-  test('TC-007: should process one submission and show one toast when Send is clicked repeatedly', async ({
+  // Azure test case 15505
+  test('15505: should process one submission and show one toast when Send is clicked repeatedly', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -254,7 +259,8 @@ test.describe('Bilingual submission toast', () => {
     });
   });
 
-  test('TC-008: should satisfy the toast checklist - bilingual, explanatory, dismissible, unobtrusive', async ({
+  // Azure test case 15506
+  test('15506: should satisfy the toast checklist - bilingual, explanatory, dismissible, unobtrusive', async ({
     payerManagementPage,
     toast,
     draftPayer,

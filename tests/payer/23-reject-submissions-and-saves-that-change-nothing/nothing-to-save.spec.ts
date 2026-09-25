@@ -22,7 +22,8 @@ import {
  * question - whether a change that nets out to nothing is treated the same way.
  */
 test.describe('Nothing to submit - Saves', () => {
-  test('TC-003: should offer no way to save an edit form in which nothing changed', async ({
+  // Azure test case 15477
+  test('15477: should offer no way to save an edit form in which nothing changed', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -101,7 +102,8 @@ test.describe('Nothing to submit - Saves', () => {
     });
   });
 
-  test('TC-004: should treat a change that is reverted before saving as no change', async ({
+  // Azure test case 15478
+  test('15478: should treat a change that is reverted before saving as no change', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -160,7 +162,8 @@ test.describe('Nothing to submit - Saves', () => {
     });
   });
 
-  test('TC-005: should behave consistently across the four submit-and-save scenarios', async ({
+  // Azure test case 15479
+  test('15479: should behave consistently across the four submit-and-save scenarios', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -226,7 +229,8 @@ test.describe('Nothing to submit - Saves', () => {
     });
   });
 
-  test('TC-010: should treat every whitespace-only difference the same way', async ({
+  // Azure test case 15485
+  test('15485: should treat every whitespace-only difference the same way', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -282,7 +286,8 @@ test.describe('Nothing to submit - Saves', () => {
     });
   });
 
-  test('TC-012: should offer the submit and save controls only when there is something to act on', async ({
+  // Azure test case 15486
+  test('15486: should offer the submit and save controls only when there is something to act on', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -347,15 +352,18 @@ test.describe('Nothing to submit - Saves', () => {
 test.describe('Nothing to submit - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-007: should refuse the submission for a user without submission rights', async ({
-    requireNonAdmin,
+  // Azure test case 15481
+  test('15481: should refuse the submission for a user without submission rights', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['sendForApproval'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['sendForApproval'] });
 
     let payerName!: string;
 

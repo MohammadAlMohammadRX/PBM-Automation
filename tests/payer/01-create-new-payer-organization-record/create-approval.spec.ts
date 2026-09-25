@@ -15,7 +15,8 @@ import { DateUtils } from '../../../utils/DateUtils';
  * a cascade of failures that all describe the same root cause.
  */
 test.describe('Create New Payer Organization Record - Approval outcomes', () => {
-  test('TC-004: should generate and assign a PayerCode only after the reviewer approves the request', async ({
+  // Azure test case 15603
+  test('15603: should generate and assign a PayerCode only after the reviewer approves the request', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,
@@ -51,7 +52,8 @@ test.describe('Create New Payer Organization Record - Approval outcomes', () => 
       payerManagementPage.expectApprovalOutcome(data.nameEn, 'Published', true));
   });
 
-  test('TC-005: should not consume a PayerCode when the reviewer rejects the request', async ({
+  // Azure test case 15601
+  test('15601: should not consume a PayerCode when the reviewer rejects the request', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,
@@ -79,7 +81,8 @@ test.describe('Create New Payer Organization Record - Approval outcomes', () => 
       payerManagementPage.expectApprovalOutcome(data.nameEn, 'Rejected', false));
   });
 
-  test('TC-006: should set the payer status to Active when the Effective Date equals today upon approval', async ({
+  // Azure test case 15604
+  test('15604: should set the payer status to Active when the Effective Date equals today upon approval', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,
@@ -107,7 +110,8 @@ test.describe('Create New Payer Organization Record - Approval outcomes', () => 
       payerManagementPage.expectPublishedWithStatus(data.nameEn, 'Active'));
   });
 
-  test('TC-007: should set the payer status to Pending when the Effective Date is one day in the future upon approval', async ({
+  // Azure test case 15605
+  test('15605: should set the payer status to Pending when the Effective Date is one day in the future upon approval', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,
@@ -135,7 +139,8 @@ test.describe('Create New Payer Organization Record - Approval outcomes', () => 
       payerManagementPage.expectPublishedWithStatus(data.nameEn, 'Pending'));
   });
 
-  test('TC-008: should set the payer status to Active when the Effective Date is in the past upon approval', async ({
+  // Azure test case 15606
+  test('15606: should set the payer status to Active when the Effective Date is in the past upon approval', async ({
     payerManagementPage,
     approvalManagementPage,
     cleanup,

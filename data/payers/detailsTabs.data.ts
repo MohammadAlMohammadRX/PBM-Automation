@@ -73,11 +73,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: 'This case needs a linked policy with an optional field left empty - created in the Policies module, outside this framework.',
   },
   {
-    id: '011',
-    title: 'should deny the Payer Details view to a user without Payer Management view permission',
-    reason: `${nonAdminBlockReason({ lacking: ['viewPayerDetails'] })} The case needs an account without the view permission.`,
-  },
-  {
     id: '012',
     title: 'should reflect an external policy update on the Linked Policies tab after reload',
     reason: 'This case needs a linked policy whose status is changed in the Policies module during the run - outside this framework.',

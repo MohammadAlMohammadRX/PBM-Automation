@@ -23,7 +23,8 @@ import {
  * fine, and something WAS learned about the application.
  */
 test.describe('View Paginated Payer List with Metrics - Navigation', () => {
-  test('TC-006: should transition correctly between pages and disable controls at the boundaries', async ({
+  // Azure test case 14452
+  test('14452: should transition correctly between pages and disable controls at the boundaries', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -70,7 +71,8 @@ test.describe('View Paginated Payer List with Metrics - Navigation', () => {
     });
   });
 
-  test('TC-007: should show only the remaining records on the last page', async ({
+  // Azure test case 14454
+  test('14454: should show only the remaining records on the last page', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -116,7 +118,8 @@ test.describe('View Paginated Payer List with Metrics - Navigation', () => {
     });
   });
 
-  test('TC-005: should enforce the configured minimum and maximum page size', async ({
+  // Azure test case 14453
+  test('14453: should enforce the configured minimum and maximum page size', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -159,7 +162,8 @@ test.describe('View Paginated Payer List with Metrics - Navigation', () => {
     });
   });
 
-  test('TC-009: should reject invalid manual page navigation input', async ({
+  // Azure test case 14458
+  test('14458: should reject invalid manual page navigation input', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -202,7 +206,8 @@ test.describe('View Paginated Payer List with Metrics - Navigation', () => {
     });
   });
 
-  test('TC-013: should stay stable and accurate under rapid pagination changes', async ({
+  // Azure test case 14467
+  test('14467: should stay stable and accurate under rapid pagination changes', async ({
     payerManagementPage,
     payerMetrics,
     steps,

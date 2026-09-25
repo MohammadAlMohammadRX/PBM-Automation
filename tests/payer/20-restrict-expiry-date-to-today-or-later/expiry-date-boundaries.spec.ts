@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import { DateUtils } from '../../../utils/DateUtils';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -27,7 +28,8 @@ import {
  * defect in the code. TC-001 asserts what actually happens and says so.
  */
 test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
-  test("TC-001: should refuse an expiry of today when the effective date cannot be earlier than today", async ({
+  // Azure test case 15438
+  test("15438: should refuse an expiry of today when the effective date cannot be earlier than today", async ({
     payerManagementPage,
     steps,
   }) => {
@@ -74,7 +76,8 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
     );
   });
 
-  test('TC-002: should save the payer when the expiry date is in the future', async ({
+  // Azure test case 15439
+  test('15439: should save the payer when the expiry date is in the future', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -112,7 +115,9 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
   });
 
   for (const refused of REFUSED_EXPIRY_CASES) {
-    test(`${refused.caseId}: should block the save and report the boundary when the expiry date is ${refused.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-003 = 15440,  TC-004 = 15441
+    test(`${azureOrCase('20', refused.caseId)}: should block the save and report the boundary when the expiry date is ${refused.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -150,7 +155,8 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
     });
   }
 
-  test('TC-008: should report a validation message when the expiry date is malformed', async ({
+  // Azure test case 15445
+  test('15445: should report a validation message when the expiry date is malformed', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -190,7 +196,8 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
     });
   });
 
-  test('TC-009: should save the payer when the expiry date is a valid future leap day', async ({
+  // Azure test case 15446
+  test('15446: should save the payer when the expiry date is a valid future leap day', async ({
     payerManagementPage,
     steps,
   }) => {

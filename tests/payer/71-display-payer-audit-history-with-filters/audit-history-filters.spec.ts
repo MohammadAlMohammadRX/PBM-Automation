@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import type { PayerInactivateDialog } from '../../../pages/payer/PayerInactivateDialog';
 import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
@@ -62,7 +65,8 @@ async function buildAuditHistory(
 }
 
 test.describe('Payer audit history with filters', () => {
-  test('TC-001: should show the payer\'s audit history with timestamp, user, action and a field-level diff', async ({
+  // Azure test case 14598
+  test('14598: should show the payer\'s audit history with timestamp, user, action and a field-level diff', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -97,7 +101,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-002: should show all required fields for every action type in the history', async ({
+  // Azure test case 14602
+  test('14602: should show all required fields for every action type in the history', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -130,7 +135,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-003: should list audit entries newest first', async ({
+  // Azure test case 14570
+  test('14570: should list audit entries newest first', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -157,7 +163,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-004: should show only the entries within the chosen date range', async ({
+  // Azure test case 14574
+  test('14574: should show only the entries within the chosen date range', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -190,7 +197,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-005: should include entries on the exact start and end dates of the range', async ({
+  // Azure test case 14591
+  test('14591: should include entries on the exact start and end dates of the range', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -214,7 +222,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-006: should show only matching entries when filtered by each Action Type', async ({
+  // Azure test case 14577
+  test('14577: should show only matching entries when filtered by each Action Type', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -242,7 +251,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-007: should apply a date range and an Action Type together', async ({
+  // Azure test case 14586
+  test('14586: should apply a date range and an Action Type together', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -275,7 +285,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-008: should reject an inverted date range with a validation message and run no query', async ({
+  // Azure test case 14593
+  test('14593: should reject an inverted date range with a validation message and run no query', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -310,7 +321,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-009: should show an empty-results message when the filters match no entries', async ({
+  // Azure test case 14594
+  test('14594: should show an empty-results message when the filters match no entries', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -345,7 +357,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-010: should keep audit entries immutable with no edit or delete controls', async ({
+  // Azure test case 14599
+  test('14599: should keep audit entries immutable with no edit or delete controls', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -376,7 +389,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-011: should be a dedicated payer audit view distinct from the shared application audit log', async ({
+  // Azure test case 14606
+  test('14606: should be a dedicated payer audit view distinct from the shared application audit log', async ({
     payerManagementPage,
     auditLogsPage,
     publishedPayer,
@@ -401,7 +415,8 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-012: should log a status transition as a Status Change entry from Active to Inactive', async ({
+  // Azure test case 14578
+  test('14578: should log a status transition as a Status Change entry from Active to Inactive', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -449,8 +464,51 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 14601
+  test('14601: should deny the Payer Audit History to a user without audit-view permission', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without View Payer Audit History', async () => {
+      session = await shapedNonAdmin({ without: ['viewAuditTrail'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The Audit History tab is withheld from this role', async () => {
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      const tabs = await detail.getTabOrder();
+
+      // AND THE DATA BEHIND IT. A withheld tab is only half the claim: what the
+      // permission protects is the content, so if the tab IS offered the case
+      // opens it and reports how much of that content the role was served.
+      // "the tab was offered and rendered N rows" is a defect a developer can
+      // act on; "a tab id was in a list" is not.
+      if (tabs.includes('audit')) {
+        const audit = detail.auditHistory();
+        await audit.open().catch(() => undefined);
+        const rows = await audit.getEntryCount().catch(() => -1);
+        expect(
+          rows,
+          `the Audit History tab was offered to a role without the permission, and it `
+            + `rendered ${rows} entr(y/ies)`,
+        ).toBe(0);
+      }
+      expect(
+        tabs,
+        `a role without the audit permission should not be offered the tab; offered: ${tabs.join(', ')}`,
+      ).not.toContain('audit');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    test(`${azureOrCase('71', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

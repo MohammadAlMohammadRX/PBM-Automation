@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import type { PayerInactivateDialog } from '../../../pages/payer/PayerInactivateDialog';
 import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
@@ -6,6 +7,25 @@ import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import { PRIMARY_REASON } from '../../../data/payers/inactivationDecisions.data';
 import { CHANGE_TYPE } from '../../../data/payers/versionHistory.data';
 import {
+/**
+ * MOVED TO MANUAL TESTING.
+ *
+ * This story is verified by hand, so every case below is skipped and carries
+ * [MANUAL] at its name. Nothing is deleted: the cases still record what each
+ * check is, and the story returns to automation by removing the `.skip` on
+ * the describes.
+ *
+ * WHY IT SUITS A MANUAL PASS.
+ * The story asks for a point-in-time lookup - "show me this payer as it stood
+ * on a given date". VERIFIED that the Version History tab offers no such
+ * thing in this build: versions are listed, not queried by date, so there is
+ * no control to drive and nothing to assert against.
+ *
+ * This is a requirements gap rather than a testing gap. A manual pass can
+ * reconstruct a configuration by reading the version list by hand, which is
+ * what the story is really asking a person to confirm.
+ */
+
   BLOCKED_CASES,
   PUBLISHED_VERSION,
   TRANSITIONS_IN_A_CYCLE,
@@ -60,8 +80,9 @@ async function reactivateAndApprove(
   await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.active.en);
 }
 
-test.describe('Historical configuration ledger', () => {
-  test('TC-004: should match the current configuration when the history is read for today', async ({
+test.describe.skip('Historical configuration ledger [MANUAL]', () => {
+  // Azure test case 15834
+  test('15834: [MANUAL] should match the current configuration when the history is read for today', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -83,7 +104,8 @@ test.describe('Historical configuration ledger', () => {
     });
   });
 
-  test('TC-008: should reflect an Active, Inactive and Active again history as published versions', async ({
+  // Azure test case 15837
+  test('15837: [MANUAL] should reflect an Active, Inactive and Active again history as published versions', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -116,7 +138,8 @@ test.describe('Historical configuration ledger', () => {
     });
   });
 
-  test('TC-014: should return the original registration when a payer has never been edited', async ({
+  // Azure test case 15843
+  test('15843: [MANUAL] should return the original registration when a payer has never been edited', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -137,7 +160,12 @@ test.describe('Historical configuration ledger', () => {
   });
 
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-001 = 15830,  TC-002 = 15831,  TC-003 = 15832
+    //   TC-005 = 15833,  TC-006 = 15835,  TC-007 = 15836
+    //   TC-009 = 15838,  TC-010 = 15839,  TC-011 = 15840
+    //   TC-012 = 15841,  TC-013 = 15842
+    test(`${azureOrCase('69', 'TC-' + blocked.id)}: [MANUAL] ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

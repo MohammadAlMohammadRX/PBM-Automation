@@ -37,7 +37,8 @@ import {
  * live limit is 255.
  */
 test.describe('Validate Payer Name Fields - Arabic name length', () => {
-  test(`TC-005: should save the payer when the Arabic name is exactly ${ARABIC_NAME_MAX_LENGTH} characters long`, async ({
+  // Azure test case 15399
+  test(`15399: should save the payer when the Arabic name is exactly ${ARABIC_NAME_MAX_LENGTH} characters long`, async ({
     payerManagementPage,
     steps,
   }) => {
@@ -88,7 +89,8 @@ test.describe('Validate Payer Name Fields - Arabic name length', () => {
     });
   });
 
-  test(`TC-006: should refuse the payer when the Arabic name is ${ARABIC_NAME_MAX_LENGTH + 1} characters long`, async ({
+  // Azure test case 15400
+  test(`15400: should refuse the payer when the Arabic name is ${ARABIC_NAME_MAX_LENGTH + 1} characters long`, async ({
     payerManagementPage,
     steps,
   }) => {
@@ -157,7 +159,8 @@ test.describe('Validate Payer Name Fields - Arabic name length', () => {
     });
   });
 
-  test('TC-007: should save the payer when the Arabic name is a single Arabic letter', async ({
+  // Azure test case 15401
+  test('15401: should save the payer when the Arabic name is a single Arabic letter', async ({
     payerManagementPage,
     steps,
   }) => {

@@ -17,7 +17,8 @@ import { DETAIL_LABELS } from '../../../data/payers/editPayer.data';
  * application. Each assertion on the results is a `step`.
  */
 test.describe('Search Payers by Name or Code - Advanced search', () => {
-  test('TC-018: should return only the matching payer when a Licence Number is searched', async ({
+  // Azure test case 14409
+  test('14409: should return only the matching payer when a Licence Number is searched', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -44,7 +45,10 @@ test.describe('Search Payers by Name or Code - Advanced search', () => {
 
   // TC-019: the two advanced criteria must combine, and each must work alone.
   for (const combination of ADVANCED_SEARCH_COMBINATIONS) {
-    test(`TC-019: should apply the entered criteria when ${combination.label}`, async ({
+    // Azure test case 14410
+    // Azure test cases - one per generated case:
+    //   TC-019 = 14410
+    test(`14410: should apply the entered criteria when ${combination.label}`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -72,7 +76,8 @@ test.describe('Search Payers by Name or Code - Advanced search', () => {
     });
   }
 
-  test('TC-019: should return nothing when the Name/Code and Licence Number criteria contradict each other', async ({
+  // Azure test case 14410
+  test('14410: should return nothing when the Name/Code and Licence Number criteria contradict each other', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -94,7 +99,8 @@ test.describe('Search Payers by Name or Code - Advanced search', () => {
       payerManagementPage.expectEmptyState());
   });
 
-  test('TC-024: should let an administrator locate a payer by Licence Number and open its record', async ({
+  // Azure test case 14415
+  test('14415: should let an administrator locate a payer by Licence Number and open its record', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -127,7 +133,8 @@ test.describe('Search Payers by Name or Code - Advanced search', () => {
     });
   });
 
-  test('TC-027: should present all search controls and advanced criteria per the checklist', async ({
+  // Azure test case 14418
+  test('14418: should present all search controls and advanced criteria per the checklist', async ({
     payerManagementPage,
     steps,
   }) => {

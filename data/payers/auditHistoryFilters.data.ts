@@ -77,11 +77,6 @@ export const AUDIT_ROLE_REQUIREMENT = {
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
   {
-    id: '013',
-    title: 'should deny the Payer Audit History to a user without audit-view permission',
-    reason: `${nonAdminBlockReason({ lacking: ['viewAuditHistory'] })} ${AUDIT_ROLE_REQUIREMENT.reason}`,
-  },
-  {
     id: '015',
     title: 'should behave consistently across filters, sorting and display in an exploratory session',
     reason: 'An exploratory session over a payer with a rich change history is a manual activity; the deterministic filter, order and drawer checks are the cases here.',

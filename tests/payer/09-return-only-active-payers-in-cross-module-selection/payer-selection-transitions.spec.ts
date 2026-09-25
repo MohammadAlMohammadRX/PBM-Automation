@@ -1,5 +1,7 @@
 import { test, expect } from '../../../fixtures';
-import { nonAdminBlockReason } from '../../../data/accounts/nonAdminAccount.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { PAYER_READ_PERMISSIONS, PAYER_PERMISSION } from '../../../data/accounts/payerAdminRole.data';
+import { PlanManagementPage } from '../../../pages/plan/PlanManagementPage';
 import { ELIGIBLE_STATUS } from '../../../data/payers/payerSelection.data';
 
 /**
@@ -16,7 +18,8 @@ import { ELIGIBLE_STATUS } from '../../../data/payers/payerSelection.data';
  * payer that happened to be eligible all along.
  */
 test.describe('Cross-Module Payer Selection - Status transitions', () => {
-  test('TC-005: should offer a payer once it transitions into Active', async ({
+  // Azure test case 15289
+  test('15289: should offer a payer once it transitions into Active', async ({
     payerManagementPage,
     approvalManagementPage,
     planManagementPage,
@@ -74,7 +77,8 @@ test.describe('Cross-Module Payer Selection - Status transitions', () => {
     });
   });
 
-  test('TC-004: should stop offering a payer once it leaves Active', async ({
+  // Azure test case 15288
+  test('15288: should stop offering a payer once it leaves Active', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -131,7 +135,8 @@ test.describe('Cross-Module Payer Selection - Status transitions', () => {
     });
   });
 
-  test('TC-006: should handle the zero-Active-payers boundary gracefully', async ({
+  // Azure test case 15290
+  test('15290: should handle the zero-Active-payers boundary gracefully', async ({
     steps,
   }) => {
     // The precondition is "ALL payer records in the system have a status other
@@ -151,7 +156,8 @@ test.describe('Cross-Module Payer Selection - Status transitions', () => {
     );
   });
 
-  test('TC-009: should exclude payers whose status is null or missing', async ({ steps }) => {
+  // Azure test case 15293
+  test('15293: should exclude payers whose status is null or missing', async ({ steps }) => {
     // Status is set by the application on every state transition and is
     // mandatory in the data model, so a null-status payer cannot be produced
     // through the UI. Note the related observation recorded in
@@ -166,17 +172,64 @@ test.describe('Cross-Module Payer Selection - Status transitions', () => {
     );
   });
 
-  test('TC-010: should serve the dropdown to a consuming-module user without payer admin rights', async ({
+  // Azure test case 15294
+  test('15294: should serve the dropdown to a consuming-module user without payer admin rights', async ({
+    shapedNonAdmin,
     steps,
   }) => {
-    // Deliberately BLOCKED rather than silently run as the administrator. The
-    // whole point of the case is that a user WITHOUT payer-management rights
-    // can still use the dropdown, and running it as an admin would assert
-    // nothing while reporting a pass - the most misleading outcome available.
-    steps.blocked(
-      `this case needs a user with access to a consuming module but no Payer Management rights. ${
-        nonAdminBlockReason({ lacking: ['viewPayerList'] })
-      } Running it as the administrator would prove nothing about the restricted role.`,
-    );
+    let session!: ShapedSession;
+
+    // THE BASELINE COMES FIRST, and this case needs it more than the refusal
+    // cases do. It asserts the dropdown IS served, so an absent control is its
+    // failure - and a control this environment never renders to this account
+    // would be reported as the application withdrawing a right it had not.
+    // Asked for while the role still holds the whole payer catalogue: if the
+    // Plans filter is missing even then, the module - not the permission - is
+    // what is withholding it, and the case says so rather than failing.
+    await steps.critical('The Plans payer filter is rendered to this account at all', async () => {
+      const held = await shapedNonAdmin({ with: PAYER_READ_PERMISSIONS });
+      const plans = new PlanManagementPage(held.page);
+      await plans.open();
+      if (!(await plans.payerFilter().isPresent())) {
+        steps.blocked(
+          'the Plans module renders no payer filter for this account even while its role holds '
+            + 'every payer permission, so the control this case is about is not on screen to be '
+            + 'served or withheld. Whether the module offers the filter to a scoped account at '
+            + 'all is a different question from the one this case asks. Provide an account the '
+            + 'Plans module renders the payer filter for, and re-run.',
+        );
+      }
+    });
+
+    // The account is BUILT, not waited for. The case needs a user who can reach
+    // a CONSUMING module but holds no payer-management rights, so the role keeps
+    // the dropdown permission and loses the rest of the payer catalogue - which
+    // is exactly the shape the sheet describes.
+    await steps.critical('Sign in as a consuming-module user without payer rights', async () => {
+      session = await shapedNonAdmin({
+        without: PAYER_READ_PERMISSIONS.filter((key) => key !== 'viewPayerDropdown'),
+        with: ['viewPayerDropdown'],
+      });
+      expect(
+        session.granted,
+        'the role must KEEP the dropdown permission - that is the half this case proves',
+      ).toContain(PAYER_PERMISSION.viewPayerDropdown);
+    });
+
+    await steps.step('The payer dropdown still serves this user in the Plans module', async () => {
+      const plans = new PlanManagementPage(session.page);
+      // open(), not openList(): the case is about the payer DROPDOWN, and waiting
+      // for the plans table first made it fail on a list this role may not be
+      // shown at all - a different question, answered by a different story.
+      await plans.open();
+      const filter = plans.payerFilter();
+      await filter.expectPresent();
+      await filter.open();
+      const offered = await filter.getPayerOptions();
+      expect(
+        offered.length,
+        'the dropdown is a consuming module\'s own control and should still be served',
+      ).toBeGreaterThan(0);
+    });
   });
 });

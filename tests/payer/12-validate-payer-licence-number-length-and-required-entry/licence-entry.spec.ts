@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -31,7 +32,9 @@ import {
  */
 test.describe('Validate Payer Licence Number Length and Required Entry - Entry', () => {
   for (const accepted of ACCEPTED_LICENCE_LENGTHS) {
-    test(`${accepted.caseId}: should save the payer when the licence number is ${accepted.length} character(s) long`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-001 = 15322,  TC-003 = 15325,  TC-005 = 15327
+    test(`${azureOrCase('12', accepted.caseId)}: should save the payer when the licence number is ${accepted.length} character(s) long`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -78,7 +81,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Entry',
     });
   }
 
-  test('TC-002: should block the save and report the field as required when the licence number is left empty', async ({
+  // Azure test case 15324
+  test('15324: should block the save and report the field as required when the licence number is left empty', async ({
     payerManagementPage,
     languageSwitcher,
     steps,
@@ -145,7 +149,8 @@ test.describe('Validate Payer Licence Number Length and Required Entry - Entry',
     });
   });
 
-  test('TC-004: should cap the licence number at 100 characters when 101 are entered', async ({
+  // Azure test case 15326
+  test('15326: should cap the licence number at 100 characters when 101 are entered', async ({
     payerManagementPage,
     steps,
   }) => {

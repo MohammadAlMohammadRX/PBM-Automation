@@ -1,37 +1,40 @@
-import { test } from '../../../fixtures';
-import { env } from '../../../constants/EnvironmentConfig';
+import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { PAYER_PERMISSION } from '../../../data/accounts/payerAdminRole.data';
 
 /**
  * User story: Edit Existing Payer Configuration Details.
  * Only roles with payer-edit permission may reach the Edit action.
  *
- * Requires NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD in .env. This spec opts out
- * of the shared administrator session to authenticate as the restricted role.
+ * HOW THE RESTRICTED USER IS OBTAINED. This case used to report BLOCKED: the
+ * only non-administrator credential in this environment is a Payer Admin, and
+ * it HOLDS Edit Payer, so the refusal could never be observed from it.
+ *
+ * It is now built rather than waited for. `shapedNonAdmin` signs in as the
+ * administrator, takes Edit Payer off the Payer Admin role, saves, and then
+ * signs a second window in as that account - which is exactly what a person
+ * would do by hand. The permission is put back when the case ends, whether it
+ * passed or failed, because the role is shared.
  */
 test.describe('Edit Existing Payer Configuration Details - Access control', () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
-  test('TC-006: should deny the Edit action when the user lacks payer-edit permission', async ({
-    requireNonAdmin,
-    loginPage,
-    payerManagementPage,
+  // Azure test case 14370
+  test('14370: should deny the Edit action when the user lacks payer-edit permission', async ({
+    shapedNonAdmin,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a non-administrator account the denial this
-    // case exists to prove can never be exercised. Nothing is learned about the
-    // application, so reporting a failure would be a false statement about it.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer'] });
+    let session!: ShapedSession;
 
     await steps.critical('Sign in as a user without payer-edit permission', async () => {
-      await loginPage.open();
-      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+      session = await shapedNonAdmin({ without: ['editPayer'] });
+      expect(
+        session.removed,
+        'the role should have been stripped of the edit permission before signing in',
+      ).toContain(PAYER_PERMISSION.editPayer);
     });
 
-    await steps.critical('Navigate to the payer module', () => payerManagementPage.navigate());
+    await steps.critical('Navigate to the payer module', () => session.payers.navigate());
 
     await steps.step('The Edit action is not offered', () =>
-      payerManagementPage.expectEditActionDenied());
+      session.payers.expectEditActionDenied());
   });
 });

@@ -18,16 +18,19 @@ import { RESTRICTED_ROLE_REQUIREMENT } from '../../../data/payers/cascadeMessagi
 test.describe('Inactivation and reactivation effects - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-011: should withhold the inactivation and reactivation actions from a user without status rights', async ({
-    requireNonAdmin,
+  // Azure test case 15528
+  test('15528: should withhold the inactivation and reactivation actions from a user without status rights', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     payerSample,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['changePayerStatus'] });
+    // The account is BUILT rather than waited for: the administrator takes
+    // the permission off the Payer Admin role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to
+    // report BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['inactivatePayer', 'activatePayer'] });
 
     let activeName!: string;
 

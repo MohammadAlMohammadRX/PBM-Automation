@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { PAYER_READ_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import { env } from '../../../constants/EnvironmentConfig';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
@@ -16,7 +17,8 @@ import { VERSION_LABEL } from '../../../data/payers/versionHistory.data';
  * has deliberately been made to fail by then.
  */
 test.describe('Add Version History Tab to Payer Details - States and resilience', () => {
-  test('TC-004: should show an empty state for a payer with no approved changes', async ({
+  // Azure test case 15301
+  test('15301: should show an empty state for a payer with no approved changes', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -48,7 +50,8 @@ test.describe('Add Version History Tab to Payer Details - States and resilience'
       history.expectEmptyState());
   });
 
-  test('TC-007: should list a change only after it is approved', async ({
+  // Azure test case 15304
+  test('15304: should list a change only after it is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -98,7 +101,8 @@ test.describe('Add Version History Tab to Payer Details - States and resilience'
     });
   });
 
-  test('TC-009: should report a clear failure when the version service is unavailable', async ({
+  // Azure test case 15306
+  test('15306: should report a clear failure when the version service is unavailable', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -150,7 +154,8 @@ test.describe('Add Version History Tab to Payer Details - States and resilience'
     });
   });
 
-  test('TC-010: should stay consistent across navigation and reload', async ({
+  // Azure test case 15307
+  test('15307: should stay consistent across navigation and reload', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -203,8 +208,9 @@ test.describe('Add Version History Tab to Payer Details - States and resilience'
 test.describe('Add Version History Tab to Payer Details - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-006: should apply role-based access to the Version History tab', async ({
-    requireNonAdmin,
+  // Azure test case 15303
+  test('15303: should apply role-based access to the Version History tab', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
@@ -215,9 +221,11 @@ test.describe('Add Version History Tab to Payer Details - Access control', () =>
     // by every other case in this story - the tab is reachable and usable - so
     // running it again here would add nothing while making the case look
     // covered.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['editPayer', 'viewPayerList'] });
+    // The restricted account is BUILT, not waited for: the administrator takes the
+    // permission off the shared "Payer Admin" role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to report
+    // BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: ['editPayer', ...PAYER_READ_PERMISSIONS] });
 
     await steps.critical('Sign in as a non-administrator', async () => {
       await loginPage.open();

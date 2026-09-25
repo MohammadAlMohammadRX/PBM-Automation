@@ -27,7 +27,8 @@ import {
  * transition uses.
  */
 test.describe('Payer lifecycle guardrails - Secondary language', () => {
-  test('TC-016: should render the lifecycle guardrails and drawer in Arabic when the interface language is switched', async ({
+  // Azure test case 15437
+  test('15437: should render the lifecycle guardrails and drawer in Arabic when the interface language is switched', async ({
     payerManagementPage,
     payerInactivateDialog,
     payerSample,

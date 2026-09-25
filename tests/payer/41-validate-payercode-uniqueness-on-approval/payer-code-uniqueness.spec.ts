@@ -26,7 +26,8 @@ import {
  * payers share a code. A broken retry surfaces there.
  */
 test.describe('PayerCode uniqueness', () => {
-  test('TC-001: should refuse a code that another payer already holds', async ({
+  // Azure test case 14834
+  test('14834: should refuse a code that another payer already holds', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -90,7 +91,8 @@ test.describe('PayerCode uniqueness', () => {
     });
   });
 
-  test('TC-002: should give a newly approved payer a code no other payer holds', async ({
+  // Azure test case 14824
+  test('14824: should give a newly approved payer a code no other payer holds', async ({
     payerManagementPage,
     approvalManagementPage,
     draftPayer,
@@ -158,7 +160,8 @@ test.describe('PayerCode uniqueness', () => {
     });
   });
 
-  test('TC-003: should issue a code shaped like every other code in the register', async ({
+  // Azure test case 14832
+  test('14832: should issue a code shaped like every other code in the register', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -301,7 +304,8 @@ test.describe('PayerCode uniqueness', () => {
     });
   });
 
-  test('TC-006: should leave the payer unapproved when the code cannot be issued', async ({
+  // Azure test case 14840
+  test('14840: should leave the payer unapproved when the code cannot be issued', async ({
     page,
     payerManagementPage,
     approvalManagementPage,
@@ -356,7 +360,8 @@ test.describe('PayerCode uniqueness', () => {
     });
   });
 
-  test('TC-007: should issue different codes to two payers approved at the same time', async ({
+  // Azure test case 14835
+  test('14835: should issue different codes to two payers approved at the same time', async ({
     payerManagementPage,
     approvalManagementPage,
     staleSession,

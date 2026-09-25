@@ -1,28 +1,30 @@
 import { test } from '../../../fixtures';
 import { env } from '../../../constants/EnvironmentConfig';
+import { PAYER_READ_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 
 /**
  * User story: Search Payers by Name or Code.
  * Search and Advanced Search must respect the module's role permissions.
  *
- * Requires NON_ADMIN_USERNAME / NON_ADMIN_PASSWORD in .env. This spec opts out
- * of the shared administrator session to authenticate as the restricted role.
+ * The restricted role is shaped by the administrator before the case runs (see
+ * fixtures/shapedNonAdmin.fixture.ts). This spec opts out of the shared
+ * administrator session so it can authenticate as that role.
  */
 test.describe('Search Payers by Name or Code - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-028: should limit search and advanced search to what the user\'s role permits', async ({
-    requireNonAdmin,
+  // Azure test case 14419
+  test('14419: should limit search and advanced search to what the user\'s role permits', async ({
+    shapeRole,
     loginPage,
     payerManagementPage,
     steps,
   }) => {
-    // BLOCKED, not FAIL: without a non-administrator account the denial this
-    // case exists to prove can never be exercised. Nothing is learned about the
-    // application, so reporting a failure would be a false statement about it.
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['advancedSearch'] });
+    // The restricted account is BUILT, not waited for: the administrator takes the
+    // permission off the shared "Payer Admin" role, this case signs in as that
+    // account, and the permission goes back when the case ends. It used to report
+    // BLOCKED because the only non-administrator here HELD the right.
+    await shapeRole({ without: PAYER_READ_PERMISSIONS });
 
     await loginPage.open();
     await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);

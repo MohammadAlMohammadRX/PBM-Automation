@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -34,7 +35,8 @@ import {
  * exist in the environment.
  */
 test.describe('Enforce Payer Email Uniqueness - Creation', () => {
-  test('TC-001: should save the payer and list its email when the address is unique', async ({
+  // Azure test case 15410
+  test('15410: should save the payer and list its email when the address is unique', async ({
     payerManagementPage,
     uniquePayer,
     steps,
@@ -78,7 +80,9 @@ test.describe('Enforce Payer Email Uniqueness - Creation', () => {
   });
 
   for (const variant of DUPLICATE_VARIANTS) {
-    test(`${variant.caseId}: should block the save and name the conflicting address when a new payer reuses ${variant.label}`, async ({
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15411,  TC-003 = 15412,  TC-007 = 15416
+    test(`${azureOrCase('18', variant.caseId)}: should block the save and name the conflicting address when a new payer reuses ${variant.label}`, async ({
       payerManagementPage,
       uniquePayer,
       steps,
@@ -160,7 +164,8 @@ test.describe('Enforce Payer Email Uniqueness - Creation', () => {
     });
   }
 
-  test('TC-008: should block the save when the duplicate address belongs to an Inactive payer', async ({
+  // Azure test case 15417
+  test('15417: should block the save when the duplicate address belongs to an Inactive payer', async ({
     payerManagementPage,
     payerSample,
     steps,

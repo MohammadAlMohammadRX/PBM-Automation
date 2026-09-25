@@ -1,4 +1,8 @@
 import { test, expect } from '../../../fixtures';
+import { azureOrCase } from '../../../data/azureTestIds.data';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
+import { PAYER_STATUS_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 import type { PayerInactivateDialog } from '../../../pages/payer/PayerInactivateDialog';
 import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
@@ -142,7 +146,8 @@ test.describe('Cascade inactivation and restoration', () => {
     if (status !== LIFECYCLE_STATUS.inactive.en) return;
     await reactivateAndApprove(payerManagementPage, approvalManagementPage, name);
   });
-  test('TC-004: should restore the cascaded plans and policies when the payer is reactivated', async ({
+  // Azure test case 15657
+  test('15657: should restore the cascaded plans and policies when the payer is reactivated', async ({
     payerManagementPage,
     approvalManagementPage,
     planManagementPage,
@@ -173,7 +178,8 @@ test.describe('Cascade inactivation and restoration', () => {
     });
   });
 
-  test('TC-001: should inactivate the payer\'s active plans and policies when the payer is inactivated', async ({
+  // Azure test case 15654
+  test('15654: should inactivate the payer\'s active plans and policies when the payer is inactivated', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -212,7 +218,8 @@ test.describe('Cascade inactivation and restoration', () => {
     });
   });
 
-  test('TC-005: should carry the payer and its records through Active, Inactive and back to Active', async ({
+  // Azure test case 15658
+  test('15658: should carry the payer and its records through Active, Inactive and back to Active', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -252,7 +259,8 @@ test.describe('Cascade inactivation and restoration', () => {
     });
   });
 
-  test('TC-008: should complete the inactivation without error when the payer has nothing to cascade to', async ({
+  // Azure test case 15661
+  test('15661: should complete the inactivation without error when the payer has nothing to cascade to', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -276,7 +284,8 @@ test.describe('Cascade inactivation and restoration', () => {
     });
   });
 
-  test('TC-012: should leave one consistent state and a full audit trail after rapid inactivate and reactivate', async ({
+  // Azure test case 15665
+  test('15665: should leave one consistent state and a full audit trail after rapid inactivate and reactivate', async ({
     payerManagementPage,
     payerInactivateDialog,
     approvalManagementPage,
@@ -310,8 +319,35 @@ test.describe('Cascade inactivation and restoration', () => {
     });
   });
 
+
+  // ---- the withheld half, on a role shaped for this case -------------------
+  // This used to report BLOCKED: the one non-administrator credential in this
+  // environment HOLDS the permission whose absence the case is about. The
+  // account is now BUILT - the administrator takes the permission off the
+  // shared "Payer Admin" role, the case signs in as it, and the permission
+  // goes back when the case ends.
+
+  // Azure test case 15663
+  test('15663: should let only authorised roles inactivate or reactivate a payer', async ({ shapedNonAdmin, steps }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without either status right', async () => {
+      session = await shapedNonAdmin({ without: PAYER_STATUS_PERMISSIONS });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('Neither lifecycle action is offered to this role', async () => {
+      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'inactivate');
+      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'activate');
+    });
+  });
   for (const blocked of BLOCKED_CASES) {
-    test(`TC-${blocked.id}: ${blocked.title}`, async ({ steps }) => {
+    // Azure test cases - one per generated case:
+    //   TC-002 = 15656,  TC-003 = 15655,  TC-006 = 15659
+    //   TC-007 = 15660,  TC-009 = 15662,  TC-011 = 15664
+    //   TC-013 = 15666,  TC-014 = 15667
+    test(`${azureOrCase('64', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }

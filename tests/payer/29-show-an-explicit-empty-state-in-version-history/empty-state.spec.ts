@@ -35,7 +35,8 @@ import {
  *     not look the same.
  */
 test.describe('Version history empty state', () => {
-  test('TC-001: should state that no history exists when the payer has none', async ({
+  // Azure test case 15546
+  test('15546: should state that no history exists when the payer has none', async ({
     payerWithoutVersionHistory,
     payerManagementPage,
     steps,
@@ -74,7 +75,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-002: should list the entries and hide the empty state when the payer has history', async ({
+  // Azure test case 15547
+  test('15547: should list the entries and hide the empty state when the payer has history', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -113,7 +115,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-003: should word the empty state exactly as the application defines it', async ({
+  // Azure test case 15548
+  test('15548: should word the empty state exactly as the application defines it', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -160,7 +163,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-004: should resolve to the empty state rather than sit on a spinner', async ({
+  // Azure test case 15549
+  test('15549: should resolve to the empty state rather than sit on a spinner', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -195,7 +199,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-005: should dress the empty state as information rather than as an error', async ({
+  // Azure test case 15550
+  test('15550: should dress the empty state as information rather than as an error', async ({
     page,
     payerManagementPage,
     publishedPayer,
@@ -236,7 +241,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-006: should list a single entry without showing the empty state', async ({
+  // Azure test case 15551
+  test('15551: should list a single entry without showing the empty state', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -271,7 +277,8 @@ test.describe('Version history empty state', () => {
     });
   });
 
-  test('TC-007: should replace the empty state with the entries as soon as there are any', async ({
+  // Azure test case 15552
+  test('15552: should replace the empty state with the entries as soon as there are any', async ({
     page,
     payerManagementPage,
     publishedPayer,
