@@ -4,9 +4,11 @@ import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { Timeouts } from '../../../constants/Timeouts';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
+import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import {
   BLOCKED_CASES,
+  NEEDS_POLICY_OWNER,
   EMPTY_STATE_PATTERN,
   FORBIDDEN_CONTROL_PATTERN,
   POLICY_REQUEST_PATTERN,
@@ -81,29 +83,6 @@ test.describe('Linked Policies tab', () => {
     });
   });
 
-  test('TC-015: should offer no add, edit or delete control when the Linked Policies tab is viewed', async ({
-    payerManagementPage,
-    publishedPayer,
-    steps,
-  }) => {
-    let section!: { ids: string[]; text: string };
-
-    await steps.critical('Navigate to the module and open the Linked Policies tab', async () => {
-      await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      section = await detail.getLinkedPoliciesSection();
-      expect(section.ids.length, 'the Linked Policies section should have mounted').toBeGreaterThan(0);
-    });
-
-    await steps.step('The section is strictly read-only', async () => {
-      const offending = section.ids.filter((id) => FORBIDDEN_CONTROL_PATTERN.test(id));
-      expect(
-        offending,
-        `the Linked Policies tab must not offer any add/edit/delete control; it carries: ${offending.join(', ')}`,
-      ).toEqual([]);
-    });
-  });
-
 
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
@@ -145,6 +124,50 @@ test.describe('Linked Policies tab', () => {
       ).not.toContain('policies');
     });
   });
+  // Azure test case 14973
+  test('14973: should refuse a direct call for a payer\'s policies from a role without the right', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the linked-policies permission', async () => {
+      session = await shapedNonAdmin({ without: ['viewLinkedPolicies'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    // The TAB being hidden is a separate case. This one goes round it: the
+    // policies are payer-scoped data, so the endpoint itself has to refuse a
+    // session that may not read them - otherwise hiding the tab protects
+    // nothing that a URL cannot reach.
+    await steps.step('The endpoint refuses the request rather than returning the policies', async () => {
+      const payerId = await session.payers.getPayerId(NON_ADMIN_PROFILE.scopedPayers[0]);
+      const response = await NetworkUtils.postAsSession(
+        session.page,
+        ApiEndpoints.payerLinkedPolicies,
+        { payerId },
+      );
+      expect(
+        response.status,
+        'a role without the linked-policies right must be refused by the endpoint, not only by '
+          + `the tab; the server answered ${response.status}`,
+      ).toBe(403);
+    });
+  });
+
+  // Azure test case 14975
+  test('14975: should show every required column populated on every linked policy row', async ({
+    steps,
+  }) => {
+    // Reported BLOCKED rather than run against a payer with no policies: the
+    // case is about the CONTENT of the rows, and a tab with nothing in it
+    // would pass it without ever reading a policy.
+    steps.blocked(
+      `${NEEDS_POLICY_OWNER} This case needs at least one linked policy to read the columns from.`,
+    );
+  });
+
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
     //   TC-001 = 14954,  TC-002 = 14967,  TC-005 = 14959

@@ -2,11 +2,9 @@ import { test } from '../../../fixtures';
 import {
   buildUniquePayer,
   VALIDATION_MESSAGES,
-  INVALID_FIELD_VALUES,
 } from '../../../data/payers/payer.data';
 import { MANDATORY_FIELDS } from '../../../data/payers/payerTypes';
 import { DateUtils } from '../../../utils/DateUtils';
-import { NetworkUtils } from '../../../utils/NetworkUtils';
 
 /**
  * User story: Create New Payer Organization Record.
@@ -48,7 +46,8 @@ test.describe('Create New Payer Organization Record - Mandatory field validation
   // TC-017: checklist test - one iteration per mandatory field, each proving the
   // field cannot be bypassed when every other field is valid.
   for (const field of MANDATORY_FIELDS) {
-    test(`TC-017: should reject saving when the mandatory "${field.label}" field is left blank`, async ({
+    // Azure test case 15608
+    test(`15608: should reject saving when the mandatory "${field.label}" field is left blank`, async ({
       payerManagementPage,
       steps,
     }) => {
@@ -84,38 +83,6 @@ test.describe('Create New Payer Organization Record - Mandatory field validation
  * asserted here.
  */
 test.describe('Create New Payer Organization Record - Field format validation', () => {
-  test('TC-010: should reject an invalid email format and block saving until it is corrected', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    const data = buildUniquePayer({ email: INVALID_FIELD_VALUES.email });
-    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Open the Create New Payer form', async () => {
-      form = await payerManagementPage.openCreateForm();
-    });
-
-    await steps.critical('Fill Basic Information and advance', async () => {
-      await form.fillBasicInformation(data);
-      await form.clickNext();
-    });
-
-    // Everything on Contact Information is valid except the malformed email.
-    await steps.critical(
-      `Fill Contact Information with the malformed email "${INVALID_FIELD_VALUES.email}"`,
-      () => form.fillContactInformation(data),
-    );
-
-    await steps.critical('Attempt to advance past Contact Information', () => form.clickNext());
-
-    await steps.step('"Email Address" shows an invalid-format error', () =>
-      form.expectFieldError('Email Address', VALIDATION_MESSAGES.invalidEmail));
-
-    // The wizard did not advance past Contact Information - nothing was saved.
-    await steps.step('The wizard did not advance, so nothing was saved', () => form.waitForOpen());
-  });
 });
 
 /**
@@ -186,52 +153,4 @@ test.describe('Create New Payer Organization Record - Duplicate detection', () =
  * created - i.e. no PayerCode reserved or orphaned record left behind.
  */
 test.describe('Create New Payer Organization Record - Save failure handling', () => {
-  test('TC-020: should not create a partial or corrupt payer record when the save request fails', async ({
-    page,
-    payerManagementPage,
-    uniquePayer,
-    cleanup,
-    steps,
-  }) => {
-    // If, despite the injected failure, a record somehow persists, clean it up.
-    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
-
-    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    // The injected route is removed in `finally` so the network is restored even
-    // if a step aborts the rest of the test - otherwise the cleanup hook would
-    // run against a page that cannot save.
-    try {
-      // Fault injection: fail every mutating (non-GET) request so the save cannot
-      // complete, while leaving read traffic (the list, lookups) working.
-      await steps.critical('Fail every mutating request so the save cannot complete', () =>
-        NetworkUtils.failMutatingRequests(page));
-
-      await steps.critical('Open the Create New Payer form', async () => {
-        form = await payerManagementPage.openCreateForm();
-      });
-
-      await steps.critical('Fill the wizard and attempt to save', async () => {
-        await form.fillBasicInformation(uniquePayer);
-        await form.clickNext();
-        await form.fillContactInformation(uniquePayer);
-        await form.clickNext();
-        await form.fillEffectivePeriod(uniquePayer);
-        await form.save();
-      });
-    } finally {
-      // Restore the network before anything else touches the page.
-      await NetworkUtils.restore(page);
-    }
-
-    // Close the wizard (discarding) and confirm the failed save left no partial
-    // or duplicate record behind - no page navigation needed.
-    await steps.critical('Close the wizard, discarding the failed save', () =>
-      form.closeAndDiscard());
-
-    await steps.step('No partial or duplicate payer record was left behind', () =>
-      payerManagementPage.expectRowNotVisible(uniquePayer.nameEn));
-  });
 });

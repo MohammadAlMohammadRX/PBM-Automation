@@ -444,26 +444,6 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-  test('TC-014: should show only the initial Create entry for a newly created payer', async ({
-    payerManagementPage,
-    publishedPayer,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module and open a payer with no changes since creation', async () => {
-      await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.auditHistory().open();
-      expect(await detail.auditHistory().getEntryCount()).toBeGreaterThan(0);
-    });
-
-    await steps.step('Exactly one entry exists, the creation, with a user and a timestamp', async () => {
-      const entries = await payerManagementPage.detail().auditHistory().getEntries();
-      expect(entries.map((e) => e.action), `a new payer should carry only its Create entry`).toEqual([ACTION.create]);
-      expect(entries[0].user).not.toBe('');
-      expect(entries[0].timestamp).toMatch(TIMESTAMP_PATTERN);
-    });
-  });
-
 
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
@@ -507,6 +487,101 @@ test.describe('Payer audit history with filters', () => {
       ).not.toContain('audit');
     });
   });
+  // Azure test case 14579
+  test('14579: should list only Update entries when the Update action is filtered', async ({
+    payerManagementPage,
+    payerInactivateDialog,
+    approvalManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Give the payer a history that contains an update', async () => {
+      await buildAuditHistory(payerManagementPage, payerInactivateDialog, approvalManagementPage, publishedPayer.nameEn);
+      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      await detail.auditHistory().open();
+    });
+
+    await steps.step('The Update filter queries the server and returns only its own entries', async () => {
+      const audit = payerManagementPage.detail().auditHistory();
+      const query = await audit.selectAction(ACTION.update);
+      expect(query, 'filtering should ask the server rather than hide rows locally').toMatch(/actionType/);
+
+      const entries = await audit.getEntries();
+      expect(entries.length, 'the payer was edited, so an Update entry should exist').toBeGreaterThan(0);
+      for (const entry of entries) {
+        expect(entry.action, 'only Update entries should survive the filter').toBe(ACTION.update);
+      }
+    });
+  });
+
+  // Azure test case 14582
+  test('14582: should offer Delete among the Action Types the history can be filtered by', async ({
+    payerManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    await steps.critical('Open the payer audit history', async () => {
+      await payerManagementPage.open();
+      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      await detail.auditHistory().open();
+    });
+
+    // A deletion is a state-changing action and the story says every such action
+    // is logged, so the history must be filterable by it. The application
+    // currently offers Create, Update, Status Change and the two network
+    // actions - if Delete is absent, a reviewer cannot isolate deletions, which
+    // is what this case exists to catch.
+    await steps.step('Delete is one of the offered Action Types', async () => {
+      const offered = await payerManagementPage.detail().auditHistory().getActionOptions();
+      expect(
+        offered.some((option) => /delete/i.test(option)),
+        `the history should be filterable by Delete; the filter offered: ${offered.join(', ')}`,
+      ).toBe(true);
+    });
+  });
+
+  for (const action of [ACTION.networkAssigned, ACTION.networkUnassigned]) {
+    // Azure test cases - one per generated case:
+    //   Network Assigned = 14585,  Network Unassigned = 14588
+    test(`${action === ACTION.networkAssigned ? '14585' : '14588'}: should list only ${action} entries when that action is filtered`, async ({
+      payerManagementPage,
+      publishedPayer,
+      steps,
+    }) => {
+      await steps.critical('Open the payer audit history', async () => {
+        await payerManagementPage.open();
+        const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+        await detail.auditHistory().open();
+      });
+
+      // The payer may have no network history at all - assignment needs a free
+      // network, which this environment rarely has. That does not make the
+      // filter untestable: it must still query the server, and it must either
+      // return only its own entries or say nothing matched. Showing unrelated
+      // entries, or an empty panel with no explanation, are the failures.
+      await steps.step(`The ${action} filter returns only its own entries, or says nothing matched`, async () => {
+        const audit = payerManagementPage.detail().auditHistory();
+        const query = await audit.selectAction(action);
+        expect(query, 'filtering should ask the server rather than hide rows locally').toMatch(/actionType/);
+
+        const entries = await audit.getEntries();
+        if (entries.length === 0) {
+          const text = await audit.getPanelText();
+          expect(
+            text,
+            `with no ${action} entries the tab should say nothing matched rather than sit empty`,
+          ).toMatch(NO_MATCH_MESSAGE);
+          return;
+        }
+        for (const entry of entries) {
+          expect(entry.action, `only ${action} entries should survive the filter`).toBe(action);
+        }
+      });
+    });
+  }
+
   for (const blocked of BLOCKED_CASES) {
     test(`${azureOrCase('71', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);

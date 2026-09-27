@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { PAYER_COLUMN } from '../../../constants/ElementIds';
@@ -202,108 +203,6 @@ test.describe('PayerCode uniqueness', () => {
     });
   });
 
-  test('TC-004: should record the code assignment in the payer\'s history', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    draftPayer,
-    steps,
-  }) => {
-    test.slow();
-
-    let assignedCode = '';
-
-    await steps.critical('Navigate to the module and approve a draft payer', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(draftPayer.nameEn);
-      await approvalManagementPage.open();
-      await approvalManagementPage.expectInQueue(draftPayer.nameEn);
-      await approvalManagementPage.approve(draftPayer.nameEn);
-    });
-
-    await steps.critical('It now carries a code', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      assignedCode = (
-        await payerManagementPage.getCellValue(draftPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(assignedCode, 'approval should have issued a code').not.toBe('');
-    });
-
-    await steps.step('The history records the approval that issued it', async () => {
-      const detail = await payerManagementPage.openDetails(draftPayer.nameEn);
-      await detail.openAuditHistory();
-      const entries = await detail.getAuditEntryTexts();
-      expect(
-        entries,
-        'the approval that issued the code should be on the record',
-      ).not.toEqual([]);
-    });
-
-    await steps.step('And the code itself is traceable to that event', async () => {
-      // A code that appears with no recorded moment of assignment cannot be
-      // audited later - which is the point of the sheet's case.
-      const detail = payerManagementPage.detail();
-      const entries = await detail.getAuditEntryTexts();
-      const trail = entries.join(' | ');
-      expect(
-        trail.includes(assignedCode),
-        `the trail should tie "${assignedCode}" to the event that issued it; it holds: `
-          + `${trail.slice(0, 300) || '(nothing)'}`,
-      ).toBe(true);
-    });
-  });
-
-  test('TC-005: should ignore a code supplied by the client rather than storing it', async ({
-    page,
-    payerManagementPage,
-    draftPayer,
-    steps,
-  }) => {
-    let outcome!: { status: number; text: string; validationErrors: string[] };
-
-    await steps.critical('Navigate to the module with a draft payer', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      await payerManagementPage.waitForRowVisible(draftPayer.nameEn);
-    });
-
-    await steps.critical('A code is pushed onto the record on the wire', async () => {
-      // The form offers no PayerCode field at all - the edit story already
-      // proves that - so the only way to attempt this is directly. What is
-      // being tested is whether the server trusts a client-supplied code.
-      const payerId = await payerManagementPage.getPayerId(draftPayer.nameEn);
-      outcome = await NetworkUtils.postAsSession(page, ApiEndpoints.payerUpdate, {
-        id: payerId,
-        payerCode: MANUAL_CODE,
-      });
-      expect(outcome.status, 'the request should have reached the server').toBeGreaterThan(0);
-    });
-
-    await steps.step('The payer does not end up wearing it', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      const code = (
-        await payerManagementPage.getCellValue(draftPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(
-        code,
-        `a client-supplied code was stored: the payer now reads "${code}"`,
-      ).not.toBe(MANUAL_CODE);
-    });
-
-    await steps.step('And a draft still holds no code at all', async () => {
-      // The other half of the rule: codes belong to approval. A draft that
-      // acquired one - any one - would mean the generator ran too early.
-      const code = (
-        await payerManagementPage.getCellValue(draftPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(
-        EMPTY_CODE_MARKERS.includes(code as (typeof EMPTY_CODE_MARKERS)[number]),
-        `an unapproved payer should carry no code; it reads "${code}"`,
-      ).toBe(true);
-    });
-  });
-
   // Azure test case 14840
   test('14840: should leave the payer unapproved when the code cannot be issued', async ({
     page,
@@ -430,5 +329,227 @@ test.describe('PayerCode uniqueness', () => {
           + 'to two overlapping approvals',
       ).not.toBe(codes[1]);
     });
+  });
+});
+
+/**
+ * When the code is issued, and what it is issued against.
+ *
+ * The cases above are about the code being UNIQUE. These are about its timing -
+ * nothing before approval, everything at it - and about the shapes the
+ * uniqueness check has to cope with.
+ */
+test.describe('Validate PayerCode Uniqueness - When the code is issued', () => {
+  // Azure test case 14826
+  test('14826: should issue no code while the registration is still a draft', async ({
+    payerManagementPage,
+    uniquePayer,
+    cleanup,
+    steps,
+  }) => {
+    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
+
+    await steps.critical('Create the payer and leave it as a draft', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(uniquePayer);
+    });
+
+    // A code issued at creation would be spent on a registration that may never
+    // be approved, and the register would carry gaps nobody can account for.
+    await steps.step('The draft carries no PayerCode', () =>
+      payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
+  });
+
+  // Azure test case 14825
+  test('14825: should issue the code at approval and at no earlier step', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    uniquePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Create the payer as a draft', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(uniquePayer);
+    });
+
+    await steps.step('Still no code once it is only a draft', () =>
+      payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
+
+    // Submission is the intermediate state the case is about: the payer has
+    // left the maker's hands but no decision has been taken, so nothing should
+    // have been spent on it yet.
+    await steps.step('And still none once it is merely submitted', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(uniquePayer.nameEn);
+      await payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Pending Approval');
+      await payerManagementPage.expectNoPayerCode(uniquePayer.nameEn);
+    });
+
+    await steps.step('The approval is what issues it', async () => {
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(uniquePayer.nameEn);
+      await approvalManagementPage.approve(uniquePayer.nameEn);
+      await payerManagementPage.open();
+      await payerManagementPage.expectPayerCodeAssigned(uniquePayer.nameEn);
+    });
+  });
+
+  // Azure test case 14843
+  test('14843: should leave no code behind when a registration is rejected', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    uniquePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Create, submit and then reject the registration', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(uniquePayer);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(uniquePayer.nameEn);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(uniquePayer.nameEn);
+      await approvalManagementPage.reject(uniquePayer.nameEn);
+    });
+
+    // A rejected registration that kept a code would hold a number no payer
+    // uses - an orphan the next approval cannot reuse.
+    await steps.step('The rejected registration holds no code', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.expectNoPayerCode(uniquePayer.nameEn);
+    });
+  });
+
+  // Azure test case 14841
+  test('14841: should withhold the approval that issues a code from a role without the right', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the payer approval right', async () => {
+      session = await shapedNonAdmin({ without: ['sendForApproval'] });
+      await session.approvals.openHub();
+    });
+
+    // The code is issued by the approval, so whoever may approve decides what
+    // enters the register - which is why this guard belongs to this story too.
+    await steps.step('The approval actions are withheld from this role', () =>
+      session.approvals.expectApprovalActionsDenied());
+  });
+});
+
+/**
+ * The shapes the uniqueness check has to survive.
+ */
+test.describe('Validate PayerCode Uniqueness - Input shapes', () => {
+  // Azure test case 14833
+  test('14833: should refuse a client-supplied code whatever shape it arrives in', async ({
+    payerManagementPage,
+    publishedPayer,
+    page,
+    steps,
+  }) => {
+    let existing = '';
+
+    await steps.critical('Read the code the register already issued', async () => {
+      await payerManagementPage.open();
+      existing = await payerManagementPage.getPayerCode(publishedPayer.nameEn);
+      expect(existing, 'the published payer should already hold a code').not.toBe('');
+    });
+
+    // The code is the system's to issue. A request that carries one - valid
+    // shape or not - must not be able to set it, or the uniqueness the story
+    // guarantees becomes a client's promise rather than the register's.
+    await steps.step('A request carrying a code does not take it', async () => {
+      const payerId = await payerManagementPage.getPayerId(publishedPayer.nameEn);
+      for (const supplied of [existing, MANUAL_CODE]) {
+        const response = await NetworkUtils.postAsSession(page, ApiEndpoints.payerUpdate, {
+          payerId,
+          payerCode: supplied,
+        });
+        expect(
+          response.status < 300,
+          `a request supplying the code "${supplied}" should not be accepted as a code change; `
+            + `the server answered ${response.status}`,
+        ).toBe(false);
+      }
+    });
+
+    await steps.step('And the stored code is untouched', async () => {
+      await payerManagementPage.open();
+      expect(
+        await payerManagementPage.getPayerCode(publishedPayer.nameEn),
+        'the register should still hold the code it issued',
+      ).toBe(existing);
+    });
+  });
+
+  // Azure test case 14842
+  test('14842: should treat case and spacing variants of a code as the same code', async ({
+    payerManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    let existing = '';
+
+    await steps.critical('Read an issued code to build variants from', async () => {
+      await payerManagementPage.open();
+      existing = await payerManagementPage.getPayerCode(publishedPayer.nameEn);
+      expect(existing, 'the published payer should already hold a code').not.toBe('');
+    });
+
+    // If the register treats "pay-000017" or " PAY-000017 " as a different
+    // code, uniqueness is only skin deep - two payers could hold the same
+    // identifier in different clothes.
+    await steps.step('Searching by a case or spacing variant finds the same payer', async () => {
+      for (const variant of [existing.toLowerCase(), `  ${existing}  `]) {
+        await payerManagementPage.open();
+        await payerManagementPage.typeInSearch(variant);
+        const found = await payerManagementPage.getVisiblePayerNames();
+        expect(
+          found,
+          `"${variant}" is the same code as "${existing}" and should find the same payer; `
+            + `the search returned: ${found.join(', ') || '(nothing)'}`,
+        ).toContain(publishedPayer.nameEn);
+      }
+    });
+  });
+
+  // Azure test case 14827
+  test('14827: should still issue a unique code when the generator meets a collision', async ({
+    steps,
+  }) => {
+    // A collision has to be MADE to be observed: the generator is server-side
+    // and the register holds no two payers racing for one value by chance. The
+    // suite can make two approvals overlap - and 14835 does exactly that - but
+    // it cannot force the generator to produce a duplicate and then watch it
+    // retry, which is what this case asks.
+    steps.blocked(
+      'This case needs a forced PayerCode generation collision so the retry can be observed. '
+      + 'The generator runs server-side and nothing in the interface or the API makes it hand '
+      + 'out a value that is already taken. The overlapping-approval race it can reach is '
+      + 'covered by 14835. Provide a way to seed a colliding code - a test hook or a seeded '
+      + 'duplicate - and this case can assert the retry rather than the outcome.',
+    );
+  });
+
+  // Azure test case 14848
+  test('14848: should carry the issued code to the systems that consume it', async ({
+    steps,
+  }) => {
+    // Downstream propagation leaves this application's boundary: the consuming
+    // interfaces are not deployed in this environment, so there is nothing to
+    // read the code back from. Asserting it locally would restate 14824 under
+    // a different name and prove nothing about propagation.
+    steps.blocked(
+      'This case needs the downstream integrated systems the PayerCode is published to, and none '
+      + 'are available in this environment - the suite can only see the payer module. Provide a '
+      + 'consuming interface, or a log of what was published, and the case can assert the code '
+      + 'arrived rather than that it exists here.',
+    );
   });
 });

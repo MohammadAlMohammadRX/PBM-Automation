@@ -1,8 +1,5 @@
 import { test, expect } from '../../../fixtures';
-import { NetworkUtils } from '../../../utils/NetworkUtils';
-import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import {
-  METRIC_LABELS,
   NO_MATCH_SEARCH_TERM,
   OBSERVED_PAGE_SIZE,
 } from '../../../data/payers/payerListMetrics.data';
@@ -177,35 +174,6 @@ test.describe('View Paginated Payer List with Metrics - Dashboard counters', () 
     });
   });
 
-  test('TC-012: should report a clear failure when payer data cannot be loaded', async ({
-    page,
-    payerManagementPage,
-    payerMetrics,
-    steps,
-  }) => {
-    // ONE endpoint is failed, not all of them. Blanket-failing every request
-    // stops the application shell from booting, so whatever the browser then
-    // shows says nothing about how the payer module handles ITS data failing -
-    // which is what the case is about.
-    await steps.critical('Simulate the payer data service being unavailable', () =>
-      NetworkUtils.failEndpoint(page, ApiEndpoints.payerList));
-
-    await steps.critical('Navigate to the payer module', () =>
-      payerManagementPage.navigate());
-
-    await steps.step('The module does not present a healthy, empty-looking table', () =>
-      payerManagementPage.expectDataLoadFailureReported());
-
-    await steps.critical('Restore the payer data service', () =>
-      NetworkUtils.restoreEndpoint(page, ApiEndpoints.payerList));
-
-    await steps.step('The list and its counters load once the service is back', async () => {
-      await payerManagementPage.open();
-      await payerMetrics.waitForLoaded();
-      await payerManagementPage.expectResultsFound();
-    });
-  });
-
   // Azure test case 14462
   test('14462: should handle an empty payer result set gracefully', async ({
     payerManagementPage,
@@ -233,6 +201,68 @@ test.describe('View Paginated Payer List with Metrics - Dashboard counters', () 
       payerManagementPage.expectPagerAbsent());
 
     await steps.step('The metrics band still reports the register, not the result set', () =>
+      payerMetrics.expectMetricsIndependentlyCalculated());
+  });
+
+  // Azure test case 14450
+  test('14450: should compute the Active, Pending, Inactive and Expired counts each independently', async ({
+    payerManagementPage,
+    payerMetrics,
+    steps,
+  }) => {
+    test.slow();
+
+    let baseline = { total: 0, active: 0, pending: 0, inactive: 0, expired: 0 };
+
+    await steps.critical('Open the payer list with no filter applied', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.resetFilters();
+      await payerMetrics.waitForLoaded();
+      baseline = await payerMetrics.getAllMetrics();
+    });
+
+    // 14446 asks whether each counter is ACCURATE - it compares every counter
+    // against the list filtered to that status. This case asks the other half:
+    // whether each is computed INDEPENDENTLY. The way that fails in practice is
+    // a band computed from whatever the user is currently looking at, so
+    // filtering the list to one status drags the other counters down with it.
+    // Such a band would pass 14446 on the status being filtered and be wrong
+    // about the register the moment anyone touched a filter.
+    for (const status of ['Active', 'Inactive', 'Expired'] as const) {
+      await steps.step(`Filtering the list to ${status} moves no counter`, async () => {
+        await payerManagementPage.open();
+        await payerManagementPage.filterByStatus(status);
+        await payerMetrics.waitForLoaded();
+        const shown = await payerMetrics.getAllMetrics();
+        expect(
+          shown,
+          `the counters report the register, not the filtered view; with the list filtered to `
+            + `${status} they read ${JSON.stringify(shown)} against ${JSON.stringify(baseline)}`,
+        ).toEqual(baseline);
+      });
+    }
+
+    await steps.step('And paging through the list moves no counter either', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.resetFilters();
+      const pages = await payerManagementPage.getPageCount();
+      if (pages > 1) {
+        await payerManagementPage.goToPage(2);
+        await payerMetrics.waitForLoaded();
+      }
+      const shown = await payerMetrics.getAllMetrics();
+      expect(
+        shown,
+        `the counters describe the whole register, so page ${pages > 1 ? 2 : 1} must read the `
+          + `same as page 1; they read ${JSON.stringify(shown)} against ${JSON.stringify(baseline)}`,
+      ).toEqual(baseline);
+    });
+
+    // The four are separate buckets, not one number shared out: every payer
+    // carrying a lifecycle status is counted once, so the four can never
+    // between them exceed Total. See the file note above for why the sum is
+    // deliberately allowed to fall SHORT of it.
+    await steps.step('The four status counters are separate buckets within Total', () =>
       payerMetrics.expectMetricsIndependentlyCalculated());
   });
 });

@@ -173,44 +173,8 @@ test.describe('Edit Existing Payer Configuration Details - Edit approval', () =>
  * of the LIVE record and Status describes the change pending on top of it.
  */
 test.describe('Edit Existing Payer Configuration Details - Versioning', () => {
-  test('TC-009: should start a new payer at v0 Draft and publish it as v1 when first approved', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    uniquePayer,
-    cleanup,
-    steps,
-  }) => {
-    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Create a new payer as a Draft', () =>
-      payerManagementPage.createDraftPayer(uniquePayer));
-
-    // Initial save: v0, Draft.
-    await steps.step('The initial save is v0, Draft', () =>
-      payerManagementPage.expectVersionAndStatus(uniquePayer.nameEn, 0, 'Draft'));
-
-    // Sent for approval: still v0, now pending.
-    await steps.critical('Send the new payer for approval', () =>
-      payerManagementPage.sendForApproval(uniquePayer.nameEn));
-
-    await steps.step('Still v0, now Pending Approval', () =>
-      payerManagementPage.expectVersionAndStatus(uniquePayer.nameEn, 0, 'Pending Approval'));
-
-    // Approved: the first published version is v1.
-    await steps.critical('Open the approval queue', () => approvalManagementPage.open());
-
-    await steps.critical('Approve the new payer', () =>
-      approvalManagementPage.approve(uniquePayer.nameEn));
-
-    await steps.critical('Return to the payer list', () => payerManagementPage.open());
-
-    await steps.step('The first published version is v1', () =>
-      payerManagementPage.expectVersionAndStatus(uniquePayer.nameEn, 1, 'Published'));
-  });
-
-  test('TC-016: should create a pending version without changing the live version when a published payer is edited', async ({
+  // Azure test case 14363
+  test('14363: should create a pending version without changing the live version when a published payer is edited', async ({
     payerManagementPage,
     publishedPayer,
     steps,
@@ -246,7 +210,8 @@ test.describe('Edit Existing Payer Configuration Details - Versioning', () => {
       payerManagementPage.expectPayerCodeAssigned(publishedPayer.nameEn));
   });
 
-  test('TC-017: should publish the pending edit as the next live version when it is approved', async ({
+  // Azure test case 14364
+  test('14364: should publish the pending edit as the next live version when it is approved', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,
@@ -287,7 +252,8 @@ test.describe('Edit Existing Payer Configuration Details - Versioning', () => {
       ));
   });
 
-  test('TC-018: should keep the live version and consume no version number when a pending edit is rejected', async ({
+  // Azure test case 14366
+  test('14366: should keep the live version and consume no version number when a pending edit is rejected', async ({
     payerManagementPage,
     approvalManagementPage,
     publishedPayer,

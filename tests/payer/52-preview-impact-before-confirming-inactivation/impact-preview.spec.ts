@@ -19,7 +19,8 @@ import { IMPACT_CATEGORIES } from '../../../data/payers/impactPreview.data';
  * that owns active plans and policies, which this environment cannot provision.
  */
 test.describe('Impact preview before inactivation', () => {
-  test('TC-001: should name and count all three impacted categories in the preview', async ({
+  // Azure test case 15055
+  test('15055: should name and count all three impacted categories in the preview', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -48,7 +49,8 @@ test.describe('Impact preview before inactivation', () => {
     });
   });
 
-  test('TC-002: should show zero counts for a payer with no active plans, policies or members', async ({
+  // Azure test case 15037
+  test('15037: should show zero counts for a payer with no active plans, policies or members', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -77,7 +79,8 @@ test.describe('Impact preview before inactivation', () => {
     });
   });
 
-  test('TC-003: should abort the inactivation with no side effects when the preview is cancelled', async ({
+  // Azure test case 15047
+  test('15047: should abort the inactivation with no side effects when the preview is cancelled', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -116,7 +119,8 @@ test.describe('Impact preview before inactivation', () => {
     });
   });
 
-  test('TC-004: should change the status only after the preview is confirmed', async ({
+  // Azure test case 15030
+  test('15030: should change the status only after the preview is confirmed', async ({
     payerManagementPage,
     payerInactivateDialog,
     publishedPayer,
@@ -149,7 +153,8 @@ test.describe('Impact preview before inactivation', () => {
     });
   });
 
-  test('TC-005: should show live counts aggregated from Plans, Policies and Members', async ({
+  // Azure test case 15054
+  test('15054: should show live counts aggregated from Plans, Policies and Members', async ({
     steps,
   }) => {
     steps.blocked(
@@ -166,7 +171,8 @@ test.describe('Impact preview before inactivation', () => {
 test.describe('Impact preview - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC-006: should keep inactivation and its preview behind an authorised role', async ({
+  // Azure test case 15045
+  test('15045: should keep inactivation and its preview behind an authorised role', async ({
     shapeRole,
     loginPage,
     payerManagementPage,

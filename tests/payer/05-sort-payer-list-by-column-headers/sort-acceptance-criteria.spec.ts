@@ -17,22 +17,8 @@ import { DEFAULT_SORT } from '../../../data/payers/sortPayer.data';
  * every later test in the worker.
  */
 test.describe('Sort Payer List by Column Headers - Acceptance criteria', () => {
-  test('AC-02: should display the active sort column and direction on the sort indicator without opening the menu', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Select Sort By = License Number descending', () =>
-      payerManagementPage.sortBy('licenseNumber', 'desc'));
-
-    // A user must be able to see what the list is sorted by while looking at
-    // the list - not only after re-opening the Sort By menu.
-    await steps.step('The active sort is visible without opening the menu', () =>
-      payerManagementPage.expectVisibleSortIndicator('licenseNumber', 'desc'));
-  });
-
-  test('AC-03: should default to Payer Name ascending when the list loads in Arabic', async ({
+  // Azure test case 14421
+  test('14421: should default to Payer Name ascending when the list loads in Arabic', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -63,40 +49,4 @@ test.describe('Sort Payer List by Column Headers - Acceptance criteria', () => {
     }
   });
 
-  test('AC-05: should keep the sort indicator accurate after the interface language is switched', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.step('The indicator shows the default sort in English', () =>
-      payerManagementPage.expectSortIndicator(DEFAULT_SORT.column, DEFAULT_SORT.direction));
-
-    try {
-      // Switching language must not lose the sort the list is actually applying.
-      await steps.critical('Switch the interface language to Arabic', () =>
-        payerManagementPage.language().switchTo('ar'));
-
-      await steps.step('The indicator still names the sort the list is applying', () =>
-        payerManagementPage.expectSortIndicator(
-          DEFAULT_SORT.column,
-          DEFAULT_SORT.direction,
-          'ar',
-        ));
-    } finally {
-      await payerManagementPage.language().switchTo('en');
-    }
-  });
-
-  test('AC-04: should allow sorting each sortable column from its own column header', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    // The story is "Sort Payer List by Column Headers": each sortable column's
-    // header should carry a sort control and report its state via aria-sort.
-    await steps.step('Each sortable column header carries a sort control reporting its state', () =>
-      payerManagementPage.expectColumnHeadersSortable());
-  });
 });

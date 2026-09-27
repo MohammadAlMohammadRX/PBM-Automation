@@ -183,45 +183,6 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-  test('TC-006: should vary tab and management-action visibility by user role', async ({
-    payerManagementPage,
-    publishedPayer,
-    nonAdminSession,
-    steps,
-  }) => {
-    test.slow();
-
-    await steps.critical('Navigate to the module and read the administrator\'s view of a payer', async () => {
-      await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.waitForLoaded();
-      expect(await detail.getHeaderActionIds(), 'the administrator should hold the full action set').toContain(ACTION_WITHHELD_FROM_PAYER_ADMIN);
-      expect(await detail.getTabLabels()).toEqual(expect.arrayContaining([...DETAIL_TAB_LABELS]));
-    });
-
-    await steps.step('The Payer Admin sees every tab of its own payer', async () => {
-      await nonAdminSession.payers.open();
-      const detail = await nonAdminSession.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
-      await detail.waitForLoaded();
-      expect(await detail.getTabLabels(), 'the tabs should be the same set').toEqual(expect.arrayContaining([...DETAIL_TAB_LABELS]));
-    });
-
-    await steps.step('The Payer Admin is not offered the action its role lacks', async () => {
-      // The role is defined without payer deletion (nonAdminAccount.data).
-      // VERIFIED the control renders for it anyway - this step reports that.
-      const actions = await nonAdminSession.payers.detail().getHeaderActionIds();
-      expect(
-        actions,
-        `the ${NON_ADMIN_PROFILE.role} should not be offered "${ACTION_WITHHELD_FROM_PAYER_ADMIN}"; it is offered: ${actions.join(', ')}`,
-      ).not.toContain(ACTION_WITHHELD_FROM_PAYER_ADMIN);
-    });
-
-    await steps.step('The Payer Admin is not offered Add Payer on the list', async () => {
-      await nonAdminSession.payers.open();
-      await nonAdminSession.payers.expectCreateActionDenied();
-    });
-  });
-
 
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
@@ -254,6 +215,79 @@ test.describe('Comprehensive payer details', () => {
       ).toBe(0);
     });
   });
+  // Azure test case 14645
+  test('14645: should show an empty state on Linked Networks when the payer has none', async ({
+    payerManagementPage,
+    draftPayer,
+    steps,
+  }) => {
+    let detail!: PayerDetailPage;
+
+    // A payer created in this run owns nothing, which is exactly the state the
+    // case needs - and it is built rather than searched for, so the assertion
+    // cannot be satisfied by a payer that merely happens to have no networks.
+    await steps.critical('Open a payer that owns no networks', async () => {
+      await payerManagementPage.open();
+      detail = await payerManagementPage.openDetails(draftPayer.nameEn);
+      await detail.waitForLoaded();
+    });
+
+    await steps.step('The Linked Networks tab says so rather than showing an empty table', async () => {
+      await detail.openLinkedNetworks().catch(() => undefined);
+      const rows = await detail.getLinkedNetworkRows().catch(() => []);
+      expect(rows, 'a payer with no networks should list none').toHaveLength(0);
+
+      const text = (await detail.getLinkedNetworksHintText().catch(() => '')).trim();
+      expect(
+        text,
+        'an empty tab should explain itself; a bare empty table reads as a loading failure',
+      ).not.toBe('');
+    });
+  });
+
+  // Azure test case 14653
+  test('14653: should fail clearly when the payer is removed while its details are open', async ({
+    payerManagementPage,
+    draftPayer,
+    steps,
+  }) => {
+    let payerId = '';
+
+    await steps.critical('Open the payer and note the record it is showing', async () => {
+      await payerManagementPage.open();
+      payerId = await payerManagementPage.getPayerIdFromDetailUrl(draftPayer.nameEn);
+      expect(payerId, 'the detail screen should be showing a record').not.toBe('');
+    });
+
+    // Deleted from under the open screen, then revisited by its own URL - which
+    // is what "viewed concurrently" comes down to for a single session. The
+    // screen must say the record is gone; rendering a shell of a payer that no
+    // longer exists is the failure.
+    await steps.step('Once it is deleted, its detail URL reports the record as gone', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.deletePayer(draftPayer.nameEn);
+      await payerManagementPage.openPayerById(payerId);
+      await payerManagementPage.expectRecordNotFound();
+    });
+  });
+
+  // Azure test case 14660
+  test('14660: should show each linked policy\'s status consistently with its expiry', async ({
+    steps,
+  }) => {
+    // The comparison needs a payer owning at least one expired and one active
+    // policy, and no payer in this environment owns a policy at all - the
+    // Policies module that would create one is outside this framework. Left
+    // BLOCKED rather than run against an empty tab, which would pass without
+    // ever reading a status.
+    steps.blocked(
+      'This case needs a payer owning both an active and an expired policy so the Status column '
+      + 'can be checked against each policy\'s expiry date. No payer in this environment owns a '
+      + 'policy; the Policies module is outside this framework. Provide one and re-run - the '
+      + 'readers for the tab already exist.',
+    );
+  });
+
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
     //   TC-003 = 14639,  TC-005 = 14652,  TC-012 = 14661

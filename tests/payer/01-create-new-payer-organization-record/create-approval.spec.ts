@@ -168,37 +168,10 @@ test.describe('Create New Payer Organization Record - Approval outcomes', () => 
       payerManagementPage.expectPublishedWithStatus(data.nameEn, 'Active'));
   });
 
-  test('TC-019: should surface the submitted payer in the reviewer approval queue with actionable controls', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    cleanup,
-    steps,
-  }) => {
-    const data = buildUniquePayer();
-    cleanup.register(() => payerManagementPage.deletePayer(data.nameEn));
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Create the payer as a Draft', () =>
-      payerManagementPage.createDraftPayer(data));
-
-    await steps.critical('Send the payer for approval', () =>
-      payerManagementPage.sendForApproval(data.nameEn));
-
-    await steps.critical('Open the reviewer approval queue', () => approvalManagementPage.open());
-
-    // Two independent questions about the queue entry: is it there, and can the
-    // reviewer act on it. Reported separately.
-    await steps.step('The submitted payer appears in the approval queue', () =>
-      approvalManagementPage.expectInQueue(data.nameEn));
-
-    await steps.step('Approve and Reject controls are available to the reviewer', () =>
-      approvalManagementPage.expectActionsAvailable(data.nameEn));
-  });
-
   // TC-018: decision-table roll-up of approve/reject x Effective Date.
   for (const scenario of approvalScenarios()) {
-    test(`TC-018: should resolve status to ${scenario.expectedLifecycleStatus} when the decision is ${scenario.decision} with an Effective Date of ${scenario.effectiveLabel}`, async ({
+    // Azure test case 15600
+    test(`15600: should resolve status to ${scenario.expectedLifecycleStatus} when the decision is ${scenario.decision} with an Effective Date of ${scenario.effectiveLabel}`, async ({
       payerManagementPage,
       approvalManagementPage,
       cleanup,

@@ -21,8 +21,10 @@ export const AZURE_FEATURE = { id: '12921', title: 'Payer Management' } as const
 /**
  * Story folder -> the Azure User Story it implements.
  *
- * All 72 stories in the export are mapped. Folder 52 is deliberately absent:
- * see AZURE_UNMAPPED_FOLDERS below.
+ * All 73 story folders are mapped. Folder 52 came from the live Epic rather
+ * than the export: its story carries no test cases, and the export was a list
+ * of test cases with their parents, so a childless story could not appear in
+ * it. Read off Feature 12921 on 26 September 2026.
  */
 export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>> = {
   '01': { id: '12924', title: 'Create New Payer Organization Record' },
@@ -74,6 +76,7 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
   '49': { id: '14212', title: 'Show Approval Status Across List, Cards and Payer Details' },
   '50': { id: '14220', title: 'Help Icon (Show What-To-Do-Next) Banners on Payer Details (View) Mode' },
   '51': { id: '14228', title: 'Show Inactivation Reason, Details, By and On While a Payer Is Inactive' },
+  '52': { id: '14224', title: 'Preview Impact Before Confirming Inactivation' },
   '53': { id: '14222', title: 'Capture and Display Payer Licence Number' },
   '54': { id: '12966', title: 'Display Read-Only Linked Policies List' },
   '55': { id: '12967', title: 'Manage Network Assignments from Payer Details' },
@@ -100,13 +103,13 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
 };
 
 /**
- * Story folders with no Azure User Story in the export.
+ * Story folders with no Azure User Story.
  *
- * Reported rather than invented: the suite covers this story, the export does
- * not carry it. Whether it belongs to another Feature or was never created in
- * Azure is for the QA lead to decide.
+ * None. Folder 52 was the last one, and its story (14224) does exist - it
+ * simply has no test cases, which is why it was missing from an export built
+ * from test cases and their parents.
  */
-export const AZURE_UNMAPPED_FOLDERS: readonly string[] = ['52'];
+export const AZURE_UNMAPPED_FOLDERS: readonly string[] = [];
 
 /** The Azure id of the user story a case belongs to, by folder. */
 export const azureStoryOf = (folder: string): string | null => AZURE_STORY[folder]?.id ?? null;
@@ -127,7 +130,7 @@ export const azureStoryOf = (folder: string): string | null => AZURE_STORY[folde
  * story and the suite implements it under another (for example the PayerID and
  * private-draft cases filed under Delete, which the Edit story covers).
  *
- * 810 of the export's 985 test cases are mapped.
+ * 816 of the Feature's 985 test cases are mapped.
  */
 export const AZURE_CASE: Readonly<Record<string, string>> = {
   // 01 - Create New Payer Organization Record
@@ -144,6 +147,9 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '01|TC-012': '14520',
   '01|TC-013': '15609',
   '01|TC-015': '15610',
+  '01|TC-017': '15608',
+  '01|TC-018': '15600',
+  '01|TC-021': '15598',
   // 02 - Filter Payer List by Type and Status
   '02|TC-001': '14395',
   '02|TC-002': '14394',
@@ -189,7 +195,11 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '04|TC-013': '14364',
   '04|TC-014': '14366',
   '04|TC-015': '14371',
+  '04|TC-016': '14363',
+  '04|TC-017': '14364',
+  '04|TC-018': '14366',
   // 05 - Sort Payer List by Column Headers
+  '05|AC-03': '14421',
   '05|TC-030': '14421',
   '05|TC-031': '14422',
   '05|TC-032': '14423',
@@ -220,6 +230,7 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '06|TC-013': '14356',
   // 07 - View Paginated Payer List with Metrics
   '07|TC-001': '14444',
+  '07|TC-002': '14444',
   '07|TC-003': '14445',
   '07|TC-004': '14446',
   '07|TC-005': '14453',
@@ -627,6 +638,8 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '39|TC-006': '14782',
   '39|TC-007': '14785',
   '39|TC-009': '14786',
+  '39|TC-010': '14788',
+  '39|TC-011': '14793',
   // 40 - Display Linked Members Count on Payer List
   '40|TC-001': '14794',
   '40|TC-002': '14801',
@@ -641,6 +654,14 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '41|TC-003': '14832',
   '41|TC-006': '14840',
   '41|TC-007': '14835',
+  '41|TC-008': '14826',
+  '41|TC-009': '14825',
+  '41|TC-010': '14843',
+  '41|TC-011': '14841',
+  '41|TC-012': '14833',
+  '41|TC-013': '14842',
+  '41|TC-014': '14827',
+  '41|TC-015': '14848',
   // 42 - Select Country from the Central Country Catalogue
   '42|TC-001': '14850',
   '42|TC-002': '14857',
@@ -659,6 +680,13 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '43|TC-005': '14883',
   '43|TC-006': '14898',
   '43|TC-007': '14890',
+  '43|TC-009': '14891',
+  '43|TC-010': '14881',
+  '43|TC-011': '14888',
+  '43|TC-012': '14889',
+  '43|TC-013': '14896',
+  '43|TC-014': '14899',
+  '43|TC-015': '14897',
   // 44 - Prevent Invalid Status Transitions Manually
   '44|TC-001': '14913',
   '44|TC-002': '14914',
@@ -725,6 +753,13 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '51|TC-004': '15863',
   '51|TC-005': '15869',
   '51|TC-006': '15870',
+  // 52 - Preview Impact Before Confirming Inactivation
+  '52|TC-001': '15055',
+  '52|TC-002': '15037',
+  '52|TC-003': '15047',
+  '52|TC-004': '15030',
+  '52|TC-005': '15054',
+  '52|TC-006': '15045',
   // 53 - Capture and Display Payer Licence Number
   '53|TC-001': '15736',
   '53|TC-002': '15733',
@@ -740,12 +775,15 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '54|TC-010': '14962',
   '54|TC-013': '14974',
   '54|TC-014': '14970',
+  '54|TC-016': '14973',
+  '54|TC-017': '14975',
   // 55 - Manage Network Assignments from Payer Details
   '55|TC-001': '15062',
   '55|TC-002': '15088',
   '55|TC-003': '15068',
   '55|TC-004': '15072',
   '55|TC-005': '15078',
+  '55|TC-006': '15078',
   '55|TC-007': '15071',
   '55|TC-009': '15084',
   // 56 - Trigger Downstream Impact Analysis on Status Change
@@ -755,6 +793,10 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '56|TC-005': '15048',
   '56|TC-006': '15032',
   '56|TC-009': '15052',
+  '56|TC-010': '15032',
+  '56|TC-011': '15056',
+  '56|TC-012': '15044',
+  '56|TC-013': '15036',
   // 57 - Restrict Payer Visibility to a User's Assigned Scope
   '57|TC-001': '15626',
   '57|TC-002': '15627',
@@ -812,6 +854,7 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '61|TC-004': '15011',
   '61|TC-005': '15013',
   '61|TC-007': '15014',
+  '61|TC-008': '15014',
   '61|TC-010': '15016',
   '61|TC-012': '15021',
   '61|TC-013': '15022',
@@ -957,6 +1000,8 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '70|TC-013': '14567',
   '70|TC-014': '14562',
   '70|TC-015': '14571',
+  '70|TC-017': '14569',
+  '70|TC-018': '14561',
   // 71 - Display Payer Audit History with Filters
   '71|TC-001': '14598',
   '71|TC-002': '14602',
@@ -972,6 +1017,10 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '71|TC-012': '14578',
   '71|TC-013': '14601',
   '71|TC-015': '14607',
+  '71|TC-016': '14579',
+  '71|TC-017': '14582',
+  '71|TC-018': '14585',
+  '71|TC-019': '14588',
   // 72 - Display Toast Notification on Payer Update
   '72|TC-001': '14609',
   '72|TC-002': '14614',
@@ -981,6 +1030,12 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '72|TC-008': '14632',
   '72|TC-009': '14635',
   '72|TC-010': '14630',
+  '72|TC-012': '14615',
+  '72|TC-013': '14611',
+  '72|TC-014': '14625',
+  '72|TC-015': '14619',
+  '72|TC-016': '14622',
+  '72|TC-017': '14629',
   // 73 - View Comprehensive Payer Details with Tabs
   '73|TC-001': '14638',
   '73|TC-002': '14637',
@@ -992,6 +1047,9 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '73|TC-010': '14644',
   '73|TC-011': '14654',
   '73|TC-012': '14661',
+  '73|TC-013': '14645',
+  '73|TC-014': '14653',
+  '73|TC-015': '14660',
   // 74 - Automatically Transition Payer Status to Active
   '74|TC-001': '14662',
   '74|TC-002': '14665',
@@ -1011,7 +1069,9 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '75|TC-007': '14728',
   '75|TC-008': '14730',
   '75|TC-011': '14735',
+  '75|TC-012': '14726',
   '75|TC-013': '14743',
+  '75|TC-014': '14730',
 };
 
 /** The Azure Test Case id for a suite case, or null when it has none yet. */

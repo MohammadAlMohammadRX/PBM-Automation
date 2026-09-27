@@ -1,4 +1,6 @@
 import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
 import type { AssignNetworkDrawer } from '../../../pages/payer/AssignNetworkDrawer';
@@ -9,6 +11,7 @@ import {
   ELIGIBILITY_SAMPLE,
   EXPECTED_LINKED_NETWORK_COLUMNS,
   HINT_STATES_APPROVAL,
+  NEEDS_FREE_NETWORK,
   parseOptionLabel,
 } from '../../../data/payers/manageLinkedNetworks.data';
 
@@ -93,52 +96,6 @@ test.describe('Manage linked networks from payer details', () => {
     });
   });
 
-  test('TC-010: should offer every required element when the Linked Networks tab is opened', async ({
-    payerManagementPage,
-    linkedNetwork,
-    steps,
-  }) => {
-    test.slow();
-    let keys: string[] = [];
-
-    await steps.critical('Navigate to the module and open the Linked Networks tab of a payer that holds a network', async () => {
-      // A payer with no networks renders an empty section with no header row,
-      // so the column checklist needs a payer that actually holds a link.
-      const candidate = await linkedNetwork('any');
-      await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(candidate.payer);
-      keys = await detail.getLinkedNetworkColumnKeys();
-      expect(keys, 'the Linked Networks table should render its header').not.toEqual([]);
-    });
-
-    await steps.step('The table carries name, code, facilities, status, assignment state and actions', async () => {
-      for (const expected of EXPECTED_LINKED_NETWORK_COLUMNS) {
-        expect(keys, `the Linked Networks table should carry a "${expected}" column`).toContain(expected);
-      }
-    });
-
-    await steps.step('The Add Network action, a search box and the approval hint are present', async () => {
-      const detail = payerManagementPage.detail();
-      expect(await detail.getAssignNetworkAvailability(), 'Assign Network should be offered').toBe('available');
-      expect(await detail.hasLinkedNetworksSearch(), 'the section should offer a search box').toBe(true);
-      const hint = await detail.getLinkedNetworksHintText();
-      expect(hint, `the hint should state the maker-checker rule; it read "${hint}"`).toMatch(HINT_STATES_APPROVAL);
-    });
-
-    await steps.step('Submitting a change asks for a Reason for Change', async () => {
-      // The sheet's checklist requires a mandatory reason on submission. The
-      // drawer's controls are read rather than assumed, so a drawer that asks
-      // for no reason is reported as exactly that.
-      const drawer = await payerManagementPage.detail().openAssignNetwork();
-      const controls = await drawer.getControlIds();
-      expect(
-        controls.some((id) => CHANGE_REASON_CONTROL.test(id)),
-        `the network-change drawer should carry a Reason for Change field; its controls are: ${controls.join(', ')}`,
-      ).toBe(true);
-      await drawer.cancel();
-    });
-  });
-
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
     //   TC-003 = 15068,  TC-004 = 15072,  TC-005 = 15078
@@ -147,4 +104,119 @@ test.describe('Manage linked networks from payer details', () => {
       steps.blocked(blocked.reason);
     });
   }
+});
+
+/**
+ * The assignment surface: what it offers, and who may use it.
+ *
+ * Most of this story's remaining cases have to SUBMIT an assignment, and this
+ * environment has no free network to submit - every network belongs to a payer
+ * already. Those are reported BLOCKED with that reason rather than written
+ * against a drawer that offers nothing. The two that can be exercised without
+ * a spare network are written out.
+ */
+test.describe('Manage Network Assignments - Availability and access', () => {
+  // Azure test case 15064
+  test('15064: should say so plainly when it has no network to offer', async ({
+    payerManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    let drawer!: AssignNetworkDrawer;
+    let offered: string[] = [];
+
+    await steps.critical('Open the Assign Network drawer', async () => {
+      await payerManagementPage.open();
+      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      drawer = await detail.openAssignNetwork();
+      await drawer.waitForOpen();
+      offered = await drawer.listAvailableNetworks();
+    });
+
+    // The zero boundary is the one this environment sits on, and it is the one
+    // that goes wrong quietly: a drawer that offers nothing and says nothing
+    // reads as a loading failure, and a Submit that stays usable invites a
+    // request for a network that was never chosen.
+    await steps.step('With nothing to offer, Submit is not usable', async () => {
+      if (offered.length === 0) {
+        expect(
+          await drawer.isSubmitEnabled(),
+          'a drawer offering no network must not let a request be submitted',
+        ).toBe(false);
+        return;
+      }
+      // With exactly one or more on offer, the other half of the boundary: the
+      // list is real and choosing from it enables the submission.
+      await drawer.selectNetwork(offered[0]);
+      expect(
+        await drawer.isSubmitEnabled(),
+        `with ${offered.length} network(s) offered, choosing one should enable the submission`,
+      ).toBe(true);
+    });
+
+    await steps.step('And the drawer closes without staging anything', async () => {
+      await drawer.cancel();
+      await payerManagementPage.open();
+      await payerManagementPage.expectRowsRendered();
+    });
+  });
+
+  // Azure test case 15079
+  test('15079: should let only the right roles submit an assignment and decide it', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the assignment rights', async () => {
+      session = await shapedNonAdmin({ without: ['assignNetworks', 'unassignNetwork'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    // Two halves of the segregation the story asks for: the maker's control is
+    // withheld from a role without it, and the checker's controls are withheld
+    // from a role that is not a reviewer.
+    await steps.step('The assignment control is withheld', async () => {
+      const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);
+      expect(
+        await detail.getAssignNetworkAvailability(),
+        'a role without the assignment rights must not be offered the control',
+      ).not.toBe('available');
+    });
+
+    await steps.step('And so are the approve and reject decisions', async () => {
+      await session.approvals.openHub();
+      await session.approvals.expectApprovalActionsDenied();
+    });
+  });
+
+  for (const [azureId, what] of [
+    ['15060', 'add a valid network to a payer from the Linked Networks tab'],
+    ['15063', 'remove a linked network with no policy dependency, through approval'],
+    ['15070', 'walk an assignment through Draft, Pending Approval and its decision'],
+    ['15076', 'confirm a network held by another payer\'s pending request is not offered'],
+    ['15080', 'have two administrators reserve the same network at once'],
+    ['15085', 'read the audit entry a network change writes'],
+  ] as const) {
+    test(`${azureId}: should ${what}`, async ({ steps }) => {
+      steps.blocked(NEEDS_FREE_NETWORK);
+    });
+  }
+
+  // Azure test case 15087
+  test('15087: should drop an externally deactivated network from the available list', async ({
+    steps,
+  }) => {
+    // Deactivating a network is the Networks module's action, and the case
+    // turns on doing it WHILE the payer's drawer is the thing under test. The
+    // suite reaches the Networks module, but a network it may deactivate is
+    // one already assigned to a payer - deactivating that says nothing about
+    // the AVAILABILITY list, which only ever holds unassigned networks.
+    steps.blocked(
+      `${NEEDS_FREE_NETWORK} This case additionally needs that free network to be deactivated `
+      + 'from the Networks module while the payer drawer is open, so the availability list can '
+      + 'be seen to drop it.',
+    );
+  });
 });

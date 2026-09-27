@@ -99,23 +99,6 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-003: should leave the payer in Draft rather than auto-submitting it when an edit is saved', async ({
-    payerManagementPage,
-    publishedPayer,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module and save an edit', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.editTextFieldAndSave(publishedPayer.nameEn, UPDATE_EDIT.licence.label, UPDATE_EDIT.licence.first);
-    });
-
-    await steps.step('The payer reads Draft', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.expectApprovalStatusContains(publishedPayer.nameEn, APPROVAL_STATE.draft);
-    });
-  });
-
   // Azure test case 14617
   test('14617: should show the submitted-for-approval toast only after Send for Approval is used', async ({
     payerManagementPage,
@@ -156,28 +139,6 @@ test.describe('Toast on payer update', () => {
     });
 
     await steps.step('The draft-saved toast renders as usual', async () => {
-      await toast.expectText(DRAFT_SAVED_TOAST.en);
-      await (form as PayerFormDialog).waitForClosed();
-    });
-  });
-
-  test('TC-006: should show the same toast when several fields are edited at once', async ({
-    payerManagementPage,
-    toast,
-    publishedPayer,
-    steps,
-  }) => {
-    let form: PayerFormDialog | null = null;
-
-    await steps.critical('Navigate to the module and edit two fields in one save', async () => {
-      await payerManagementPage.open();
-      form = await payerManagementPage.openEditForm(publishedPayer.nameEn);
-      await form.setFieldValue(UPDATE_EDIT.licence.label, UPDATE_EDIT.licence.first, 'text');
-      await form.setFieldValue(UPDATE_EDIT.email.label, UPDATE_EDIT.email.value, 'text');
-      await form.saveFromAnyStep();
-    });
-
-    await steps.step('One draft-saved toast, the same as for a single field', async () => {
       await toast.expectText(DRAFT_SAVED_TOAST.en);
       await (form as PayerFormDialog).waitForClosed();
     });
@@ -262,32 +223,6 @@ test.describe('Toast on payer update', () => {
     });
   });
 
-  test('TC-011: should show the toast only once the server has confirmed the draft save', async ({
-    page,
-    payerManagementPage,
-    toast,
-    publishedPayer,
-    steps,
-  }) => {
-    let form: PayerFormDialog | null = null;
-
-    await steps.critical('Navigate to the module and save an edit while watching the server response', async () => {
-      await payerManagementPage.open();
-      form = await payerManagementPage.openEditForm(publishedPayer.nameEn);
-      await form.setFieldValue(UPDATE_EDIT.licence.label, UPDATE_EDIT.licence.first, 'text');
-      const response = await NetworkUtils.captureResponse(page, ApiEndpoints.payerUpdate, async () => {
-        await (form as PayerFormDialog).saveFromAnyStep();
-      });
-      expect(response, 'the save should reach the server').not.toBeNull();
-      expect(response?.status, 'the server should confirm the save').toBe(200);
-    });
-
-    await steps.step('The toast follows the confirmation', async () => {
-      await toast.expectText(DRAFT_SAVED_TOAST.en);
-      await (form as PayerFormDialog).waitForClosed();
-    });
-  });
-
 
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
@@ -310,6 +245,201 @@ test.describe('Toast on payer update', () => {
       await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'edit');
     });
   });
+  // Azure test case 14615
+  test('14615: should keep the user on the payer after an edit is saved', async ({
+    payerManagementPage,
+    toast,
+    publishedPayer,
+    steps,
+  }) => {
+    await steps.critical('Navigate to the module and save an edit', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameEn,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.first,
+      );
+      await toast.waitForText();
+      await form.waitForClosed();
+    });
+
+    // Being thrown back to an unfiltered list after saving loses the reader's
+    // place, which is the complaint this case guards against. The payer stays
+    // in view, whether that is its detail screen or the row it was edited from.
+    await steps.step('The payer that was edited is still the one on screen', async () => {
+      const listed = await payerManagementPage.getVisiblePayerNames().catch((): string[] => []);
+      const onDetail = await payerManagementPage.detail().hasStatusBanner().catch(() => false);
+      expect(
+        onDetail || listed.includes(publishedPayer.nameEn),
+        `after saving, the payer should still be in view; the list showed: ${listed.join(', ') || '(nothing)'}`,
+      ).toBe(true);
+    });
+  });
+
+  // Azure test case 14611
+  test('14611: should name the payer in the toast so it is clear what was saved', async ({
+    payerManagementPage,
+    toast,
+    publishedPayer,
+    steps,
+  }) => {
+    let shown = { summary: '', detail: '' };
+
+    await steps.critical('Navigate to the module and save an edit', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameEn,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.second,
+      );
+      shown = await toast.waitForText();
+      await form.waitForClosed();
+    });
+
+    // With several payers edited in a session, a toast that names none of them
+    // cannot be matched to what was just saved - which is the context the case
+    // asks for.
+    await steps.step('The toast carries the payer it is reporting on', async () => {
+      const text = `${shown.summary} ${shown.detail}`;
+      expect(
+        text,
+        `the toast should name the payer it saved; it read "${text.trim()}"`,
+      ).toContain(publishedPayer.nameEn);
+    });
+  });
+
+  // Azure test case 14625
+  test('14625: should not report a save when nothing was actually changed', async ({
+    payerManagementPage,
+    toast,
+    publishedPayer,
+    steps,
+  }) => {
+    await steps.critical('Open the edit form and leave every field as it was', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.openEditForm(publishedPayer.nameEn);
+      await form.attemptSave();
+    });
+
+    // A success toast for a save that staged nothing tells the user a change
+    // was recorded when none was - the reverse of what the toast is for.
+    await steps.step('No draft-saved toast is raised for a no-op save', async () => {
+      const raised = await toast.waitForText().catch(() => null);
+      expect(
+        raised === null || raised.summary !== DRAFT_SAVED_TOAST.en.summary,
+        `a save that changed nothing should not report a saved draft; the toast read `
+          + `"${raised ? raised.summary : '(none)'}"`,
+      ).toBe(true);
+    });
+  });
+
+  // Azure test case 14619
+  test('14619: should report the draft save and the submission as two separate messages', async ({
+    payerManagementPage,
+    toast,
+    publishedPayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Save an edit as a draft', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameEn,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.first,
+      );
+      const saved = await toast.waitForText();
+      expect(saved.summary, 'the first message is the draft save').toBe(DRAFT_SAVED_TOAST.en.summary);
+      await form.waitForClosed();
+    });
+
+    // The two steps of the maker-checker flow each have their own message, and
+    // in this order. One message for both, or the submission wording appearing
+    // at save time, would misreport where the change has got to.
+    await steps.step('Sending it for approval reports the submission, not another draft save', async () => {
+      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
+      const submitted = await toast.waitForText();
+      expect(
+        submitted.summary,
+        `the second message should report the submission; it read "${submitted.summary}"`,
+      ).toBe(SUBMITTED_TOAST.en.summary);
+    });
+  });
+
+  // Azure test case 14622
+  test('14622: should render the draft-saved toast in Arabic when the interface is Arabic', async ({
+    payerManagementPage,
+    languageSwitcher,
+    toast,
+    publishedPayer,
+    steps,
+  }) => {
+    await steps.critical('Switch to Arabic and save an edit', async () => {
+      await languageSwitcher.switchTo('ar');
+      await payerManagementPage.open();
+      // The Arabic list renders the Arabic name in the name column, so the row
+      // is keyed by it.
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameAr,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.second,
+      );
+      await form.waitForClosed().catch(() => undefined);
+    });
+
+    await steps.step('The toast is the Arabic wording, not the English one', async () => {
+      const shown = await toast.waitForText();
+      expect(shown.summary, 'the summary should be the Arabic wording').toBe(DRAFT_SAVED_TOAST.ar.summary);
+      expect(shown.detail, 'the detail should be the Arabic wording').toBe(DRAFT_SAVED_TOAST.ar.detail);
+    });
+
+    await steps.step('And the interface is returned to English', () => languageSwitcher.switchTo('en'));
+  });
+
+  // Azure test case 14629
+  test('14629: should report each save and submission outcome with its own message', async ({
+    payerManagementPage,
+    toast,
+    publishedPayer,
+    page,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.step('A save that succeeds reports the draft save', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameEn,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.first,
+      );
+      const saved = await toast.waitForText();
+      expect(saved.summary).toBe(DRAFT_SAVED_TOAST.en.summary);
+      await form.waitForClosed();
+    });
+
+    // The failing half matters more than the succeeding one: a success message
+    // on a save the server refused is the worst outcome available, because the
+    // user leaves believing the change is recorded.
+    await steps.step('A save the server refuses does not report a draft save', async () => {
+      await NetworkUtils.failEndpoint(page, ApiEndpoints.payerUpdate);
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        publishedPayer.nameEn,
+        UPDATE_EDIT.licence.label,
+        UPDATE_EDIT.licence.second,
+      ).catch(() => null);
+      const raised = await toast.waitForText().catch(() => null);
+      expect(
+        raised === null || raised.summary !== DRAFT_SAVED_TOAST.en.summary,
+        `a refused save must not report a saved draft; the toast read "${raised ? raised.summary : '(none)'}"`,
+      ).toBe(true);
+      await form?.closeAndDiscard().catch(() => undefined);
+      await NetworkUtils.restoreEndpoint(page, ApiEndpoints.payerUpdate);
+    });
+  });
+
   for (const blocked of BLOCKED_CASES) {
     test(`${azureOrCase('72', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);

@@ -68,7 +68,7 @@ export const parseOptionLabel = (label: string): { code: string; name: string; s
   };
 };
 
-const NEEDS_FREE_NETWORK =
+export const NEEDS_FREE_NETWORK =
   'This case has to SUBMIT a network assignment, and the Assign Network drawer offers no '
   + 'network here: every network already belongs to a payer and a payer holding one cannot be '
   + 'deleted, so no link was ever released. Free one network (unassign it from a payer and '
@@ -107,13 +107,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     id: '007',
     title: 'should record the correct audit details when a network change is approved',
     reason: NEEDS_FREE_NETWORK,
-  },
-  {
-    id: '008',
-    title: 'should fail gracefully when the approval workflow service is unavailable during submission',
-    reason:
-      `${NEEDS_FREE_NETWORK} The submission endpoint to fail is also learned from a real `
-      + 'submission (see NetworkUtils.captureRequestUrl), which needs the same free network.',
   },
   {
     id: '009',

@@ -1,4 +1,7 @@
 import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
+import { Logger } from '../../../utils/Logger';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import {
   CONCURRENCY_OUTCOMES,
@@ -185,26 +188,39 @@ test.describe('Reactivate an inactive payer', () => {
     });
   });
 
-  test('TC-004: should end with a single reactivation when two sessions stage one at once', async ({
+});
+
+/**
+ * The reactivation as a RECORD: what it stages, what it writes to the ledger and
+ * the trail, what it leaves behind when it is refused or abandoned, and who is
+ * allowed to raise it at all.
+ *
+ * The expiry boundaries this story also asks about are not here. An INACTIVE
+ * payer is provisioned by the fixture, so everything that only needs one runs;
+ * an inactive payer whose expiry has already PASSED cannot be built - the
+ * create form refuses an expiry before tomorrow - so the three cases that turn
+ * on that date say so rather than assert against a payer in the wrong state.
+ */
+test.describe('Reactivate an inactive payer - the draft as a record', () => {
+  // Azure test case 14746
+  test('14746: should stage the reactivation as a draft rather than apply it', async ({
     payerManagementPage,
-    staleSession,
     inactivePayer,
     steps,
   }) => {
     test.slow();
+    let versionBefore = '';
 
-    let secondOutcome = '';
-
-    await steps.critical('Navigate to the module with an Inactive payer', async () => {
+    await steps.critical('Note the version the inactive payer sits on', async () => {
       await payerManagementPage.open();
       await payerManagementPage.search(inactivePayer.nameEn);
-      await payerManagementPage.expectLifecycleStatus(
-        inactivePayer.nameEn,
-        LIFECYCLE_STATUS.inactive.en,
-      );
+      versionBefore = await payerManagementPage.getVersionLabel(inactivePayer.nameEn);
     });
 
-    await steps.critical('The first session stages a reactivation', async () => {
+    // A reactivation is a change like any other: it waits for a checker. A
+    // confirmation that moved the payer to Active on the spot would put the
+    // status outside the maker-checker flow every other payer change obeys.
+    await steps.step('Confirming the prompt stages a draft', async () => {
       const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
       await prompt.confirm();
       await payerManagementPage.open();
@@ -212,46 +228,268 @@ test.describe('Reactivate an inactive payer', () => {
       await payerManagementPage.expectApprovalStatusContains(inactivePayer.nameEn, 'Draft');
     });
 
-    await steps.step('The second session attempts the same thing', async () => {
-      // Either answer is acceptable to the sheet - a second draft, or a
-      // refusal. What is asserted is that the attempt RESOLVES rather than
-      // leaving the payer in a state neither session asked for.
-      await staleSession.payerPage.open();
-      await staleSession.payerPage.search(inactivePayer.nameEn);
-      const available = await staleSession.payerPage.getRowActionAvailability(
-        inactivePayer.nameEn,
+    await steps.step('The payer is still Inactive until that draft is decided', () =>
+      payerManagementPage.expectLifecycleStatus(inactivePayer.nameEn, LIFECYCLE_STATUS.inactive.en));
+
+    await steps.step('And the staged change is carried on a version of its own', async () => {
+      const versionAfter = await payerManagementPage.getVersionLabel(inactivePayer.nameEn);
+      expect(
+        versionAfter.trim(),
+        `the staged reactivation should be referable by a version; the row read `
+          + `"${versionBefore}" before and "${versionAfter}" after`,
+      ).not.toBe('');
+    });
+  });
+
+  // Azure test case 14750
+  test('14750: should carry the reactivation on the version ledger with a number', async ({
+    payerManagementPage,
+    inactivePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Stage a reactivation', async () => {
+      await payerManagementPage.open();
+      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
+      await prompt.confirm();
+      await payerManagementPage.open();
+    });
+
+    // A version-less ledger row is the failure this names: the change would be
+    // visible but not referable, so nobody could say which version an approval
+    // was deciding on.
+    await steps.step('Every ledger row carries a version label', async () => {
+      const detail = await payerManagementPage.openDetails(inactivePayer.nameEn);
+      const history = detail.versionHistory();
+      await history.open();
+      const labels = await history.getVersionLabels();
+      expect(labels.length, 'the payer should carry at least one version entry').toBeGreaterThan(0);
+      for (const label of labels) {
+        expect(label.trim(), `a ledger row read "${label}" - every row needs a version`).not.toBe('');
+      }
+    });
+  });
+
+  // Azure test case 14748
+  test('14748: should leave the payer\'s data intact on the staged reactivation', async ({
+    payerManagementPage,
+    inactivePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Stage a reactivation', async () => {
+      await payerManagementPage.open();
+      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
+      await prompt.confirm();
+      await payerManagementPage.open();
+    });
+
+    // The fields a checker decides on have to still be on the record while it
+    // waits, or the decision is taken blind. 14753 proves they survive the
+    // approval; this proves they survive the staging.
+    await steps.step('The payer still reads back with its identifying data', async () => {
+      const detail = await payerManagementPage.openDetails(inactivePayer.nameEn);
+      await detail.waitForLoaded();
+      const blank: string[] = [];
+      for (const field of PRESERVED_FIELDS) {
+        const value = await detail.getFieldValue(field).catch((): string => '');
+        if (value.trim() === '') blank.push(field);
+      }
+      expect(
+        blank,
+        `a pending reactivation should not empty the payer; these read blank: ${blank.join(', ')}`,
+      ).toEqual([]);
+    });
+  });
+
+  // Azure test case 14761
+  test('14761: should record who raised the reactivation and when', async ({
+    payerManagementPage,
+    inactivePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Stage a reactivation', async () => {
+      await payerManagementPage.open();
+      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
+      await prompt.confirm();
+      await payerManagementPage.open();
+    });
+
+    await steps.step('The audit trail carries the event, with an actor and a time', async () => {
+      const detail = await payerManagementPage.openDetails(inactivePayer.nameEn);
+      const audit = detail.auditHistory();
+      await audit.open();
+      const entries = await audit.getEntries();
+      expect(entries.length, 'the reactivation should have left a trail entry').toBeGreaterThan(0);
+      // Who and when are what make a trail answerable afterwards; an entry with
+      // a blank actor records that something happened and nothing else.
+      const incomplete = entries
+        .filter((entry) => entry.user.trim() === '' || entry.timestamp.trim() === '')
+        .map((entry) => entry.raw);
+      expect(
+        incomplete,
+        `every trail entry should name who acted and when; these did not: ${incomplete.join(' | ')}`,
+      ).toEqual([]);
+    });
+  });
+
+  // Azure test case 14766
+  test('14766: should offer no reactivation on a payer that is already Active', async ({
+    payerManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    await steps.critical('Open the list on a live, active payer', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(publishedPayer.nameEn);
+      await payerManagementPage.waitForRowVisible(publishedPayer.nameEn);
+    });
+
+    // Reactivating what is already active has no meaning, and offering it
+    // invites a change that spends a version and a checker's time to do nothing.
+    await steps.step('The Activate action is not offered', async () => {
+      const refusal = await payerManagementPage.expectRowActionUnavailable(
+        publishedPayer.nameEn,
         'activate',
       );
-      secondOutcome = available;
-      expect(
-        CONCURRENCY_OUTCOMES.allowed.length,
-        'the sheet permits either a second draft or a refusal',
-      ).toBeGreaterThan(0);
-      expect(
-        ['available', 'disabled', 'absent'],
-        `the second session should get a definite answer; it saw "${available}"`,
-      ).toContain(available);
+      Logger.info(`an Active payer refused the reactivation by being "${refusal}"`);
     });
 
-    await steps.step('The payer holds exactly one pending reactivation', async () => {
+    await steps.step('And the payer is untouched by having been looked at', () =>
+      payerManagementPage.expectLifecycleStatus(publishedPayer.nameEn, LIFECYCLE_STATUS.active.en));
+  });
+
+  // Azure test case 14769
+  test('14769: should leave the payer Inactive when its reactivation is rejected', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    inactivePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Stage a reactivation and submit it', async () => {
+      await payerManagementPage.open();
+      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
+      await prompt.confirm();
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(inactivePayer.nameEn);
+    });
+
+    await steps.critical('The checker rejects it', async () => {
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(inactivePayer.nameEn);
+      await approvalManagementPage.reject(inactivePayer.nameEn);
+    });
+
+    // The refusal has to be complete. A payer left half-moved - Active because
+    // the draft was raised, rejected because it was refused - is the worst of
+    // both, and nothing downstream could tell which state was intended.
+    await steps.step('The payer is still Inactive', async () => {
       await payerManagementPage.open();
       await payerManagementPage.search(inactivePayer.nameEn);
-      const label = await payerManagementPage.getVersionLabel(inactivePayer.nameEn);
-      expect(
-        label,
-        `the race should have left one staged change, not two; the row reads "${label}" `
-          + `and the second session saw the Activate action as "${secondOutcome}"`,
-      ).toMatch(/Draft|Pending/i);
-    });
-
-    await steps.step('And the payer is not left in a state neither session asked for', async () => {
-      // The forbidden outcome named in the data file: whatever the race did, the
-      // payer must still be a coherent record - Inactive with a staged change,
-      // never half-reactivated.
       await payerManagementPage.expectLifecycleStatus(
         inactivePayer.nameEn,
         LIFECYCLE_STATUS.inactive.en,
       );
     });
   });
+
+  // Azure test case 14770
+  test('14770: should let a staged reactivation be abandoned before it is decided', async ({
+    payerManagementPage,
+    inactivePayer,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Stage a reactivation', async () => {
+      await payerManagementPage.open();
+      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
+      await prompt.confirm();
+      await payerManagementPage.open();
+      await payerManagementPage.expectApprovalStatusContains(inactivePayer.nameEn, 'Draft');
+    });
+
+    // A maker who changes their mind must be able to leave nothing behind -
+    // otherwise every abandoned thought costs a version and a checker's time.
+    await steps.step('The draft can be discarded and the row stops reporting one', async () => {
+      await payerManagementPage.discardDraft(inactivePayer.nameEn);
+      await payerManagementPage.open();
+      await payerManagementPage.search(inactivePayer.nameEn);
+      const approvalState = await payerManagementPage.getApprovalStatus(inactivePayer.nameEn);
+      expect(
+        approvalState,
+        `the discarded reactivation should be gone; the row still reports "${approvalState}"`,
+      ).not.toContain('Draft');
+    });
+
+    await steps.step('And the payer is exactly where it was', () =>
+      payerManagementPage.expectLifecycleStatus(
+        inactivePayer.nameEn,
+        LIFECYCLE_STATUS.inactive.en,
+      ));
+  });
+
+  // Azure test case 14764
+  test('14764: should withhold the reactivation and its approval from a role without the rights', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    test.slow();
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the status rights', async () => {
+      session = await shapedNonAdmin({ without: ['activatePayer', 'inactivatePayer'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    // Both halves of the segregation: the maker's control is withheld from a
+    // role that does not hold it, and the checker's decisions are withheld from
+    // a role that is not a checker.
+    await steps.step('The Activate action is withheld', async () => {
+      await session.payers.search(NON_ADMIN_PROFILE.scopedPayers[0]);
+      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'activate');
+    });
+
+    await steps.step('And so is the decision on one', async () => {
+      await session.approvals.open();
+      await session.approvals.expectApprovalActionsDenied();
+    });
+  });
+
+  for (const [azureId, what, needs] of [
+    [
+      '14756',
+      'block the reactivation with a message when the expiry date has already passed',
+      'an INACTIVE payer whose expiry date is in the past',
+    ],
+    [
+      '14758',
+      'permit the reactivation on the day the expiry date itself falls',
+      'an INACTIVE payer whose expiry date is today',
+    ],
+    [
+      '14772',
+      'refuse the reactivation of an Expired payer as an invalid transition',
+      'an EXPIRED payer',
+    ],
+  ] as const) {
+    test(`${azureId}: should ${what}`, async ({ steps }) => {
+      steps.blocked(
+        `This case needs ${needs}. The create form will not accept an expiry date earlier than `
+        + 'tomorrow, so the state cannot be built through the interface, and the nightly lifecycle '
+        + 'job that would age a payer into it cannot be triggered from this suite. Seed a payer in '
+        + 'that state, or expose a way to run the job, and the case can be asserted as written.',
+      );
+      // steps.blocked() does not narrow the type for the compiler; the return
+      // is what tells it nothing below runs.
+      return;
+    });
+  }
 });

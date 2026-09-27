@@ -40,11 +40,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason: NEEDS_AFFECTED_POLICIES,
   },
   {
-    id: '002',
-    title: 'should list exactly one affected policy when the payer has one active policy',
-    reason: `${NEEDS_AFFECTED_POLICIES} The lower boundary needs exactly one.`,
-  },
-  {
     id: '003',
     title: 'should display and paginate a large volume of affected policies',
     reason: `${NEEDS_AFFECTED_POLICIES} The upper boundary asks for 1,000 or more.`,
@@ -60,13 +55,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason:
       `${NEEDS_AFFECTED_POLICIES} The notification content is also read from the notifications `
       + 'panel, which no payer story has needed to drive yet.',
-  },
-  {
-    id: '007',
-    title: 'should reflect real-time policy data rather than a stale cache in the impact summary',
-    reason:
-      `${NEEDS_AFFECTED_POLICIES} It also needs a policy deactivated moments before the analysis, `
-      + 'which is a Policies-module action.',
   },
   {
     id: '009',

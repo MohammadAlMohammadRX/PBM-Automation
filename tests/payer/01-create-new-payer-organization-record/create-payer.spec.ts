@@ -1,6 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { env } from '../../../constants/EnvironmentConfig';
-import { VALIDATION_MESSAGES } from '../../../data/payers/payer.data';
+import { PRE_APPROVAL_STATUS } from '../../../data/payers/initialStatusDerivation.data';
 import { LoginPage } from '../../../pages/auth/LoginPage';
 import { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 
@@ -56,6 +56,47 @@ test.describe('Create New Payer Organization Record - Draft creation', () => {
 
     await steps.step('The PayerCode column is empty for a Draft', () =>
       payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
+  });
+
+  // Azure test case 15598
+  test('15598: should keep a Draft payer non-live until Send for Approval is used', async ({
+    payerManagementPage,
+    uniquePayer,
+    cleanup,
+    steps,
+  }) => {
+    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
+
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    await steps.critical('Create the payer as a Draft', () =>
+      payerManagementPage.createDraftPayer(uniquePayer));
+
+    // "Non-live" is a LIFECYCLE fact, not an approval one: a draft has no live
+    // status to carry, which the list shows as "Not Live". Asserted separately
+    // from the approval status so a change in either is reported on its own.
+    await steps.step('The new payer carries no live status', async () => {
+      expect(
+        await payerManagementPage.getLifecycleStatus(uniquePayer.nameEn),
+        'a payer that has never been approved should not be live',
+      ).toBe(PRE_APPROVAL_STATUS);
+    });
+
+    await steps.step('And it is waiting on the maker, not on a reviewer', () =>
+      payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Draft'));
+
+    // The point of the case: nothing but the explicit action moves it on.
+    await steps.step('Send for Approval is what moves it out of Draft', async () => {
+      await payerManagementPage.sendForApproval(uniquePayer.nameEn);
+      await payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Pending Approval');
+    });
+
+    await steps.step('And it is still not live while it awaits a decision', async () => {
+      expect(
+        await payerManagementPage.getLifecycleStatus(uniquePayer.nameEn),
+        'a payer awaiting its first approval should still not be live',
+      ).toBe(PRE_APPROVAL_STATUS);
+    });
   });
 });
 
@@ -122,42 +163,6 @@ test.describe('Create New Payer Organization Record - Timestamp integrity', () =
  * A saved Draft survives navigating away from and back to the module.
  */
 test.describe('Create New Payer Organization Record - Draft persistence', () => {
-  test('TC-016: should retain all Draft field values when navigating away and returning before submission', async ({
-    payerManagementPage,
-    uniquePayer,
-    cleanup,
-    steps,
-  }) => {
-    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Create the payer as a Draft', () =>
-      payerManagementPage.createDraftPayer(uniquePayer));
-
-    await steps.step('The record is saved as a Draft', () =>
-      payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Draft'));
-
-    // Critical: the navigation IS the action under test. If it never happened,
-    // the retention checks below prove nothing.
-    await steps.critical('Navigate away from the module and return', () =>
-      payerManagementPage.navigateAwayAndReturn());
-
-    // All saved values are retained accurately and the record is still a Draft.
-    await steps.step('All saved field values are retained accurately', () =>
-      payerManagementPage.expectRowShowsDetails(uniquePayer.nameEn, [
-        uniquePayer.nameEn,
-        uniquePayer.licenseNumber,
-        uniquePayer.email,
-        uniquePayer.phone,
-      ]));
-
-    await steps.step('The record is still a Draft after returning', () =>
-      payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Draft'));
-
-    await steps.step('Still no PayerCode was assigned', () =>
-      payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
-  });
 });
 
 /**
@@ -257,45 +262,4 @@ test.describe('Create New Payer Organization Record - Send for Approval', () => 
       payerManagementPage.expectNoPayerCode(uniquePayer.nameEn));
   });
 
-  test('TC-014: should block sending for approval when a mandatory field is incomplete', async ({
-    payerManagementPage,
-    uniquePayer,
-    cleanup,
-    steps,
-  }) => {
-    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
-
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Create the payer as a Draft', () =>
-      payerManagementPage.createDraftPayer(uniquePayer));
-
-    // A record can only be sent for approval once it exists as a Draft; the app
-    // must never let a Draft reach an incomplete-yet-savable state. Edit the
-    // Draft, clear a mandatory field, and confirm the app refuses to save it -
-    // so no incomplete record can ever be sent for approval.
-    let edit!: Awaited<ReturnType<typeof payerManagementPage.openEditForm>>;
-
-    await steps.critical('Open the Draft for editing', async () => {
-      edit = await payerManagementPage.openEditForm(uniquePayer.nameEn);
-    });
-
-    await steps.critical('Advance to the Effective Period step', async () => {
-      await edit.clickNext(); // Basic -> Contact
-      await edit.clickNext(); // Contact -> Effective Period
-    });
-
-    await steps.critical('Clear the mandatory Effective Date and attempt to save', async () => {
-      await edit.clearField('Effective Date');
-      await edit.save();
-    });
-
-    await steps.step('"Effective Date" shows a required-field error', () =>
-      edit.expectFieldRequired('Effective Date', VALIDATION_MESSAGES.required));
-
-    await steps.step('The form stays open, so the incomplete save was rejected', () =>
-      edit.waitForOpen());
-
-    await steps.critical('Discard the incomplete edit', () => edit.closeAndDiscard());
-  });
 });

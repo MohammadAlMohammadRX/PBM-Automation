@@ -37,7 +37,7 @@ export const LINKED_POLICIES_ROLE_REQUIREMENT = {
     + 'shared administrator sees everything, so running it as the administrator asserts nothing.',
 } as const;
 
-const NEEDS_POLICY_OWNER =
+export const NEEDS_POLICY_OWNER =
   'This case needs a payer that OWNS policies, and no payer in this environment does - the '
   + 'Policies module that would create one is outside this framework. Provide a payer with the '
   + 'linked policies the case names and re-run; the readers for the tab already exist.';
@@ -52,11 +52,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
   {
     id: '002',
     title: 'should open the policy details view when a linked policy row is clicked',
-    reason: NEEDS_POLICY_OWNER,
-  },
-  {
-    id: '004',
-    title: 'should list a single policy correctly when the payer has exactly one',
     reason: NEEDS_POLICY_OWNER,
   },
   {
@@ -83,16 +78,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     id: '009',
     title: 'should show a Members count sourced from true ownership data',
     reason: `${NEEDS_POLICY_OWNER} Member enrolment is the Member Management module, also outside this framework.`,
-  },
-  {
-    id: '011',
-    title: 'should show a newly linked policy immediately when the tab is reopened',
-    reason: `${NEEDS_POLICY_OWNER} Linking a policy to the payer is done in the Policies module.`,
-  },
-  {
-    id: '012',
-    title: 'should handle a linked policy that was deleted without breaking the list',
-    reason: `${NEEDS_POLICY_OWNER} It also needs a policy that can be deleted or archived afterwards.`,
   },
   {
     id: '013',

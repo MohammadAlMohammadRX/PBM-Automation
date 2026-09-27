@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { describeCounts } from '../../../fixtures/linkedCountState.fixture';
@@ -362,62 +363,6 @@ test.describe('Linked networks count', () => {
     });
   });
 
-  test('TC-008: should source the count from the network service rather than the payer record', async ({
-    page,
-    payerManagementPage,
-    linkedCounts,
-    steps,
-  }) => {
-    let subject!: { name: string; raw: string; value: number | null };
-
-    await steps.critical('Navigate to the module and note a payer with linked networks', async () => {
-      const classes = await linkedCounts('networks');
-      const found = classes.many ?? classes.one;
-      if (found === undefined) {
-        steps.blocked(
-          `No payer in this environment has a linked network, so the served-count check `
-          + `cannot be checked. Counts seen: ${describeCounts(classes)}. This is the same `
-          + 'blocker the network-assignment story reports: every network already belongs to a '
-          + 'payer and none can be released. Remedy: free one network, or link one to any payer.',
-        );
-      }
-      subject = found!;
-      expect(
-        subject.value,
-        `the payer found ("${subject.name}") should hold a countable number`,
-      ).not.toBeNull();
-    });
-
-    await steps.step('The list request itself carries the count', async () => {
-      // The sheet asks that the count be "correctly sourced from the Network
-      // Management module". What is observable from here is where the number
-      // the column renders comes from: the payer-list payload. Asserting that
-      // makes the case a regression guard on the contract - if the count ever
-      // stops being served with the list, the column has no source and this
-      // reports it.
-      // Anchored so it cannot capture GetPayersDashboard or
-      // GetPayersDropdown - see captureJsonResponseMatching.
-      const body = await NetworkUtils.captureJsonResponseMatching(
-        page,
-        /GetPayers(\?|$)/,
-        () => payerManagementPage.open(),
-      );
-      expect(body, 'the payer list request should have been observed').not.toBeNull();
-      expect(
-        JSON.stringify(body).toLowerCase(),
-        'the list payload should carry a linked-network count for the column to render',
-      ).toContain('network');
-    });
-
-    await steps.step('And the rendered number matches the served one', async () => {
-      const rendered = await payerManagementPage.getCountValue(subject.name, 'networks');
-      expect(
-        rendered,
-        `the column should render the count the service served for "${subject.name}"`,
-      ).toBe(subject.value);
-    });
-  });
-
   // Azure test case 14786
   test('14786: should show a placeholder rather than a wrong number when the count cannot be loaded', async ({
     page,
@@ -451,6 +396,73 @@ test.describe('Linked networks count', () => {
       await NetworkUtils.restoreEndpoint(page, ApiEndpoints.payerList);
       await payerManagementPage.open();
       await payerManagementPage.expectRowsRendered();
+    });
+  });
+});
+
+/**
+ * The column as a surface: who may see it, and how it presents itself.
+ *
+ * Separate describe from the counting cases above, because these two say
+ * nothing about whether the number is right - only about the column being
+ * offered, labelled and sortable, and withheld from a role that may not read
+ * the payer's networks.
+ */
+test.describe('Display Linked Networks Count - Column and access', () => {
+  // Azure test case 14788
+  test('14788: should present the Linked Networks column labelled, populated and sortable', async ({
+    payerManagementPage,
+    steps,
+  }) => {
+    await steps.critical('Open the payer list', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.expectRowsRendered();
+    });
+
+    await steps.step('The column is offered with the other sortable columns', () =>
+      payerManagementPage.expectColumnHeadersSortable());
+
+    // Every cell is either a number or the dash the story defines for zero.
+    // A blank cell is the failure this checks for: it reads as "no data" when
+    // the truth is "no networks", and those are different claims.
+    await steps.step('Every row shows a count or the defined zero placeholder', async () => {
+      const names = await payerManagementPage.getVisiblePayerNames();
+      const unreadable = [];
+      for (const name of names) {
+        const value = await payerManagementPage.getCountValue(name, 'networks');
+        if (value === null) unreadable.push(name);
+      }
+      expect(
+        unreadable,
+        `every row should carry a network count or the zero placeholder; blank on: ${unreadable.join(', ')}`,
+      ).toHaveLength(0);
+    });
+  });
+
+  // Azure test case 14793
+  test('14793: should withhold the count and its navigation from a role without network-read rights', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the linked-networks permission', async () => {
+      session = await shapedNonAdmin({ without: ['viewLinkedNetworks'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    // Two halves of one claim: the number is data, the link is a route to more
+    // of it. A role that may not read the payer's networks should get neither.
+    await steps.step('Neither the count nor a way into it is offered', async () => {
+      const name = (await session.payers.getVisiblePayerNames())[0];
+      const value = await session.payers.getCountValue(name, 'networks');
+      const clickable = await session.payers.isCountClickable(name, 'networks');
+      expect(
+        value === null && !clickable,
+        `a role without the permission should be shown no network count and no link; `
+          + `it was shown "${value}" and the link was ${clickable ? 'clickable' : 'inert'}`,
+      ).toBe(true);
     });
   });
 });

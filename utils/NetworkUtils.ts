@@ -99,6 +99,29 @@ export class NetworkUtils {
   }
 
   /**
+   * Holds ONE endpoint open for `ms` before letting it answer normally.
+   *
+   * For the cases about what a screen does WHILE it is loading - a control that
+   * must stay out of reach until the data has arrived. Those are otherwise
+   * untestable: the real request comes back in well under a second, so the
+   * loading state is gone before an assertion can see it.
+   *
+   * The response itself is untouched, so the screen ends in exactly the state
+   * it would have reached anyway, only later. Cleared by `restoreEndpoint`, the
+   * same as an injected failure.
+   */
+  static async delayEndpoint(page: Page, urlFragment: string, ms: number): Promise<void> {
+    Logger.step(`Holding requests matching "${urlFragment}" for ${ms}ms`);
+    const predicate = NetworkUtils.matcher(urlFragment);
+    const handler = async (route: Route): Promise<void> => {
+      await new Promise((resolve) => { setTimeout(resolve, ms); });
+      await route.continue();
+    };
+    NetworkUtils.remember(page, urlFragment, predicate, handler);
+    await page.route(predicate, handler);
+  }
+
+  /**
    * Answers ONE endpoint with a genuinely EMPTY result set, leaving the
    * response otherwise exactly as the server sent it.
    *

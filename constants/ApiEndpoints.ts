@@ -128,6 +128,13 @@ export const ApiEndpoints = {
   payerImpactPreview: '/api/Payers/GetPayerImpactPreview',
 
   /**
+   * The Linked Policies tab's feed (POST), and the surface the scope story
+   * cares about: a payer's policies are payer-scoped data, so a session that
+   * may not read them must be refused here and not only on the tab.
+   */
+  payerLinkedPolicies: '/api/Payers/GetPayerLinkedPolicies',
+
+  /**
    * The Assign Network drawer's pool of assignable networks (POST), fired when
    * the drawer opens. The list it returns is what the eligibility cases read.
    */

@@ -173,6 +173,53 @@ export const INVALID_TRANSITIONS: readonly InvalidTransition[] = [
   },
 ];
 
+/**
+ * The other half of the matrix: the moves it ALLOWS.
+ *
+ * INVALID_TRANSITIONS above records what must be refused, and a suite that only
+ * asserted refusals would pass against an application that offered nothing at
+ * all. These rows are what stop that: each names a status where the action must
+ * be OFFERED, so the checklist case has a control to fail on.
+ *
+ * `reachable` says whether this suite can put a payer into that status. Active
+ * and Inactive it can (the payerState fixtures provision both). Expired and
+ * Pending it cannot - see UNREACHABLE_MATRIX_STATUSES - so those rows are named
+ * in the assertion message rather than silently left out of it.
+ */
+export interface AllowedTransition {
+  status: 'Active' | 'Inactive';
+  action: 'activate' | 'inactivate';
+  why: string;
+}
+
+export const ALLOWED_TRANSITIONS: readonly AllowedTransition[] = [
+  {
+    status: 'Active',
+    action: 'inactivate',
+    why: 'A live payer must have a route out of service, or it can never be withdrawn.',
+  },
+  {
+    status: 'Inactive',
+    action: 'activate',
+    why: 'A withdrawn payer inside its window must have a route back, or the withdrawal is one-way.',
+  },
+];
+
+/**
+ * The statuses the matrix covers that this environment cannot produce, and why.
+ *
+ * Quoted into the checklist case's message so a pass is never read as proof the
+ * WHOLE matrix was walked.
+ */
+export const UNREACHABLE_MATRIX_STATUSES = {
+  Expired:
+    'no payer created here can be expired - the wizard refuses an expiry before today - and the '
+    + 'expired payers that exist are shared records this suite will not mutate',
+  Pending:
+    'reaching Pending needs an approved payer whose effective date has not arrived AND the '
+    + 'nightly job that later moves it on, which has no trigger available here',
+} as const;
+
 /** Builds a details string of an exact character length. */
 export function detailsOfLength(length: number): string {
   const stem = 'Inactivated by an automated regression test. ';

@@ -77,67 +77,129 @@ test.describe('Downstream impact analysis as a gate', () => {
     });
   });
 
-  test('TC-008: should inform the second administrator when two sessions change the same payer\'s status at once', async ({
+  // Azure test case 15056
+  test('15056: should refuse the status change until a reason is given', async ({
     payerManagementPage,
     payerInactivateDialog,
-    staleSession,
     publishedPayer,
     steps,
   }) => {
-    test.slow();
-
-    await steps.critical('Navigate to the module and open the Inactivate drawer in the first session', async () => {
+    await steps.critical('Open the Inactivate drawer on a published payer', async () => {
       await payerManagementPage.open();
       await payerManagementPage.search(publishedPayer.nameEn);
       await payerManagementPage.waitForRowVisible(publishedPayer.nameEn);
       await payerManagementPage.inactivateRow(publishedPayer.nameEn);
-      await payerInactivateDialog.getImpactSummaryText();
+      await payerInactivateDialog.waitForOpen();
     });
 
-    await steps.step('A second administrator stages the same inactivation first', async () => {
-      await staleSession.payerPage.open();
-      await staleSession.payerPage.search(publishedPayer.nameEn);
-      await staleSession.payerPage.waitForRowVisible(publishedPayer.nameEn);
-      await staleSession.payerPage.inactivateRow(publishedPayer.nameEn);
-      await staleSession.inactivateDialog.selectReason(PRIMARY_REASON);
-      await staleSession.inactivateDialog.confirm();
-      await staleSession.payerPage.open();
-      await staleSession.payerPage.search(publishedPayer.nameEn);
-      const label = await staleSession.payerPage.getVersionLabel(publishedPayer.nameEn);
-      expect(label, `the second session should have staged a draft; the row reads "${label}"`).toMatch(
-        /Draft|Pending/i,
-      );
-    });
-
-    await steps.step('The first session is told about the concurrent change when it confirms', async () => {
-      // The first administrator reviewed an impact summary that is now stale
-      // and is about to stage a second, competing change. The sheet expects
-      // them to be told; a silent duplicate is the defect.
-      await payerInactivateDialog.selectReason(PRIMARY_REASON);
-      await payerInactivateDialog.attemptConfirm();
+    // The reason is what the impact analysis and the audit trail are recorded
+    // against, so a status change without one would leave a change nobody can
+    // account for. Either refusal is correct - Confirm gated, or the drawer
+    // holding - and the message says which was met.
+    await steps.step('Confirming with no reason chosen does not put the change through', async () => {
+      const outcome = await payerInactivateDialog.attemptConfirm();
       const stillOpen = await payerInactivateDialog.remainsOpen();
-      const messages = [
-        ...(await payerInactivateDialog.getValidationMessages()),
-        ...(await payerManagementPage.waitForVisibleMessages()),
-      ];
-      const informed = messages.some((message) => CONCURRENT_CHANGE_HINT.test(message));
       expect(
-        informed || stillOpen,
-        `the first administrator should be told another change is already staged; the drawer `
-          + `${stillOpen ? 'stayed open' : 'closed'} and the screen showed: `
-          + `${messages.join(' | ') || '(nothing)'}`,
+        outcome.wasGated || stillOpen,
+        `a status change with no reason must not proceed; Confirm was ${outcome.wasGated ? 'disabled' : 'enabled'} `
+          + `and the drawer ${stillOpen ? 'stayed open' : 'CLOSED'}`,
       ).toBe(true);
     });
 
-    await steps.step('The payer carries a single staged change', async () => {
+    await steps.step('And the payer is left exactly as it was', async () => {
+      await payerInactivateDialog.cancel().catch(() => undefined);
       await payerManagementPage.open();
       await payerManagementPage.search(publishedPayer.nameEn);
       await payerManagementPage.expectLifecycleStatus(
         publishedPayer.nameEn,
         LIFECYCLE_STATUS.active.en,
       );
-      const label = await payerManagementPage.getVersionLabel(publishedPayer.nameEn);
-      expect(label, `one staged change should remain; the row reads "${label}"`).toMatch(/Draft|Pending/i);
+    });
+  });
+
+  // Azure test case 15044
+  test('15044: should raise the impact analysis for a status change and not for an ordinary edit', async ({
+    payerManagementPage,
+    payerInactivateDialog,
+    publishedPayer,
+    page,
+    steps,
+  }) => {
+    let onStatusChange = false;
+
+    await steps.step('A status change raises the analysis', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(publishedPayer.nameEn);
+      await payerManagementPage.waitForRowVisible(publishedPayer.nameEn);
+      await payerManagementPage.inactivateRow(publishedPayer.nameEn);
+      await payerInactivateDialog.waitForOpen();
+      onStatusChange = await payerInactivateDialog.hasImpactSection();
+      expect(
+        onStatusChange,
+        'inactivation is a qualifying transition, so the drawer should carry the impact summary',
+      ).toBe(true);
+      await payerInactivateDialog.cancel().catch(() => undefined);
+    });
+
+    // The other half of "only for defined transitions": editing a field is not
+    // a status change, so the analysis must not be raised - firing it on every
+    // save would make the summary meaningless where it does matter.
+    await steps.step('An edit that changes no status does not raise it', async () => {
+      await payerManagementPage.open();
+      const requests = await NetworkUtils.countRequestsDuring(
+        page,
+        ApiEndpoints.payerImpactPreview,
+        async () => {
+          const form = await payerManagementPage.openEditForm(publishedPayer.nameEn);
+          await form.closeAndDiscard().catch(() => undefined);
+        },
+      );
+      expect(
+        requests,
+        `opening an edit is not a status change, so no impact analysis should be requested; ${requests} were`,
+      ).toBe(0);
+    });
+  });
+
+  // Azure test case 15036
+  test('15036: should offer the analysis for each status class that can change status', async ({
+    payerManagementPage,
+    payerInactivateDialog,
+    steps,
+  }) => {
+    // The case compares transition CLASSES, so it needs a payer sitting in more
+    // than one of them. Which classes exist is a property of the data, not of
+    // the application, so it is established first and the case reports BLOCKED
+    // rather than drawing a conclusion from whatever happened to be there.
+    await steps.step('Each reachable status class offers or withholds the analysis correctly', async () => {
+      await payerManagementPage.open();
+      const found = await payerManagementPage.findPayerWithApprovalStatus('Published').catch(() => null);
+      if (!found) {
+        steps.blocked(
+          'this case compares the analysis across status classes and the register held no '
+          + 'published payer to start from.',
+        );
+        return; // unreachable: blocked() throws. Kept so the narrowing is explicit.
+      }
+
+      const active = found.name;
+      await payerManagementPage.search(active);
+      await payerManagementPage.waitForRowVisible(active);
+      const offered = await payerManagementPage.getRowActionAvailability(active, 'inactivate');
+      if (offered !== 'available') {
+        steps.blocked(
+          `"${active}" offers no inactivation, so the qualifying class cannot be exercised; the `
+          + 'case needs a payer whose status can still change.',
+        );
+      }
+
+      await payerManagementPage.inactivateRow(active);
+      await payerInactivateDialog.waitForOpen();
+      expect(
+        await payerInactivateDialog.hasImpactSection(),
+        'a payer whose status can change belongs to the qualifying class and should be analysed',
+      ).toBe(true);
+      await payerInactivateDialog.cancel().catch(() => undefined);
     });
   });
 

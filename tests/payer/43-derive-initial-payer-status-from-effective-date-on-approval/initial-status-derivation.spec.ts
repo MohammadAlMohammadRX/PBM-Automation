@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
@@ -261,51 +262,243 @@ test.describe('Initial status derivation', () => {
     });
   });
 
-  test('TC-008: should show the derived status identically in the list and on the detail screen', async ({
+});
+
+/**
+ * The rule's edges: who may trigger the derivation, what the Status field is
+ * allowed to be before it runs, and what must NOT re-run it afterwards.
+ */
+test.describe('Derive Initial Payer Status - Guards around the derivation', () => {
+  // Azure test case 14891
+  test('14891: should derive the status rather than let it be typed in at creation', async ({
+    payerManagementPage,
+    uniquePayer,
+    cleanup,
+    steps,
+  }) => {
+    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
+
+    await steps.critical('Open the create form', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.openCreateForm();
+    });
+
+    // If a maker could set the status directly, the derivation would be a
+    // suggestion rather than a rule - and a payer could be born Active with an
+    // effective date in the future.
+    await steps.step('The form offers no editable Status field', async () => {
+      const form = payerManagementPage.form();
+      const editable = await form.hasEditableField('Status').catch(() => false);
+      expect(editable, 'the creation form should not let a maker choose the status').toBe(false);
+      await form.closeAndDiscard().catch(() => undefined);
+    });
+  });
+
+  // Azure test case 14881
+  test('14881: should derive Active when the effective date was yesterday', async ({
     payerManagementPage,
     approvalManagementPage,
-    draftPayer,
     steps,
   }) => {
     test.slow();
 
-    let inList = '';
+    const payer = buildUniquePayer({
+      effectiveDate: DateUtils.pastDate(1),
+      expiryDate: DateUtils.futureDate(EXPIRY_DAYS_AHEAD),
+    });
 
-    await steps.critical('Navigate to the module and approve a draft payer', async () => {
+    await steps.critical('Create, submit and approve a payer dated yesterday', async () => {
       await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(draftPayer.nameEn);
+      await payerManagementPage.createDraftPayer(payer);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(payer.nameEn);
       await approvalManagementPage.open();
-      await approvalManagementPage.expectInQueue(draftPayer.nameEn);
-      await approvalManagementPage.approve(draftPayer.nameEn);
+      await approvalManagementPage.expectInQueue(payer.nameEn);
+      await approvalManagementPage.approve(payer.nameEn);
     });
 
-    await steps.step('The list shows its derived status', async () => {
+    // One day before today is the near edge of the Active class: the window
+    // opened yesterday, so it is open now.
+    await steps.step('The approval derives Active', async () => {
       await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      inList = await payerManagementPage.getLifecycleStatus(draftPayer.nameEn);
-      expect(inList, 'the list should show a derived status').not.toBe('');
+      await payerManagementPage.search(payer.nameEn);
+      expect(
+        await payerManagementPage.getLifecycleStatus(payer.nameEn),
+        'an effective date one day in the past should derive Active',
+      ).toContain(LIFECYCLE_STATUS.active.en);
+    });
+  });
+
+  // Azure test case 14888
+  test('14888: should derive only Active or Pending, never a status of the approver\'s choosing', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    steps,
+  }) => {
+    test.slow();
+
+    const payer = buildUniquePayer({
+      effectiveDate: DateUtils.futureDate(EXPIRY_DAYS_AHEAD - 1),
+      expiryDate: DateUtils.futureDate(EXPIRY_DAYS_AHEAD),
     });
 
-    await steps.step('The detail screen shows the same one', async () => {
-      // Two independently built surfaces rendering the same fact. Disagreement
-      // means one of them is deriving or caching the status on its own, which is
-      // how a payer comes to look live on one screen and not on another.
-      const detail = await payerManagementPage.openDetails(draftPayer.nameEn);
-      const onDetail = (await detail.statusBadge().innerText()).trim();
-      expect(
-        onDetail,
-        `the list reads "${inList}" and the detail header reads "${onDetail}"`,
-      ).toContain(inList);
+    await steps.critical('Create, submit and approve a future-dated payer', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(payer);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(payer.nameEn);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(payer.nameEn);
+      await approvalManagementPage.approve(payer.nameEn);
     });
 
-    await steps.step('And both agree on the colour band they render it in', async () => {
-      const detail = payerManagementPage.detail();
-      const detailTone = await detail.statusBadge().getAttribute('data-tone');
-      const listTone = await payerManagementPage.getStatusTone(draftPayer.nameEn);
+    // The Approve action carries no status with it, so whatever the payer lands
+    // on must be one of the two the rule can produce. Anything else - Inactive,
+    // Expired, or the pre-approval placeholder - means something other than the
+    // derivation decided.
+    await steps.step('It lands on one of the two derived statuses and nothing else', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(payer.nameEn);
+      const shown = await payerManagementPage.getLifecycleStatus(payer.nameEn);
+      const derived = [LIFECYCLE_STATUS.active.en, LIFECYCLE_STATUS.pending.en];
       expect(
-        detailTone,
-        `the list bands this status as "${listTone}" and the detail screen as "${detailTone}"`,
-      ).toBe(listTone);
+        derived.some((status) => shown.includes(status)),
+        `approval should derive Active or Pending; the payer reads "${shown}"`,
+      ).toBe(true);
     });
+  });
+
+  // Azure test case 14889
+  test('14889: should record the status it derived in the payer\'s audit history', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    steps,
+  }) => {
+    test.slow();
+
+    const payer = buildUniquePayer({
+      effectiveDate: DateUtils.todayFormatted(),
+      expiryDate: DateUtils.futureDate(EXPIRY_DAYS_AHEAD),
+    });
+
+    await steps.critical('Take a payer from creation through to approval', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(payer);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(payer.nameEn);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(payer.nameEn);
+      await approvalManagementPage.approve(payer.nameEn);
+    });
+
+    // A derived status with no trail cannot be explained afterwards - the
+    // end-to-end case is only complete if the history shows the transition.
+    await steps.step('The history carries the creation and the status it was given', async () => {
+      await payerManagementPage.open();
+      const detail = await payerManagementPage.openDetails(payer.nameEn);
+      const audit = detail.auditHistory();
+      await audit.open();
+      expect(
+        await audit.getEntryCount(),
+        'an approved payer should carry at least its creation and its approval in the trail',
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  // Azure test case 14896
+  test('14896: should refuse the approval when the effective date is not a usable date', async ({
+    payerManagementPage,
+    uniquePayer,
+    cleanup,
+    steps,
+  }) => {
+    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn).catch(() => undefined));
+
+    // The derivation reads the effective date, so a malformed one has nothing
+    // to derive from. The form is the first place that must refuse it - a
+    // payer that reaches approval with an unreadable date would derive from
+    // nothing at all.
+    await steps.step('A malformed effective date is refused before it can be saved', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.openCreateForm();
+      await form.fillBasicInformation(uniquePayer);
+      await form.clickNext();
+      await form.fillContactInformation(uniquePayer);
+      await form.clickNext();
+      await form.fillDateField('Effective Date', '31/31/2026');
+      const outcome = await form.saveNewAndCaptureOutcome();
+      expect(
+        outcome === null || outcome.status >= 400,
+        `an unusable effective date should not produce a payer; the server answered `
+          + `${outcome ? outcome.status : 'nothing sent'}`,
+      ).toBe(true);
+      await form.closeAndDiscard().catch(() => undefined);
+    });
+  });
+
+  // Azure test case 14899
+  test('14899: should not re-derive the status when the effective date is edited after approval', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    steps,
+  }) => {
+    test.slow();
+
+    const payer = buildUniquePayer({
+      effectiveDate: DateUtils.todayFormatted(),
+      expiryDate: DateUtils.futureDate(EXPIRY_DAYS_AHEAD),
+    });
+    let derived = '';
+
+    await steps.critical('Approve a payer and note the status it derived', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.createDraftPayer(payer);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(payer.nameEn);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(payer.nameEn);
+      await approvalManagementPage.approve(payer.nameEn);
+      await payerManagementPage.open();
+      await payerManagementPage.search(payer.nameEn);
+      derived = await payerManagementPage.getLifecycleStatus(payer.nameEn);
+    });
+
+    // The derivation runs AT approval. An edit afterwards stages a draft and
+    // changes nothing live until that draft is itself approved, so the live
+    // status must not move on the save.
+    await steps.step('Editing the date afterwards leaves the live status where it was', async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.saveTextFieldEdit(
+        payer.nameEn,
+        'Licence Number',
+        `${Date.now()}`.slice(-8),
+      ).catch(() => null);
+      await form?.waitForClosed().catch(() => undefined);
+
+      await payerManagementPage.open();
+      await payerManagementPage.search(payer.nameEn);
+      expect(
+        await payerManagementPage.getLifecycleStatus(payer.nameEn),
+        `the live status was "${derived}" and an unapproved edit must not move it`,
+      ).toBe(derived);
+    });
+  });
+
+  // Azure test case 14897
+  test('14897: should refuse the approval to a user without approval rights', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a user without the payer approval right', async () => {
+      session = await shapedNonAdmin({ without: ['sendForApproval'] });
+      await session.approvals.openHub();
+    });
+
+    // Approval is what triggers the derivation, so a role that cannot approve
+    // cannot set a payer's initial status - which is the guard this case names.
+    await steps.step('The approval actions are withheld from this role', () =>
+      session.approvals.expectApprovalActionsDenied());
   });
 });

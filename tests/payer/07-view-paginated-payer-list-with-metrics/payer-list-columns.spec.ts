@@ -9,6 +9,7 @@ import {
   REQUIRED_ROW_ACTIONS,
   STATUS_TONE_CASES,
 } from '../../../data/payers/payerListMetrics.data';
+import { ALLOWED_TRANSITIONS } from '../../../data/payers/lifecycleGuardrails.data';
 
 /**
  * User story: View Paginated Payer List with Metrics.
@@ -69,7 +70,8 @@ test.describe('View Paginated Payer List with Metrics - Table shape and formats'
     });
   });
 
-  test('TC-002: should render Email, Phone and PayerCode in their expected formats', async ({
+  // Azure test case 14444
+  test('14444: should render Email, Phone and PayerCode in their expected formats', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -148,6 +150,79 @@ test.describe('View Paginated Payer List with Metrics - Table shape and formats'
     await steps.step('No two statuses share a colour band', async () => {
       await payerManagementPage.resetFilters();
       await payerManagementPage.expectStatusTonesDistinct();
+    });
+  });
+
+  // Azure test case 14460
+  test('14460: should offer each row the actions its own status allows, and no others', async ({
+    payerManagementPage,
+    steps,
+  }) => {
+    test.slow();
+
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    // 14444 above proves a row's actions are rendered and usable. This is the
+    // separate question: that WHICH actions appear depends on the row's status.
+    // A table that offered every action on every row would satisfy 14444
+    // completely and be wrong here - an Active payer would be offered a
+    // reactivation, and an Expired one a withdrawal it cannot perform.
+    //
+    // The expectation is read from the same matrix the status-transition story
+    // asserts against, so the two cannot drift apart.
+    const STATUS_ACTIONS = ['activate', 'inactivate'] as const;
+    const exercised: string[] = [];
+    const absent: string[] = [];
+    const wrong: string[] = [];
+
+    for (const status of ['Active', 'Inactive', 'Expired'] as const) {
+      await steps.step(`A ${status} row offers exactly what the matrix allows`, async () => {
+        await payerManagementPage.open();
+        await payerManagementPage.filterByStatus(status);
+        const names = await payerManagementPage.getVisiblePayerNames();
+        if (names.length === 0) {
+          // Not a failure: the register need not hold a payer in every status.
+          // Recorded so the closing assertion can say what was not covered.
+          absent.push(status);
+          return;
+        }
+
+        const allowed = ALLOWED_TRANSITIONS.filter((row) => row.status === status).map(
+          (row) => row.action,
+        );
+        const offered = await payerManagementPage.getEnabledRowActions(names[0], STATUS_ACTIONS);
+        exercised.push(status);
+
+        const missing = allowed.filter((action) => !offered.includes(action));
+        const extra = offered.filter((action) => !allowed.includes(action as 'activate'));
+        if (missing.length > 0 || extra.length > 0) {
+          wrong.push(
+            `${status} ("${names[0]}") offered [${offered.join(', ') || 'none'}] `
+            + `but the matrix allows [${allowed.join(', ') || 'none'}]`,
+          );
+        }
+      });
+    }
+
+    // THE GUARD. With one status in the list there is nothing to compare
+    // against, and "every row offered what it should" would be true of a table
+    // that varied its actions not at all.
+    await steps.critical('At least two different statuses were on the list to compare', () => {
+      expect(
+        exercised.length,
+        `this case can only discriminate across statuses, and the list held only `
+          + `[${exercised.join(', ') || 'none'}] (absent: ${absent.join(', ') || 'none'}). `
+          + 'Seed a payer in a second status and re-run.',
+      ).toBeGreaterThan(1);
+      return Promise.resolve();
+    });
+
+    await steps.step('No row offered an action its status forbids', async () => {
+      expect(
+        wrong,
+        `row actions should follow the payer's status: ${wrong.join('; ')}`,
+      ).toEqual([]);
+      await payerManagementPage.resetFilters();
     });
   });
 });

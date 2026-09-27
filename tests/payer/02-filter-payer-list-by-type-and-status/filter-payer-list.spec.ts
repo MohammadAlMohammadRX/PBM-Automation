@@ -1,4 +1,4 @@
-import { test, expect } from '../../../fixtures';
+import { test } from '../../../fixtures';
 import {
   STATUS_BOUNDARY_CASES,
   FILTER_COMBINATIONS,

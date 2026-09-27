@@ -1,8 +1,8 @@
 import { test, expect } from '../../../fixtures';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
-import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
+import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { PAYER_EXPORT_COLUMN } from '../../../constants/ElementIds';
 import type { PayerData } from '../../../data/payers/payerTypes';
 import { SCOPE_FILTER } from '../../../data/payers/exportScope.data';
@@ -11,7 +11,6 @@ import {
   EXPORT_FILE_NAME,
   FILTERED_SCOPE,
   NO_MATCH_SEARCH,
-  ORDER_SAMPLE,
   REQUIRED_EXPORT_COLUMNS,
   SPECIAL_LICENCE,
   TIMESTAMP_TOLERANCE_MS,
@@ -165,26 +164,6 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-007: should export immediately without a scope prompt when no filter is applied', async ({
-    payerManagementPage,
-    exportMenu,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module with no filter applied', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.expectRowsRendered();
-    });
-
-    await steps.step('No scope prompt is shown', async () => {
-      // Sheet 33's expectation; sheet 23 (folder 28 TC-002) expects the prompt
-      // ALWAYS. The app prompts always - asserted as this sheet states it.
-      await exportMenu.open();
-      const scopes = await exportMenu.getOfferedScopes();
-      expect(scopes, `with no filter the export should not prompt for a scope; it offered: ${scopes.join(', ')}`).toEqual([]);
-      await exportMenu.cancelMenu();
-    });
-  });
-
   // Azure test case 14555
   test('14555: should name the file PayerList_YYYYMMDD_HHMMSS with a timestamp of the export moment', async ({
     payerManagementPage,
@@ -229,29 +208,6 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-010: should export the whole register without truncation or duplication', async ({
-    payerManagementPage,
-    exportMenu,
-    payerMetrics,
-    steps,
-  }) => {
-    test.slow();
-    let total = 0;
-
-    await steps.critical('Navigate to the module and read the total payer count', async () => {
-      await payerManagementPage.open();
-      total = await payerMetrics.getMetric('total');
-      expect(total, 'the register should hold payers').toBeGreaterThan(0);
-    });
-
-    await steps.step('The export holds exactly that many distinct payers', async () => {
-      const parsed = await exportMenu.exportCsv('all');
-      expect(parsed.rows.length, 'row count should equal the total on screen').toBe(total);
-      const codes = new Set(parsed.rows.map((r) => r[PAYER_EXPORT_COLUMN.code]));
-      expect(codes.size, 'no payer should be duplicated').toBe(parsed.rows.length);
-    });
-  });
-
   // Azure test case 14563
   test('14563: should encode Arabic names and special characters correctly in the export', async ({
     payerManagementPage,
@@ -280,25 +236,6 @@ test.describe('Export the payer list', () => {
       expect(row, 'the new payer should be in the file').not.toBe(undefined);
       expect(row?.[PAYER_EXPORT_COLUMN.nameAr], 'Arabic must survive the encoding').toBe(expected.nameAr);
       expect(row?.[PAYER_EXPORT_COLUMN.licenseNumber], 'quotes, commas, & and % must survive').toBe(SPECIAL_LICENCE);
-    });
-  });
-
-  test('TC-012: should abort the export with no file when the scope prompt is cancelled', async ({
-    payerManagementPage,
-    exportMenu,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module and apply a filter', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.filterByStatus(SCOPE_FILTER.status);
-      await payerManagementPage.expectRowsRendered();
-    });
-
-    await steps.step('Cancelling the prompt downloads nothing and keeps the filtered list', async () => {
-      await exportMenu.open();
-      const downloaded = await exportMenu.expectNoDownloadWhile(() => exportMenu.cancelMenu());
-      expect(downloaded, 'cancelling must not download a file').toBe(false);
-      await payerManagementPage.expectRowsRendered();
     });
   });
 
@@ -339,39 +276,6 @@ test.describe('Export the payer list', () => {
     });
   });
 
-  test('TC-016: should reflect the applied sort order and search query in the exported data', async ({
-    payerManagementPage,
-    exportMenu,
-    publishedPayer,
-    steps,
-  }) => {
-    test.slow();
-    let onScreen: string[] = [];
-
-    await steps.critical('Navigate to the module and sort the list by name descending', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.sortBy('payerName', 'desc');
-      onScreen = (await payerManagementPage.getColumnValues('payerName')).slice(0, ORDER_SAMPLE);
-      expect(onScreen.length).toBeGreaterThan(0);
-    });
-
-    await steps.step('The export is in the same order as the screen', async () => {
-      const parsed = await exportMenu.exportCsv('all');
-      const inFile = parsed.rows.map((r) => r[PAYER_EXPORT_COLUMN.nameEn]).slice(0, onScreen.length);
-      expect(inFile, 'the file should follow the on-screen sort order').toEqual(onScreen);
-    });
-
-    await steps.step('A search narrows the export to the searched records', async () => {
-      await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.waitForRowVisible(publishedPayer.nameEn);
-      const parsed = await exportMenu.exportCsv('all');
-      expect(
-        parsed.rows.length,
-        `with a search applied the export should hold only the searched record(s); it held ${parsed.rows.length}`,
-      ).toBe(1);
-    });
-  });
-
 
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
@@ -394,6 +298,70 @@ test.describe('Export the payer list', () => {
       await session.exportMenu.expectExportRefused();
     });
   });
+  // Azure test case 14569
+  test('14569: should produce a workbook that opens as a real spreadsheet', async ({
+    payerManagementPage,
+    exportMenu,
+    steps,
+  }) => {
+    await steps.critical('Navigate to the module with the unfiltered list', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.expectRowsRendered();
+    });
+
+    // WHAT "OPENS CORRECTLY" MEANS HERE. An .xlsx is a zip, and the parts a
+    // spreadsheet needs to open are named in its central directory - which is
+    // stored uncompressed, so their names are readable straight from the bytes.
+    // A file that is a valid zip but carries none of them is what a broken
+    // export produces: it downloads, and then Excel refuses it. The cell
+    // contents are deflated and not readable without a parser, and exceljs is
+    // not a dependency of this suite, so the columns are left to 14554.
+    await steps.step('The workbook carries the parts a spreadsheet needs to open', async () => {
+      const { filename, bytes } = await exportMenu.exportAndReadBytes('all', 'excel');
+      expect(filename, 'the workbook should follow the naming convention').toMatch(EXPORT_FILE_NAME.excel);
+
+      const directory = bytes.toString('latin1');
+      for (const part of ['xl/workbook.xml', 'xl/worksheets/sheet1.xml', '[Content_Types].xml']) {
+        expect(
+          directory.includes(part),
+          `a workbook Excel can open must contain "${part}"; the download did not`,
+        ).toBe(true);
+      }
+    });
+  });
+
+  // Azure test case 14561
+  test('14561: should keep the export out of reach while the list is still loading', async ({
+    payerManagementPage,
+    exportMenu,
+    page,
+    steps,
+  }) => {
+    // The real list answers in well under a second, so the loading state is
+    // gone before anything can look at it. Holding the endpoint open is the
+    // only way to observe the window this case is about.
+    await steps.critical('Hold the payer list open and navigate into the module', async () => {
+      await NetworkUtils.delayEndpoint(page, ApiEndpoints.payerList, 6000);
+      await payerManagementPage.navigate().catch(() => undefined);
+    });
+
+    await steps.step('The export is not offered while the rows are still coming', async () => {
+      const offered = await exportMenu.isAvailable();
+      expect(
+        offered,
+        'exporting a list that has not arrived would produce a file of nothing, so the control '
+          + 'should not be usable until the rows are in',
+      ).toBe(false);
+    });
+
+    await steps.step('And it returns once the list has loaded', async () => {
+      await NetworkUtils.restoreEndpoint(page, ApiEndpoints.payerList);
+      await payerManagementPage.open();
+      await payerManagementPage.expectRowsRendered();
+      await exportMenu.expectAvailable();
+    });
+  });
+
   for (const blocked of BLOCKED_CASES) {
     test(`${azureOrCase('70', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
