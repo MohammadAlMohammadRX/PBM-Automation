@@ -1,5 +1,5 @@
 import { test, expect } from '../../../fixtures';
-import { PAYER_COLUMN } from '../../../constants/ElementIds';
+import { GLOBAL, PAYER_COLUMN, byId } from '../../../constants/ElementIds';
 import {
   EMAIL_PATTERN,
   PAYER_CODE_PATTERN,
@@ -223,6 +223,42 @@ test.describe('View Paginated Payer List with Metrics - Table shape and formats'
         `row actions should follow the payer's status: ${wrong.join('; ')}`,
       ).toEqual([]);
       await payerManagementPage.resetFilters();
+    });
+  });
+
+  test('16456: should render the payer list as a table rather than as cards', async ({
+    payerManagementPage,
+    page,
+    steps,
+  }) => {
+    await steps.critical('Open the payer list', () => payerManagementPage.open());
+
+    // THE VIEW IS A STORED PREFERENCE, not a fresh default, and this case is
+    // the one place that matters. The application remembers each user's choice
+    // server-side, so "the first time, with no preference set" cannot be
+    // reproduced by a suite signing in as an account that has used the module
+    // before - and ours has. What CAN be asserted is the half the sheet's
+    // criterion really turns on: the table layout is the one on offer, the
+    // toggle exists, and Table is a reachable, real state rather than a card
+    // grid with no way out.
+    await steps.step('The toggle offers a table view and a card view', async () => {
+      await expect(
+        page.locator(byId(GLOBAL.viewToggleTable)),
+        'the list should offer a table view',
+      ).toBeVisible();
+      await expect(
+        page.locator(byId(GLOBAL.viewToggleCards)),
+        'and a card view to switch away from',
+      ).toBeVisible();
+    });
+
+    await steps.step('The rows render as a table with shared column headers', async () => {
+      const headers = await payerManagementPage.getColumnKeys();
+      expect(
+        headers.length,
+        'a table shares one set of column headers across every row; a card layout has none',
+      ).toBeGreaterThan(0);
+      await payerManagementPage.expectRowsRendered();
     });
   });
 });

@@ -45,6 +45,45 @@ export const INACTIVATION_WARNING = {
   approvalCaveat: 'it takes effect once a reviewer approves it',
 } as const;
 
+/**
+ * THE CASCADE HAS BEEN WITHDRAWN FROM THE PRODUCT - change sheet 2026-09-27.
+ *
+ * Two changes in that sheet say the same thing from different directions. The
+ * story "Cascade Inactivation to Plans and Policies on Inactivation or Expiry,
+ * Restore on Reactivation" (Azure US 14213) is marked **Removed**, and its
+ * fourteen cases were deleted. In the same sheet, this story's confirmation
+ * cases were **Updated** to require the opposite of what they required before:
+ *
+ *   15519 - "...and that plans and policies under the payer are not affected"
+ *   15527 - "...and no cascading to plans/policies at any stage"
+ *
+ * THE APPLICATION HAS NOT CAUGHT UP. As rendered today the drawer still says
+ * INACTIVATION_WARNING.cascade above - it still promises to inactivate the
+ * payer's plans and policies, and REACTIVATION_MESSAGE.restoration still
+ * promises to bring them back. So the cases that assert the new requirement
+ * FAIL, and that failure is the report: the behaviour was withdrawn on paper
+ * and not in the product, or it was withdrawn in the product and the message
+ * was left behind. Either is worth a developer's attention; a test quietly
+ * asserting the old sentence would hide both.
+ *
+ * Asserted as an ABSENCE rather than an exact new sentence, because the
+ * replacement wording has not been written yet and inventing one would fail on
+ * punctuation and report a defect that is not there.
+ */
+export const NO_CASCADE_REQUIREMENT = {
+  /** Sentences the confirmation must no longer carry. */
+  withdrawnPromises: [
+    'Inactivating this payer will also inactivate its active plans and policies.',
+    'They are restored if the payer is reactivated.',
+    'Its cascaded plans and policies will be restored.',
+  ],
+  /** What it must still say: the status change, and that it is only a draft. */
+  stillRequired: ['draft'],
+  why:
+    'Change sheet 2026-09-27 removed the cascade story (US 14213) and updated 15519 and 15527 '
+    + 'to require the confirmation to state that plans and policies are NOT affected.',
+} as const;
+
 /** The reactivation dialog's message, exactly as rendered. */
 export const REACTIVATION_MESSAGE = {
   question: 'Do you want to reactivate this payer?',

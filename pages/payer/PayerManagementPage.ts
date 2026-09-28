@@ -49,7 +49,8 @@ import {
   type SortDirection,
 } from '../../utils/SortUtils';
 import {
-  DEFAULT_SORT,
+  DEFAULT_SORT_LABEL,
+  RECENCY_SORTS,
   DIRECTION_SUFFIX,
   SORT_MATRIX,
   SORT_MENU_OPTION_COUNT,
@@ -161,6 +162,72 @@ export class PayerManagementPage extends ListPageBase {
   override async search(term: string): Promise<void> {
     await this.ensureListOpen();
     await super.search(term);
+
+    // THE SCOPE BOUNDARY. Since 2026-09-27 the module shows one payer at a
+    // time, and a search does NOT cross that boundary - searching "NUPCO"
+    // while "Al Dawaa" is in scope returns nothing at all, not a hint that the
+    // payer exists elsewhere. A suite that creates a payer and then looks for
+    // it would report "the payer was not created", which is both wrong and
+    // expensive to diagnose.
+    //
+    // So an empty result is retried ONCE with the term put in scope first.
+    // Only on empty: the dropdown carries every payer in the register, and
+    // opening it on every search would cost more than the search itself.
+    if (await this.hasAnyRow()) return;
+    if (!(await this.scopeTo(term))) return;
+    await super.search(term);
+  }
+
+  /**
+   * Puts `payerName` in scope, so the module will show it.
+   *
+   * Answers false when the switcher does not offer that payer - a partial term,
+   * a payer code, or a name that genuinely is not in the register - so the
+   * caller can tell "not in scope" from "not there".
+   */
+  async scopeTo(payerName: string): Promise<boolean> {
+    const select = this.byId(GLOBAL.payerScopeSelect);
+    if ((await select.count()) === 0) return false;
+
+    await select.click();
+
+    // NARROW BEFORE PICKING. The switcher carries every payer in the register -
+    // 1216 of them when this was written - so letting Playwright scan the whole
+    // option list costs seconds on every call, and the provisioning fixtures
+    // call it repeatedly. Typing into the overlay's own filter cuts the list to
+    // one or two rows first. The filter is optional: if the control has none,
+    // the pick below still works, just slower.
+    // locator-exception: the overlay's filter box and its option rows are
+    // PrimeNG internals with no ids; addressed by role, scoped to the open
+    // overlay.
+    const filter = this.page.getByRole('textbox').filter({ visible: true }).last();
+    if ((await filter.count()) > 0) await filter.fill(payerName);
+
+    const option = this.page
+      .getByRole('option', { name: payerName, exact: true })
+      .filter({ visible: true })
+      .first();
+    // The filtered list settles asynchronously, so wait for the option rather
+    // than counting straight away - counting won the race and reported "not
+    // offered" for a payer that was about to appear.
+    const offered = await option
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!offered) {
+      await this.page.keyboard.press('Escape');
+      return false;
+    }
+
+    Logger.step(`Putting "${payerName}" in scope`);
+    await option.click();
+    await this.waitForPageReady();
+    return true;
+  }
+
+  /** Whether the list is currently showing any row at all. */
+  private async hasAnyRow(): Promise<boolean> {
+    return (await this.rows().count()) > 0;
   }
 
   // =====================================================================
@@ -519,13 +586,19 @@ export class PayerManagementPage extends ListPageBase {
   /** Asserts the Sort By menu offers all seven columns in both directions. */
   async expectSortMenuComplete(language: AppLanguage = 'en'): Promise<void> {
     await this.sortMenu().expectTriggerPresent(language);
-    const expected = SORT_MATRIX.map((selection) =>
-      sortOptionLabel(selection.column, selection.direction, language),
-    );
+    // The seven column pairs, then the two recency orderings the 2026-09-28
+    // sheet added (14429, 14442) - which belong to no column, so they are
+    // appended rather than generated from SORT_MATRIX.
+    const expected = [
+      ...SORT_MATRIX.map((selection) =>
+        sortOptionLabel(selection.column, selection.direction, language),
+      ),
+      ...RECENCY_SORTS.map((recency) => recency.label[language]),
+    ];
     await expect
       .poll(() => this.sortMenu().optionLabels(), { timeout: Timeouts.default })
       .toEqual(expected);
-    expect(expected, 'seven columns x two directions').toHaveLength(SORT_MENU_OPTION_COUNT);
+    expect(expected, 'seven columns x two directions, plus the two recency sorts').toHaveLength(SORT_MENU_OPTION_COUNT);
   }
 
   /**
@@ -765,6 +838,23 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
+   * Asserts the Sort By control is showing the list's DEFAULT ordering.
+   *
+   * Reads the indicator rather than the table. Since the 2026-09-27/28 sheet
+   * the default is "Newest to Oldest" - ordered by creation date - and the
+   * payer list renders no creation-date column, so there is nothing in the
+   * table to compare it against. See DEFAULT_SORT_LABEL.
+   */
+  async expectDefaultSortIndicator(language: AppLanguage = 'en'): Promise<void> {
+    const shown = await this.sortMenu().collapsedText();
+    expect(
+      shown,
+      `the list should open on its default sort, "${DEFAULT_SORT_LABEL[language]}"; the `
+        + `control reads "${shown}"`,
+    ).toContain(DEFAULT_SORT_LABEL[language]);
+  }
+
+  /**
    * Asserts the list came back from a reload in its designed post-refresh state:
    * sort, filters and search all reset to their defaults, with the table
    * rendering normally and no stale rows.
@@ -773,8 +863,7 @@ export class PayerManagementPage extends ListPageBase {
     await this.reopen();
     await this.expectFiltersAtDefault();
     await expect(this.searchInput()).toHaveValue('', { timeout: Timeouts.default });
-    await this.expectSortIndicator(DEFAULT_SORT.column, DEFAULT_SORT.direction);
-    await this.expectColumnSorted(DEFAULT_SORT.column, DEFAULT_SORT.direction);
+    await this.expectDefaultSortIndicator();
   }
 
   // =====================================================================

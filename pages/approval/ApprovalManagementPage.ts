@@ -393,8 +393,35 @@ export class ApprovalManagementPage extends BasePage {
    * would otherwise cancel the in-flight approve/reject request).
    */
   private async waitForDecisionProcessed(payerName: string): Promise<void> {
-    await this.search(payerName);
-    await expect(this.row(payerName)).toHaveCount(0, { timeout: Timeouts.default });
+    // RE-SEARCHES ON EVERY POLL, and that is the whole point.
+    //
+    // This used to issue ONE search and then wait 30 s for the row to vanish
+    // from what that search returned. It cannot vanish: the queue re-queries
+    // only when a NEW search is issued - the same caveat `expectInQueue` above
+    // already documents for a record arriving - so the wait was staring at a
+    // stale result and always spent its full budget before failing.
+    //
+    // The cost of that was not a slow test but a wrong one. Every provisioning
+    // fixture approves something, so each burnt 30 s here and then reported
+    // "the payer could not be provisioned", which reads as an application
+    // fault. On 2026-09-28 it was taking folder 44 past a four-minute test
+    // timeout with the application behaving perfectly.
+    await expect
+      .poll(
+        async () => {
+          await this.search(payerName);
+          return this.row(payerName).count();
+        },
+        {
+          timeout: Timeouts.default,
+          intervals: [500, 1_000, 2_000],
+          message:
+            `"${payerName}" should leave the approval queue once its request is decided. `
+            + 'The queue was re-searched repeatedly and kept returning it, which means the '
+            + 'decision did not take effect.',
+        },
+      )
+      .toBe(0);
   }
 
   /** Applies an Approve/Reject decision - keeps the branch out of the spec. */

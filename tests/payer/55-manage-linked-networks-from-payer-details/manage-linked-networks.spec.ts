@@ -1,5 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
@@ -218,5 +219,64 @@ test.describe('Manage Network Assignments - Availability and access', () => {
       + 'from the Networks module while the payer drawer is open, so the availability list can '
       + 'be seen to drop it.',
     );
+  });
+});
+
+/**
+ * Added by change sheet 2026-09-27: what the tab reports about each network,
+ * and which networks the Add list is allowed to offer.
+ */
+test.describe('Manage Network Assignments - what the tab reports', () => {
+  test('16459: should show each linked network\'s own current status', async ({
+    payerManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    test.slow();
+    let rows: Awaited<ReturnType<PayerDetailPage['getLinkedNetworkRows']>> = [];
+
+    await steps.critical('Open the payer\'s linked networks', async () => {
+      await payerManagementPage.open();
+      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      await detail.openLinkedNetworks();
+      rows = await detail.getLinkedNetworkRows();
+    });
+
+    // A blank status column is the failure worth catching: the tab would look
+    // populated and tell the reader nothing about whether the network they are
+    // relying on is actually live.
+    await steps.step('Every listed network carries a status', async () => {
+      if (rows.length === 0) {
+        steps.blocked(
+          `The payer "${publishedPayer.nameEn}" has no linked network, so there is no status to `
+          + 'read. A freshly provisioned payer starts with none and this environment has no free '
+          + 'network to assign - see NEEDS_FREE_NETWORK. Link a network to a payer and re-run.',
+        );
+        return;
+      }
+      const blank = rows.filter((row) => row.status.trim() === '').map((row) => row.name);
+      expect(
+        blank,
+        `every network in the tab should report its status; these showed none: ${blank.join(', ')}`,
+      ).toEqual([]);
+    });
+  });
+
+  test('16460: should offer only networks whose period covers the payer\'s own', async ({
+    steps,
+  }) => {
+    // The case turns on THREE networks built to specific date boundaries - one
+    // matching the payer's period exactly, one ending before it, one starting
+    // after it - and then on reading which of them the Add list offers. This
+    // environment has no free network at all, so none of the three can be
+    // built and the list has nothing to offer either way.
+    steps.blocked(
+      `${NEEDS_FREE_NETWORK} This case additionally needs three networks configured at the `
+      + "payer's period boundaries: one whose effective and expiry dates match the payer's "
+      + 'exactly, one whose expiry falls before the payer becomes effective, and one whose '
+      + 'effective date falls after the payer expires. Provide those and the eligibility rule '
+      + 'can be asserted as written.',
+    );
+    return;
   });
 });

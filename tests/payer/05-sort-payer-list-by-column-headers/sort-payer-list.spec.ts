@@ -1,7 +1,8 @@
 import { test, expect } from '../../../fixtures';
 import { KNOWN_PAYER } from '../../../data/payers/searchPayer.data';
 import {
-  DEFAULT_SORT,
+  DEFAULT_SORT_LABEL,
+  RECENCY_SORTS,
   SORT_MATRIX,
   SORT_TRANSITIONS,
   BLANK_VALUE_COLUMNS,
@@ -25,7 +26,9 @@ import {
  */
 test.describe('Sort Payer List by Column Headers - Default and per-column sorting', () => {
   // Azure test case 14421
-  test('14421: should sort by Payer Name ascending by default when the list is first opened', async ({
+  // UPDATED from change sheet 2026-09-27/28: the default is now Newest to
+  // Oldest, by creation date, where it was Payer Name ascending.
+  test('14421: should sort by Newest to Oldest by default when the list is first opened', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -34,13 +37,9 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
       payerManagementPage.open());
 
     await steps.step(
-      `The indicator shows the default sort: ${DEFAULT_SORT.column} ${DEFAULT_SORT.direction}`,
-      () =>
-        payerManagementPage.expectSortIndicator(DEFAULT_SORT.column, DEFAULT_SORT.direction),
+      `The indicator shows the default sort: ${DEFAULT_SORT_LABEL.en}`,
+      () => payerManagementPage.expectDefaultSortIndicator(),
     );
-
-    await steps.step('The list is ordered by that default sort', () =>
-      payerManagementPage.expectColumnSorted(DEFAULT_SORT.column, DEFAULT_SORT.direction));
   });
 
   // Azure test case 14422
@@ -217,6 +216,21 @@ test.describe('Sort Payer List by Column Headers - Matrix and state transitions'
         await payerManagementPage.sortBy(column, direction);
         await payerManagementPage.expectColumnSorted(column, direction);
         await payerManagementPage.expectSortIndicator(column, direction);
+      });
+    }
+
+    // The two recency orderings the 2026-09-28 sheet added to the matrix.
+    // They order by creation date, which the table does not render, so the
+    // assertion is that the option applies and the indicator reports it -
+    // the order itself would have to be read from the list API.
+    for (const recency of RECENCY_SORTS) {
+      await steps.step(`Sort By = ${recency.label.en} is applied and reported`, async () => {
+        await payerManagementPage.sortMenu().selectByLabel(recency.label.en);
+        await payerManagementPage.expectRowsRendered();
+        expect(
+          await payerManagementPage.sortMenu().collapsedText(),
+          `the indicator should report "${recency.label.en}"`,
+        ).toContain(recency.label.en);
       });
     }
   });
@@ -412,7 +426,7 @@ test.describe('Sort Payer List by Column Headers - Use case, combined state and 
   });
 
   // Azure test case 14442
-  test('14442: should offer all seven columns in both directions with an accurate sort indicator', async ({
+  test('14442: should offer all seven columns in both directions and both recency sorts, with an accurate indicator', async ({
     payerManagementPage,
     steps,
   }) => {

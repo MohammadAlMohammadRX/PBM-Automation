@@ -1,5 +1,6 @@
-import { test } from '../../../fixtures';
-import { DEFAULT_SORT } from '../../../data/payers/sortPayer.data';
+import { test, expect } from '../../../fixtures';
+import { Logger } from '../../../utils/Logger';
+import { DEFAULT_SORT_LABEL } from '../../../data/payers/sortPayer.data';
 
 /**
  * User story: Sort Payer List by Column Headers - acceptance criteria.
@@ -17,8 +18,10 @@ import { DEFAULT_SORT } from '../../../data/payers/sortPayer.data';
  * every later test in the worker.
  */
 test.describe('Sort Payer List by Column Headers - Acceptance criteria', () => {
-  // Azure test case 14421
-  test('14421: should default to Payer Name ascending when the list loads in Arabic', async ({
+  // Azure test case 14421 - the Arabic half of the same case the English suite
+  // asserts in sort-payer-list.spec.ts. UPDATED with it from the 2026-09-27/28
+  // sheet: the default is Newest to Oldest, not Payer Name ascending.
+  test('14421: should default to Newest to Oldest when the list loads in Arabic', async ({
     payerManagementPage,
     steps,
   }) => {
@@ -33,20 +36,52 @@ test.describe('Sort Payer List by Column Headers - Acceptance criteria', () => {
         payerManagementPage.reopen());
 
       await steps.step(
-        `The Arabic indicator shows the default sort: ${DEFAULT_SORT.column} ${DEFAULT_SORT.direction}`,
-        () =>
-          payerManagementPage.expectSortIndicator(
-            DEFAULT_SORT.column,
-            DEFAULT_SORT.direction,
-            'ar',
-          ),
+        `The Arabic indicator shows the default sort: ${DEFAULT_SORT_LABEL.ar}`,
+        () => payerManagementPage.expectDefaultSortIndicator('ar'),
       );
-
-      await steps.step('The list is ordered by that default sort', () =>
-        payerManagementPage.expectColumnSorted(DEFAULT_SORT.column, DEFAULT_SORT.direction));
     } finally {
       await payerManagementPage.language().switchTo('en');
     }
   });
 
+  test('16457: should offer a newest-to-oldest sort and reorder the list by creation date', async ({
+    payerManagementPage,
+    steps,
+  }) => {
+    test.slow();
+    let labels: string[] = [];
+
+    await steps.critical('Open the payer list and its Sort By menu', async () => {
+      await payerManagementPage.open();
+      const menu = payerManagementPage.sortMenu();
+      await menu.open();
+      labels = await menu.optionLabels();
+      Logger.info(`the Sort By menu offers: ${labels.join(' | ')}`);
+    });
+
+    // A NEW CAPABILITY, not a restatement of the existing column sorts. Every
+    // sort this story already covers is over a column the table renders;
+    // creation date is not one of them, so if the menu does not offer this the
+    // case reports a gap rather than a defect - and says which.
+    await steps.step('The menu offers newest-to-oldest and oldest-to-newest', async () => {
+      const recency = labels.filter((label) => /newest|oldest|created/i.test(label));
+      expect(
+        recency.length,
+        'the sheet requires a creation-date sort alongside the column sorts; the menu offers '
+          + `[${labels.join(', ')}]`,
+      ).toBeGreaterThan(0);
+    });
+
+    await steps.step('Choosing newest-to-oldest reorders the list and shows as active', async () => {
+      const menu = payerManagementPage.sortMenu();
+      const newest = labels.find((label) => /newest/i.test(label));
+      expect(newest, 'a newest-first option should be on the menu').toBeTruthy();
+      await menu.selectByLabel(newest as string);
+      await payerManagementPage.expectRowsRendered();
+      expect(
+        await menu.activeOptionLabel(),
+        'the menu should report the chosen sort back',
+      ).toContain(newest as string);
+    });
+  });
 });

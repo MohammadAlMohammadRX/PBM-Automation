@@ -44,7 +44,23 @@ export default defineConfig({
   outputDir: './test-results',
   // The payer wizard is multi-step and the app slows noticeably under parallel
   // load, so a single test needs more than the default budget end-to-end.
-  timeout: 120_000,
+  //
+  // RAISED TO 4 MINUTES on 2026-09-28, for the payer scope gate. Since it
+  // arrived, loading /payer-management costs about 50 SECONDS - measured
+  // repeatedly: 07:02:00 navigate, 07:02:49 gate answered - because the
+  // switcher renders every payer in the register (1216 of them) on each page
+  // load. A provisioning fixture navigates there several times across two
+  // maker-checker round trips, and was reliably exceeding the old two minutes
+  // while the application was working perfectly.
+  //
+  // `test.slow()` does NOT cover this. It runs inside the test body, and the
+  // fixture setup that was timing out happens BEFORE the body is entered - so
+  // the tests that declared themselves slow were still being killed at the
+  // unraised limit. Only the configured timeout applies to fixture setup.
+  //
+  // This is a workaround for an application performance problem, not a fix:
+  // a 50-second list load is worth reporting on its own.
+  timeout: 240_000,
   expect: {
     timeout: Timeouts.expect,
   },

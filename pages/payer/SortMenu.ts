@@ -80,6 +80,28 @@ export class SortMenu {
     await expect(this.menu()).toBeHidden({ timeout: Timeouts.default });
   }
 
+  /**
+   * Applies a sort named by its LABEL rather than by a column key.
+   *
+   * For options that are not a column sort at all. `select` addresses an option
+   * by the sort expression its column maps to, which works for every sortable
+   * COLUMN - but the menu also carries orderings that belong to no column, such
+   * as a creation-date recency sort. Those have no `SortColumnKey` to look up,
+   * so they are reached by the label the menu itself reports.
+   *
+   * Still id-addressed: the option set is the same `sort-option-` id prefix the
+   * rest of this class uses, filtered by its text.
+   */
+  async selectByLabel(label: string): Promise<void> {
+    Logger.step(`Sorting by "${label}"`);
+    await this.open();
+    await this.items()
+      .filter({ hasText: label })
+      .first()
+      .click();
+    await expect(this.menu()).toBeHidden({ timeout: Timeouts.default });
+  }
+
   /** Every option label, in menu order, whitespace normalized. */
   async optionLabels(): Promise<string[]> {
     await this.open();

@@ -141,15 +141,57 @@ export function sortOptionLabel(
 export const SORT_TRIGGER_LABEL = { en: 'Sort By', ar: 'ترتيب حسب' } as const;
 
 /** 7 columns x 2 directions - the menu must offer exactly this many options. */
-export const SORT_MENU_OPTION_COUNT = SORTABLE_COLUMNS.length * SORT_DIRECTIONS.length;
+/**
+ * The recency orderings the Sort By menu offers ALONGSIDE the column sorts.
+ *
+ * Added by change sheet 2026-09-27/28 (Azure US 12928). They belong to no
+ * column in the table - they order by CREATION DATE, which the list does not
+ * render - so they cannot be expressed as a SortColumnSpec and are held
+ * separately. 14429's data states the arithmetic outright: "7 columns x 2
+ * directions = 14 combinations, plus Newest to Oldest and Oldest to Newest =
+ * 16 total".
+ */
+export const RECENCY_SORTS = [
+  { key: 'newest', label: { en: 'Newest to Oldest', ar: 'الأحدث إلى الأقدم' } },
+  { key: 'oldest', label: { en: 'Oldest to Newest', ar: 'الأقدم إلى الأحدث' } },
+] as const;
+
+/**
+ * Every option the Sort By menu lists: seven columns each way, plus the two
+ * recency orderings. 14 before the 2026-09-28 sheet, 16 after it.
+ */
+export const SORT_MENU_OPTION_COUNT =
+  SORTABLE_COLUMNS.length * SORT_DIRECTIONS.length + RECENCY_SORTS.length;
 
 export interface SortSelection {
   column: SortColumnKey;
   direction: SortDirection;
 }
 
-/** The sort the list applies on load, with no selection made in the session. */
-export const DEFAULT_SORT: SortSelection = { column: 'payerName', direction: 'asc' };
+/**
+ * The sort the list applies on load, with no selection made in the session.
+ *
+ * CHANGED by the 2026-09-27/28 sheet: it is now **Newest to Oldest**, ordered
+ * by creation date, where it was Payer Name ascending. 14421's title says so
+ * outright ("Default payer list sort is Newest to Oldest based on creation
+ * date") and 14430 step 2 makes the same statement.
+ *
+ * Expressed as a LABEL rather than a column/direction pair on purpose: the new
+ * default orders by creation date, and the payer list renders no creation-date
+ * column, so there is no `SortColumnKey` that names it and
+ * `expectColumnSorted` has no column to read. What a test can check on the
+ * screen is the indicator, which is what 14421 now does. Verifying the ORDER
+ * itself needs `createdOn` from the list API - the field exists in the
+ * response, and a case that wants it should read it there rather than from the
+ * table.
+ */
+export const DEFAULT_SORT_LABEL = RECENCY_SORTS[0].label;
+
+/**
+ * The previous default, kept for the cases that still sort by Payer Name
+ * explicitly - they select it rather than relying on it being the default.
+ */
+export const PAYER_NAME_SORT: SortSelection = { column: 'payerName', direction: 'asc' };
 
 /** TC-038: every column/direction combination, in menu order. */
 export const SORT_MATRIX: readonly SortSelection[] = SORTABLE_COLUMNS.flatMap((column) =>

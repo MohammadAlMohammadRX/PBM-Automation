@@ -80,7 +80,6 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
   '53': { id: '14222', title: 'Capture and Display Payer Licence Number' },
   '54': { id: '12966', title: 'Display Read-Only Linked Policies List' },
   '55': { id: '12967', title: 'Manage Network Assignments from Payer Details' },
-  '56': { id: '12968', title: 'Trigger Downstream Impact Analysis on Status Change' },
   '57': { id: '14211', title: 'Restrict Payer Visibility to a User\'s Assigned Scope' },
   '58': { id: '14216', title: 'Show Draft Assignment/Removal States and Reserve Networks Being Staged' },
   '59': { id: '14230', title: 'Re-check Network Removal Dependency at Both Staging and Approval' },
@@ -88,7 +87,6 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
   '61': { id: '12969', title: 'Stop Payer Validity in BRE on Expiry' },
   '62': { id: '12970', title: 'Maintain Member Eligibility Until Policy Expiry' },
   '63': { id: '14210', title: 'Submit a Payer Draft for Approval' },
-  '64': { id: '14213', title: 'Cascade Inactivation to Plans and Policies on Inactivation or Expiry, Restore on Reactivation' },
   '65': { id: '14217', title: 'Revert a Payer to a Previously Published Version' },
   '66': { id: '14215', title: 'Make the Lifecycle Job Schedule Configurable and Resilient' },
   '67': { id: '14218', title: 'Withdraw a Payer Change Before It Is Reviewed' },
@@ -100,6 +98,9 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
   '73': { id: '12933', title: 'View Comprehensive Payer Details with Tabs' },
   '74': { id: '12935', title: 'Automatically Transition Payer Status to Active' },
   '75': { id: '12937', title: 'Automatically Transition Payer Status to Expired' },
+  '76': { id: '16220', title: 'Enforce Unique Active Payer Names' },
+  '77': { id: '16219', title: 'Clone an Existing Payer Record' },
+  '78': { id: '16218', title: 'Bulk Import and Export Payer Records' },
 };
 
 /**
@@ -110,6 +111,30 @@ export const AZURE_STORY: Readonly<Record<string, { id: string; title: string }>
  * from test cases and their parents.
  */
 export const AZURE_UNMAPPED_FOLDERS: readonly string[] = [];
+
+/**
+ * Cases the 2026-09-27 change sheet shipped without an Azure test case id.
+ *
+ * EMPTY, and kept empty deliberately. That sheet carried 50 `Added` rows whose
+ * "Azure Test Case ID" column was blank, so they were written against the local
+ * sheet ids (TC-135...TC-200) and marked so they could be found again. The
+ * 2026-09-28 sheet issued the real ids and all 49 in this suite were restamped
+ * to them (16412-16461); the one that was out of scope, TC-197 / 16458, belongs
+ * to folder 75 and was never written.
+ *
+ * The type stays because the situation will recur - a sheet can always arrive
+ * before Azure has issued ids - and the next batch has somewhere to go.
+ */
+export interface PendingAzureId {
+  /** The id the sheet gave it, and the id its title carries until restamping. */
+  local: string;
+  /** The Azure User Story it belongs to - that id the sheet DID carry. */
+  story: string;
+  title: string;
+}
+
+export const AZURE_ID_PENDING: readonly PendingAzureId[] = [];
+
 
 /** The Azure id of the user story a case belongs to, by folder. */
 export const azureStoryOf = (folder: string): string | null => AZURE_STORY[folder]?.id ?? null;
@@ -133,6 +158,56 @@ export const azureStoryOf = (folder: string): string | null => AZURE_STORY[folde
  * 816 of the Feature's 985 test cases are mapped.
  */
 export const AZURE_CASE: Readonly<Record<string, string>> = {
+  // Restamped from the 2026-09-28 sheet (was TC-135...TC-200).
+  '76|16412': '16412',
+  '76|16413': '16413',
+  '76|16414': '16414',
+  '76|16415': '16415',
+  '76|16416': '16416',
+  '76|16417': '16417',
+  '76|16418': '16418',
+  '76|16419': '16419',
+  '76|16420': '16420',
+  '76|16421': '16421',
+  '76|16422': '16422',
+  '76|16423': '16423',
+  '76|16424': '16424',
+  '76|16425': '16425',
+  '76|16426': '16426',
+  '76|16427': '16427',
+  '76|16428': '16428',
+  '76|16429': '16429',
+  '78|16430': '16430',
+  '78|16432': '16432',
+  '78|16431': '16431',
+  '78|16433': '16433',
+  '78|16434': '16434',
+  '78|16436': '16436',
+  '78|16435': '16435',
+  '78|16437': '16437',
+  '78|16438': '16438',
+  '78|16439': '16439',
+  '78|16440': '16440',
+  '78|16441': '16441',
+  '78|16442': '16442',
+  '78|16443': '16443',
+  '77|16444': '16444',
+  '77|16445': '16445',
+  '77|16446': '16446',
+  '77|16447': '16447',
+  '77|16448': '16448',
+  '77|16449': '16449',
+  '77|16451': '16451',
+  '77|16450': '16450',
+  '77|16452': '16452',
+  '77|16453': '16453',
+  '77|16454': '16454',
+  '77|16455': '16455',
+  '07|16456': '16456',
+  '05|16457': '16457',
+  '55|16459': '16459',
+  '55|16460': '16460',
+  '27|16461': '16461',
   // 01 - Create New Payer Organization Record
   '01|TC-001': '15597',
   '01|TC-002': '15602',
@@ -787,16 +862,6 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '55|TC-007': '15071',
   '55|TC-009': '15084',
   // 56 - Trigger Downstream Impact Analysis on Status Change
-  '56|TC-001': '15029',
-  '56|TC-003': '15039',
-  '56|TC-004': '15040',
-  '56|TC-005': '15048',
-  '56|TC-006': '15032',
-  '56|TC-009': '15052',
-  '56|TC-010': '15032',
-  '56|TC-011': '15056',
-  '56|TC-012': '15044',
-  '56|TC-013': '15036',
   // 57 - Restrict Payer Visibility to a User's Assigned Scope
   '57|TC-001': '15626',
   '57|TC-002': '15627',
@@ -889,20 +954,6 @@ export const AZURE_CASE: Readonly<Record<string, string>> = {
   '63|TC-014': '15623',
   '63|TC-015': '15625',
   // 64 - Cascade Inactivation to Plans and Policies on Inactivation or Expiry, Restore on Reactivation
-  '64|TC-001': '15654',
-  '64|TC-002': '15656',
-  '64|TC-003': '15655',
-  '64|TC-004': '15657',
-  '64|TC-005': '15658',
-  '64|TC-006': '15659',
-  '64|TC-007': '15660',
-  '64|TC-008': '15661',
-  '64|TC-009': '15662',
-  '64|TC-010': '15663',
-  '64|TC-011': '15664',
-  '64|TC-012': '15665',
-  '64|TC-013': '15666',
-  '64|TC-014': '15667',
   // 65 - Revert a Payer to a Previously Published Version
   '65|TC-001': '15683',
   '65|TC-002': '15684',

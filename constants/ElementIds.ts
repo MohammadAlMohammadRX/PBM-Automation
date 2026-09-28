@@ -82,6 +82,19 @@ export const GLOBAL = {
   viewToggleCards: 'app-breadcrumb-view-toggle-cards',
 
   /**
+   * The payer SCOPE switcher, in the breadcrumb bar beside the view toggles.
+   *
+   * Since 2026-09-27 every user - the administrator included - works one payer
+   * at a time: the "Select a Payer" gate asks which on first entry, and this
+   * control changes it afterwards. The payer list then renders THAT payer and
+   * no other, and a search does not cross the boundary (verified: searching
+   * "NUPCO" while scoped to "Al Dawaa" returns nothing). So a case that needs a
+   * particular payer must put it in scope first - see
+   * PayerManagementPage.scopeTo.
+   */
+  payerScopeSelect: 'app-breadcrumb-payer-select',
+
+  /**
    * A detail screen's action buttons are projected into this container. They
    * carry screen-scoped ids (e.g. `payer-detail-edit-button`) but do not live
    * inside the screen's own element.

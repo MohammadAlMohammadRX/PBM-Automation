@@ -2,8 +2,6 @@ import { test as base } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
 import { PolicyManagementPage } from '../pages/policy/PolicyManagementPage';
-import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
-import { PayerInactivateDialog } from '../pages/payer/PayerInactivateDialog';
 import { LIFECYCLE_STATUS } from '../data/payers/statusTransition.data';
 import { Logger } from '../utils/Logger';
 import { blockedByPrecondition } from './testStatus.fixture';
@@ -57,17 +55,6 @@ export interface CascadeDependentsFixtures {
    */
   payerWithActiveDependents: (payerStatus?: string) => Promise<CascadeCandidate>;
 
-  /**
-   * An INACTIVE payer whose plans and policies were cascaded to Inactive with
-   * it - the precondition of every restoration case.
-   *
-   * Found if one exists; otherwise PROVISIONED by taking an Active payer with
-   * active dependents and carrying its inactivation through approval. That
-   * makes the restoration cases runnable on a clean environment and, on one
-   * where an earlier cascade case left a payer Inactive, it is the very
-   * payer this restores. Reports BLOCKED only when neither exists.
-   */
-  payerWithCascadedDependents: () => Promise<CascadeCandidate>;
 }
 
 export const test = base.extend<CascadeDependentsFixtures>({
@@ -134,81 +121,4 @@ export const test = base.extend<CascadeDependentsFixtures>({
     });
   },
 
-  payerWithCascadedDependents: async ({ page }, use, testInfo) => {
-    const payerPage = new PayerManagementPage(page);
-    const planPage = new PlanManagementPage(page);
-    const policyPage = new PolicyManagementPage(page);
-    const approvalPage = new ApprovalManagementPage(page);
-    const inactivateDialog = new PayerInactivateDialog(page);
-
-    await use(async () => {
-      // 1. Already inactive: a settled Inactive payer that OWNS records. Their
-      //    status is not required to be Inactive - if an earlier cascade never
-      //    reached them, restoring the payer is still the right next step, and
-      //    the case asserts what the restoration does to them.
-      await planPage.openList();
-      const plans = await planPage.getPlanRows();
-      await policyPage.openList();
-      const policies = await policyPage.getPolicyRows();
-      const ownedRecords = [...plans, ...policies].filter((record) => record.payer !== '');
-      const owners = Array.from(new Set(ownedRecords.map((record) => record.payer)));
-      for (const owner of owners) {
-        await payerPage.open();
-        await payerPage.search(owner);
-        const status = await payerPage.getLifecycleStatus(owner).catch(() => '');
-        const approval = await payerPage.getApprovalStatus(owner).catch(() => '');
-        if (status === LIFECYCLE_STATUS.inactive.en && approval.includes('Published')) {
-          Logger.step(`[fixture] Found an inactive payer with cascaded records: "${owner}"`);
-          return {
-            payerName: owner,
-            payerStatus: status,
-            activePlans: plans.filter((p) => p.payer === owner).map((p) => p.name),
-            activePolicies: policies.filter((p) => p.payer === owner).map((p) => p.name),
-          };
-        }
-      }
-
-      // 2. Provision: cascade an Active payer with active dependents, through approval.
-      const activeOwners = Array.from(
-        new Set(
-          [...plans, ...policies]
-            .filter((record) => record.status === LIFECYCLE_STATUS.active.en && record.payer !== '')
-            .map((record) => record.payer),
-        ),
-      );
-      for (const owner of activeOwners) {
-        await payerPage.open();
-        await payerPage.search(owner);
-        const status = await payerPage.getLifecycleStatus(owner).catch(() => '');
-        const approval = await payerPage.getApprovalStatus(owner).catch(() => '');
-        if (status !== LIFECYCLE_STATUS.active.en || !approval.includes('Published')) continue;
-        Logger.step(`[fixture] Provisioning cascaded records by inactivating "${owner}"`);
-        await payerPage.findAndInactivateRow(owner);
-        await inactivateDialog.inactivateWithFirstReason();
-        await payerPage.open();
-        await payerPage.sendForApproval(owner);
-        await approvalPage.open();
-        await approvalPage.approve(owner);
-        await payerPage.open();
-        await payerPage.search(owner);
-        await payerPage.expectLifecycleStatus(owner, LIFECYCLE_STATUS.inactive.en);
-        return {
-          payerName: owner,
-          payerStatus: LIFECYCLE_STATUS.inactive.en,
-          activePlans: plans.filter((p) => p.payer === owner).map((p) => p.name),
-          activePolicies: policies.filter((p) => p.payer === owner).map((p) => p.name),
-        };
-      }
-
-      return blockedByPrecondition(
-        testInfo,
-        'an inactive payer whose plans and policies were cascaded with it',
-        new Error(
-          `no settled Inactive payer holds Inactive records, and no settled Active payer holds `
-          + `active records to cascade (records seen across ${owners.length + activeOwners.length} payer(s)). `
-          + 'Activate a plan or policy under an active, published payer and re-run.',
-        ),
-      );
-    });
-  },
 });

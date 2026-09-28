@@ -226,6 +226,25 @@ export abstract class EntityWizardDialog {
     await this.submitButton().click();
   }
 
+  /**
+   * Clicks Save several times without waiting between them.
+   *
+   * For the cases that ask whether a repeated submission can create a second
+   * record. The clicks are fired WITHOUT awaiting the form's reaction, because
+   * awaiting between them is exactly the pause that lets the application
+   * disable the button - the test would then pass without ever having raced
+   * anything. Mirrors ConfirmDialog.confirmRepeatedly, which makes the same
+   * argument for the confirmation dialogs.
+   */
+  async saveRepeatedly(times: number): Promise<void> {
+    Logger.step(`Clicking "Save" ${times} times in rapid succession`);
+    const button = this.submitButton();
+    await button.scrollIntoViewIfNeeded();
+    await Promise.all(
+      Array.from({ length: times }, () => button.click({ force: true, noWaitAfter: true })),
+    );
+  }
+
   // ---- Stepper --------------------------------------------------------------
 
   /** A stepper entry by its 1-based position, which is part of the flow's

@@ -28,7 +28,9 @@
     "seed:check": "cross-env SEED_CHECK=1 playwright test tests/seed/check-discard-data.spec.ts",
     "seed:status": "cross-env SEED_STATUS=1 playwright test tests/seed/seed-status-data.spec.ts",
     "check:status": "cross-env SEED_CHECK_STATUS=1 playwright test tests/seed/check-status-data.spec.ts",
-    "lint:steps": "node scripts/checkStepCoverage.js"
+    "lint:steps": "node scripts/checkStepCoverage.js",
+    "test:smoke": "cross-env WORKERS=1 playwright test --project=setup && cross-env WORKERS=1 playwright test --project=chromium --grep \"(14444|14446|15602|15599|15600|14913|14615|14638|14469):\"",
+    "test:payer": "bash scripts/run-payer-module.sh"
   },
   "keywords": [
     "playwright",

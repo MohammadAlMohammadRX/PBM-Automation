@@ -81,7 +81,12 @@ test.describe('Network removal dependency re-check', () => {
   });
 
   // Azure test case 15676
-  test('15676: should complete the removal when a rejected request is reviewed, re-staged and approved', async ({
+  // Azure test case 15813 - 'Use case - Full removal workflow including approver
+  // rejection, requester review, and resubmission'. It carried 15676 until the
+  // 2026-09-28 traceability sweep: 15676 belongs to US 14216 (draft assignment
+  // states, folder 58) and was on two tests at once here, while this story's own
+  // 15813 had no test at all.
+  test('15813: should complete the removal when a rejected request is reviewed, re-staged and approved', async ({
     payerManagementPage,
     approvalManagementPage,
     linkedNetwork,

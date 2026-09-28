@@ -1,5 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { azureOrCase } from '../../../data/azureTestIds.data';
+import { Logger } from '../../../utils/Logger';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import { UNMODIFIED_INDICATORS } from '../../../data/payers/overviewMetadata.data';
@@ -290,9 +291,101 @@ test.describe('Comprehensive payer details', () => {
 
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
-    //   TC-003 = 14639,  TC-005 = 14652,  TC-012 = 14661
+    //   TC-003 = 14639,  TC-005 = 14652
     test(`${azureOrCase('73', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });
   }
+});
+
+/**
+ * Added by change sheet 2026-09-27/28: the Network Assignment tab as a VIEW of
+ * the Network Management module rather than a copy of it.
+ *
+ * WHY THIS CASE WAS REWRITTEN. 14661 was matched during the original mapping
+ * exercise to a generated BLOCKED case about the Linked POLICIES tab, blocked
+ * because the Policies module is outside this framework. The sheet's 14661 is
+ * about the Linked NETWORKS tab and the NETWORK Management module - a
+ * different tab and a different module, and one this suite does drive. The old
+ * match was simply wrong, and the reason it gave for being blocked did not
+ * apply to it.
+ */
+test.describe('Comprehensive payer details - the networks tab reads the network module', () => {
+  // Azure test case 14661
+  test('14661: should show each linked network as the Network Management module holds it', async ({
+    payerManagementPage,
+    networkManagementPage,
+    linkedNetwork,
+    steps,
+  }, testInfo) => {
+    test.slow();
+
+    let candidate!: Awaited<ReturnType<typeof linkedNetwork>>;
+    let onTab = { name: '', status: '' };
+    let inModule = { name: '', status: '' };
+
+    await steps.critical('Find a payer holding a settled network link', async () => {
+      candidate = await linkedNetwork('settled');
+      expect(candidate.network, 'the fixture should name the linked network').not.toBe('');
+    });
+
+    await steps.critical('Read the network as the payer\'s tab shows it', async () => {
+      await payerManagementPage.open();
+      const detail = await payerManagementPage.openDetails(candidate.payer);
+      await detail.openLinkedNetworks();
+      const rows = await detail.getLinkedNetworkRows();
+      const row = rows.find((entry) => entry.name.trim() === candidate.network.trim());
+      expect(
+        row,
+        `the payer "${candidate.payer}" should still list "${candidate.network}"; its tab shows `
+          + `${rows.map((entry) => entry.name).join(', ') || '(nothing)'}`,
+      ).toBeDefined();
+      onTab = { name: row!.name.trim(), status: row!.status.trim() };
+    });
+
+    await steps.critical('Read the same network in the Network Management module', async () => {
+      const owned = await networkManagementPage.listNetworkOwnership();
+      const entry = owned.find((network) => network.network.trim() === candidate.network.trim());
+      expect(
+        entry,
+        `the Network Management module should hold "${candidate.network}"`,
+      ).toBeDefined();
+      inModule = { name: entry!.network.trim(), status: entry!.status.trim() };
+    });
+
+    // THE INTEGRATION THIS CASE IS ABOUT. The tab must be a view of the network
+    // module, not a copy taken when the link was made: a payer showing a
+    // network as Active that the module retired weeks ago would be read as
+    // current by everyone who opens it.
+    await steps.step('The two agree on the network\'s name and status', async () => {
+      expect(
+        onTab.name,
+        `the tab and the module should name the same network; tab "${onTab.name}", `
+          + `module "${inModule.name}"`,
+      ).toBe(inModule.name);
+      expect(
+        onTab.status,
+        `the tab shows "${candidate.network}" as "${onTab.status}" while the Network Management `
+          + `module holds it as "${inModule.status}" - the tab is not reflecting the module`,
+      ).toBe(inModule.status);
+    });
+
+    // PARTIAL, AND SAYING SO. The sheet's steps 3 and 4 change the network's
+    // name or status in the Network Management module and re-read the tab.
+    // That cannot be done here: every network in this environment belongs to a
+    // payer already (see NEEDS_FREE_NETWORK), so the only network available to
+    // mutate is one another case depends on - and taking a shared record's
+    // state away is a mistake this suite has made once and will not repeat.
+    // The agreement above is the strongest evidence obtainable without one.
+    await steps.step('And the live-update half is recorded as not exercised', async () => {
+      const notExercised =
+        'Steps 3-4 of this case change the network in the Network Management module and re-read '
+        + 'the tab. They are not exercised: this environment has no disposable network, so the '
+        + 'change would have to be made to a shared record other cases sample. Provide one free '
+        + 'network and those steps can be added here.';
+      Logger.warn(notExercised);
+      testInfo.annotations.push({ type: 'partial-coverage', description: notExercised });
+      expect(notExercised.length, 'the limitation is recorded on the result').toBeGreaterThan(0);
+    });
+  });
 });

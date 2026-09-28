@@ -67,9 +67,4 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     title: 'should paginate the Linked Policies tab correctly at the page-size boundary',
     reason: 'This case needs a payer with one more policy than the page size (e.g. 21); no payer here owns a policy.',
   },
-  {
-    id: '012',
-    title: 'should reflect an external policy update on the Linked Policies tab after reload',
-    reason: 'This case needs a linked policy whose status is changed in the Policies module during the run - outside this framework.',
-  },
 ];
