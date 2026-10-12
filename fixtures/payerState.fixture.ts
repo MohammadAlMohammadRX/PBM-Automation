@@ -61,7 +61,33 @@ async function createDraft(page: PayerManagementPage, data: PayerData): Promise<
  * for `draftPayer`. Every step is best-effort: a cleanup problem must never fail
  * a test that already passed.
  */
-async function purgePayer(
+/**
+ * Clean-up after a case has run: given its OWN time, bounded, and never the
+ * case's verdict (2026-10-11).
+ *
+ * Teardown time counts against the test's timeout in Playwright, so a case
+ * whose steps all passed was being reported FAILED by its own clean-up -
+ * "Tearing down publishedPayer exceeded the test timeout" - in 15274, 15282,
+ * 15285, 14599, 15611 and 15575, every step green. The budget is extended for
+ * the clean-up, the clean-up is capped, and a clean-up that cannot finish is
+ * logged and left for the next sweep rather than failing a passed case.
+ */
+const CLEANUP_LIMIT_MS = 110_000;
+export async function cleanUpAfterCase(
+  testInfo: { timeout: number; setTimeout: (ms: number) => void },
+  what: string,
+  work: () => Promise<void>,
+): Promise<void> {
+  testInfo.setTimeout(testInfo.timeout + CLEANUP_LIMIT_MS + 10_000);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<'timeout'>((resolve) => { timer = setTimeout(() => resolve('timeout'), CLEANUP_LIMIT_MS); });
+  const outcome = await Promise.race([work().then(() => 'done' as const, (e: Error) => e), limit]);
+  if (timer) clearTimeout(timer);
+  if (outcome === 'timeout') Logger.warn(`[fixture] clean-up of ${what} did not finish within ${CLEANUP_LIMIT_MS / 1000} s - left for the next sweep`);
+  else if (outcome instanceof Error) Logger.warn(`[fixture] clean-up of ${what} failed: ${outcome.message.split(/\r?\n/)[0]}`);
+}
+
+export async function purgePayer(
   payerPage: PayerManagementPage,
   approvalPage: ApprovalManagementPage,
   identifier: string,
@@ -136,7 +162,49 @@ async function purgePayer(
  * rename their payer, which would leave a name-based cleanup unable to find the
  * record afterwards.
  */
-async function provisionPublishedPayer(
+/**
+ * Gives a freshly created payer a network, which approval now requires.
+ *
+ * Since 2026-09-27 the server refuses to approve a payer holding none:
+ * "A payer must have at least one assigned network before this change can be
+ * approved." Every provisioning path below ends in an approval, so without
+ * this step they all fail - and they fail at the approval, which reads as the
+ * application refusing a legitimate change rather than a missing precondition.
+ *
+ * RELOADS FIRST, and that is not incidental. The payer scope switcher fetches
+ * its list when the page loads, so a payer created moments ago is not in it
+ * yet; without the reload the row cannot be brought into view at all and the
+ * assignment cannot even be attempted. Verified 2026-09-28.
+ *
+ * The network comes from the seeded pool (npm run seed:networks). A network
+ * cannot be shared between payers, so a run consumes one per provisioning and
+ * an exhausted pool surfaces here as "no network was offered".
+ */
+async function assignANetwork(payerPage: PayerManagementPage, payerName: string): Promise<void> {
+  await payerPage.reopen();
+  await payerPage.scopeTo(payerName);
+  await payerPage.search(payerName);
+
+  const detail = await payerPage.openDetails(payerName);
+
+  // assignNetwork opens the tab AND the drawer itself, then takes the first
+  // network on offer. Opening either of them here first left the assign button
+  // sitting under an already-open drawer, and the click timed out - which
+  // surfaced as every provisioning reporting BLOCKED.
+  const assigned = await detail.assignNetwork().catch((error: Error) => {
+    throw new Error(
+      `could not give "${payerName}" a network, and approval now requires one. The seeded pool `
+      + 'may be exhausted - run "npm run seed:networks" and try again. Underlying failure: '
+      + error.message.split('\n')[0],
+    );
+  });
+
+  Logger.step(`[fixture] Assigned "${assigned}" to "${payerName}"`);
+  await payerPage.open();
+  await payerPage.search(payerName);
+}
+
+export async function provisionPublishedPayer(
   payerPage: PayerManagementPage,
   approvalPage: ApprovalManagementPage,
   data: PayerData,
@@ -144,6 +212,7 @@ async function provisionPublishedPayer(
 ): Promise<string> {
   try {
     await createDraft(payerPage, data);
+    await assignANetwork(payerPage, data.nameEn);
     await payerPage.sendForApproval(data.nameEn);
     await approvalPage.open();
     await approvalPage.approve(data.nameEn);
@@ -176,7 +245,7 @@ export const test = base.extend<PayerStateFixtures>({
 
     // Teardown: remove the record if the test left it behind. A test may have
     // sent this draft for approval, so the queue is checked too.
-    await purgePayer(payerPage, approvalPage, data.nameEn);
+    await cleanUpAfterCase(testInfo, `payer ${data.nameEn}`, () => purgePayer(payerPage, approvalPage, data.nameEn));
   },
 
   publishedPayer: async ({ page }, use, testInfo) => {
@@ -193,7 +262,7 @@ export const test = base.extend<PayerStateFixtures>({
 
     // The record is live at v1, so the maker's delete only stages a Delete
     // change - purgePayer approves it so the payer really leaves the module.
-    await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+    await cleanUpAfterCase(testInfo, 'payer ' + data.nameEn, () => purgePayer(payerPage, approvalPage, code.trim() || data.nameEn));
   },
   /**
    * A payer that is live and INACTIVE, provisioned rather than sampled.
@@ -229,7 +298,7 @@ export const test = base.extend<PayerStateFixtures>({
 
     await use(data);
 
-    await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+    await cleanUpAfterCase(testInfo, 'payer ' + data.nameEn, () => purgePayer(payerPage, approvalPage, code.trim() || data.nameEn));
   },
 
   inactivePayer: async ({ page }, use, testInfo) => {
@@ -243,6 +312,8 @@ export const test = base.extend<PayerStateFixtures>({
     let code = '';
     try {
       await createDraft(payerPage, data);
+      // Approval now requires a network - see assignANetwork.
+      await assignANetwork(payerPage, data.nameEn);
       await payerPage.sendForApproval(data.nameEn);
       await approvalPage.open();
       await approvalPage.approve(data.nameEn);
@@ -274,7 +345,7 @@ export const test = base.extend<PayerStateFixtures>({
 
     await use(data);
 
-    await purgePayer(payerPage, approvalPage, code.trim() || data.nameEn);
+    await cleanUpAfterCase(testInfo, 'payer ' + data.nameEn, () => purgePayer(payerPage, approvalPage, code.trim() || data.nameEn));
   },
 
   publishPayer: async ({ page }, use, testInfo) => {
@@ -291,7 +362,7 @@ export const test = base.extend<PayerStateFixtures>({
     });
 
     for (const { code, data } of published) {
-      await purgePayer(payerPage, approvalPage, code || data.nameEn);
+      await cleanUpAfterCase(testInfo, `payer ${data.nameEn}`, () => purgePayer(payerPage, approvalPage, code || data.nameEn));
     }
   },
 });

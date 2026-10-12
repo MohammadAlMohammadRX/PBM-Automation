@@ -354,8 +354,38 @@ export class ApprovalManagementPage extends BasePage {
     Logger.step(`Approving "${payerName}"`);
     await this.expectInQueue(payerName);
     await (await this.rowAction(payerName, 'approve')).click();
+    const answer = this.watchDecisionAnswer();
     await new ConfirmDialog(this.page).confirm('Approve');
+    this.lastDecisionAnswer = await answer;
     await this.waitForDecisionProcessed(payerName);
+  }
+
+  /** What the server answered to the last approve/reject this page sent. */
+  private lastDecisionAnswer = '';
+
+  /**
+   * Captures the server's answer to the decision about to be confirmed
+   * (2026-10-11). Batch 5 (15813) saw an approved request stay in the queue
+   * with nothing on screen; without the answer, "the product ignored it" and
+   * "our click never sent it" look the same. Locating only - never asserted.
+   */
+  private watchDecisionAnswer(): Promise<string> {
+    return this.page
+      .waitForResponse((r) => /\/api\/Approvals\/\w*(Approve|Reject)\w*/i.test(r.url()) && r.request().method() === 'POST', { timeout: Timeouts.default })
+      .then(async (r) => {
+        const text = await r.text().catch(() => '');
+        // The REASON fields, not the first 240 characters: batch 6 cut a 409 at
+        // "InnerExcept", exactly where the cause was (2026-10-11).
+        let reason = text.replace(/\s+/g, ' ').slice(0, 240);
+        try {
+          const body = JSON.parse(text) as Record<string, unknown>;
+          const pick = (k: string) => (body[k] === undefined || body[k] === null ? '' : `${k}: ${JSON.stringify(body[k]).slice(0, 400)}`);
+          const fields = ['Title', 'ErrorMessage', 'InnerException', 'Detail', 'ValidationErrors'].map(pick).filter(Boolean);
+          if (fields.length > 0) reason = fields.join('; ');
+        } catch { /* not JSON - keep the raw text */ }
+        return `${r.request().url().replace(/^https?:\/\/[^/]+/, '')} answered ${r.status()}: ${reason}`;
+      })
+      .catch(() => 'no approve/reject request was seen after confirming');
   }
 
   /**
@@ -383,7 +413,9 @@ export class ApprovalManagementPage extends BasePage {
     const dialog = new ConfirmDialog(this.page);
     await dialog.waitForVisible();
     await dialog.selectReasonIfPresent(reason);
+    const answer = this.watchDecisionAnswer();
     await dialog.confirm('Reject');
+    this.lastDecisionAnswer = await answer;
     await this.waitForDecisionProcessed(payerName);
   }
 
@@ -392,7 +424,7 @@ export class ApprovalManagementPage extends BasePage {
    * the decision persisted server-side before the caller navigates away (which
    * would otherwise cancel the in-flight approve/reject request).
    */
-  private async waitForDecisionProcessed(payerName: string): Promise<void> {
+  async waitForDecisionProcessed(payerName: string): Promise<void> {
     // RE-SEARCHES ON EVERY POLL, and that is the whole point.
     //
     // This used to issue ONE search and then wait 30 s for the row to vanish
@@ -418,7 +450,8 @@ export class ApprovalManagementPage extends BasePage {
           message:
             `"${payerName}" should leave the approval queue once its request is decided. `
             + 'The queue was re-searched repeatedly and kept returning it, which means the '
-            + 'decision did not take effect.',
+            + 'decision did not take effect. Server answer to the decision: '
+            + `${this.lastDecisionAnswer || '(not captured - decided outside approve()/reject())'}.`,
         },
       )
       .toBe(0);

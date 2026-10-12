@@ -29,7 +29,7 @@
  * across several runs with generated suffixes, and a list would need updating
  * every time. The prefix is stamped into every seeded name.
  */
-export const PROTECTED_NAME_PREFIXES = ['DISCARD-SEED', 'STATUS-SEED'] as const;
+export const PROTECTED_NAME_PREFIXES = ['DISCARD-SEED', 'STATUS-SEED', 'NETWORK-SEED'] as const;
 
 /** Whether a record is protected from deletion and mutation. */
 export function isProtectedRecord(name: string): boolean {

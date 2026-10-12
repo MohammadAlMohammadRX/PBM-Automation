@@ -446,11 +446,17 @@ test.describe('Display Linked Networks Count - Column and access', () => {
   }) => {
     let session!: ShapedSession;
 
-    await steps.critical('Sign in as a user without the linked-networks permission', async () => {
-      session = await shapedNonAdmin({ without: ['viewLinkedNetworks'] });
-      await session.payers.navigate();
-      await session.payers.expectRowsRendered();
-    });
+    // BLOCKED since 2026-10-11, before any step: the permission tree no longer
+    // has a right for reading a payer's linked networks - GetPayerNetworks was
+    // removed in this build, and nothing replaced it (the nearest,
+    // ExportPayerNetworks, governs export, not reading). Which right now
+    // governs the networks count is a question for the BA.
+    steps.blocked(
+      'The role tree no longer has a permission for reading a payer\'s linked networks '
+        + '(GetPayerNetworks was removed in this build), so a role "without network-read rights" '
+        + 'cannot be built. Needs the BA to name the permission that now governs it.',
+    );
+    expect(shapedNonAdmin, 'unreachable once blocked').toBeDefined();
 
     // Two halves of one claim: the number is data, the link is a route to more
     // of it. A role that may not read the payer's networks should get neither.

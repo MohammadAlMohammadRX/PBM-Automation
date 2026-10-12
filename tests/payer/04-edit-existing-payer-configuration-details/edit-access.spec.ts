@@ -24,17 +24,26 @@ test.describe('Edit Existing Payer Configuration Details - Access control', () =
   }) => {
     let session!: ShapedSession;
 
-    await steps.critical('Sign in as a user without payer-edit permission', async () => {
-      session = await shapedNonAdmin({ without: ['editPayer'] });
-      expect(
-        session.removed,
-        'the role should have been stripped of the edit permission before signing in',
-      ).toContain(PAYER_PERMISSION.editPayer);
-    });
+    // The full scenario in the step names (QA-lead note N-021, 2026-10-11), so
+    // the report says exactly what was done: the administrator edits the
+    // "Payer Admin" role in System Settings > Role Administration, unticks
+    // UpdatePayer, saves, and the non-admin then signs in fresh. If the Edit
+    // control still appears, the run also attaches what the application told
+    // the account it holds - which is how the propagation fault is evidenced.
+    await steps.critical(
+      'Administrator unticks UpdatePayer on the "Payer Admin" role and saves; the non-admin signs in',
+      async () => {
+        session = await shapedNonAdmin({ without: ['editPayer'] });
+        expect(
+          session.removed,
+          'the role should have been stripped of the edit permission before signing in',
+        ).toContain(PAYER_PERMISSION.editPayer);
+      },
+    );
 
-    await steps.critical('Navigate to the payer module', () => session.payers.navigate());
+    await steps.critical('The non-admin opens the payer module', () => session.payers.navigate());
 
-    await steps.step('The Edit action is not offered', () =>
+    await steps.step('The Edit action is not offered on any payer row, and no edit form opens', () =>
       session.payers.expectEditActionDenied());
   });
 });

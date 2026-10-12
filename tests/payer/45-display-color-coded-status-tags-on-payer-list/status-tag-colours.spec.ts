@@ -90,46 +90,56 @@ test.describe('Status tag colours', () => {
   // Azure test case 14930
   test('14930: should band every Inactive payer alike so they can be picked out at a glance', async ({
     payerManagementPage,
+    inactivePayer,
     steps,
   }) => {
     let names: string[] = [];
 
-    await steps.critical('Navigate to the module and filter to Inactive payers', async () => {
+    // A KNOWN Inactive payer, built the way the QA lead described (note N-053,
+    // 2026-10-11): the inactivePayer fixture inactivates a published payer,
+    // sends the change for approval and approves it. Before, the case relied on
+    // the filtered list happening to hold one.
+    await steps.critical('An Inactive payer exists: inactivated, sent for approval and approved', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(inactivePayer.nameEn);
+      await payerManagementPage.expectLifecycleStatus(inactivePayer.nameEn, LIFECYCLE_STATUS.inactive.en);
+    });
+
+    await steps.step('That payer carries the Inactive band', async () => {
+      const tone = await payerManagementPage.getStatusTone(inactivePayer.nameEn);
+      expect(
+        tone,
+        `"${inactivePayer.nameEn}" is Inactive and should carry the Inactive band; it is banded "${tone}"`,
+      ).toBe(STATUS_TONE.inactive);
+    });
+
+    await steps.step('Every row the Inactive filter returns that reads Inactive carries the same band', async () => {
+      // Read in ONE pass (status and tone per row) rather than searching each
+      // name: per-name searches undid the filter and timed out. Scoped to rows
+      // that actually READ Inactive - the filter leaks other statuses (D-003),
+      // and that is the filter story's defect, not a colour fault.
       await payerManagementPage.open();
       await payerManagementPage.filterByStatus(LIFECYCLE_STATUS.inactive.en);
       await payerManagementPage.expectRowsRendered();
       names = await payerManagementPage.getVisiblePayerNames();
-      expect(names, 'the filter should return payers to inspect').not.toEqual([]);
-    });
-
-    await steps.step('Every row claiming Inactive carries the Inactive band', async () => {
-      // Scoped to the rows that actually READ Inactive rather than to every row
-      // the filter returned: the status filter does not return a pure result
-      // set in this build - a defect the filter story owns - and asserting over
-      // the whole page would report that filter behaviour as a colour fault.
-      const mismatched: string[] = [];
-      for (const name of names) {
-        const status = await payerManagementPage.getLifecycleStatus(name);
-        if (!status.includes(LIFECYCLE_STATUS.inactive.en)) continue;
-        const tone = await payerManagementPage.getStatusTone(name);
-        if (tone !== STATUS_TONE.inactive) mismatched.push(`${name}: "${status}" banded "${tone}"`);
-      }
+      const pairs = await payerManagementPage.getStatusTonePairs();
+      const mismatched = pairs
+        .filter((p) => p.status.includes(LIFECYCLE_STATUS.inactive.en) && p.tone !== STATUS_TONE.inactive)
+        .map((p) => `"${p.status}" banded "${p.tone}"`);
       expect(
         mismatched,
-        `every Inactive payer should share one band; these did not: ${mismatched.join('; ')}`,
+        `every Inactive payer should share one band; these rows did not: ${mismatched.join('; ')}`,
       ).toEqual([]);
     });
 
     await steps.step('And the band is the one the reader is scanning for', async () => {
-      const inactive = [] as string[];
-      for (const name of names) {
-        const status = await payerManagementPage.getLifecycleStatus(name);
-        if (status.includes(LIFECYCLE_STATUS.inactive.en)) inactive.push(name);
-      }
+      const inactive = (await payerManagementPage.getStatusTonePairs())
+        .filter((p) => p.status.includes(LIFECYCLE_STATUS.inactive.en));
       expect(
-        inactive,
-        'filtering to Inactive should surface at least one Inactive payer to scan',
-      ).not.toEqual([]);
+        inactive.length,
+        `filtering to Inactive should surface at least one Inactive payer to scan; the page lists `
+          + `${names.length} row(s)`,
+      ).toBeGreaterThan(0);
     });
   });
 

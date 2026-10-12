@@ -1,6 +1,9 @@
-import { test } from '../../../fixtures';
+import { test, expect } from '../../../fixtures';
 import { env } from '../../../constants/EnvironmentConfig';
-import { ROLE_REQUIREMENTS } from '../../../data/payers/payerPermissions.data';
+import { ROLE_REQUIREMENTS, ROLE_SHAPES } from '../../../data/payers/payerPermissions.data';
+import { ALL_PAYER_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
+import { GRANTED_CASE_PAYER } from '../../../data/payers/permissionEnforcement.data';
+import { controlAvailability, type ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 
 /**
  * User story: Define Bilingual Names for All Payer Module Permissions.
@@ -22,20 +25,54 @@ import { ROLE_REQUIREMENTS } from '../../../data/payers/payerPermissions.data';
  * restricted account is enough, so these cases start working the moment one is
  * configured. The cases needing two DISTINCT non-admin roles stay blocked until
  * the framework carries more than one such credential.
+ *
+ * SUPERSEDED IN PART, 2026-10-06. Comparing ROLES never needed several
+ * logins: 15386 and 15392 now reshape the one "Payer Admin" role into each
+ * role in turn (shapedNonAdmin) and are real tests. What remains blocked needs
+ * two DIFFERENT PEOPLE at once - a submitter and a separate reviewer (15389) -
+ * or approval rights, which sit in a section of the permission tree the
+ * shaping does not edit (15391).
  */
 test.describe('Define Bilingual Names for All Payer Module Permissions - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   // Azure test case 15386
+  //
+  // Converted from BLOCKED on 2026-10-06. Three roles need one login, not
+  // three: the same "Payer Admin" role is reshaped into each in turn and signed
+  // into - see ROLE_SHAPES.
   test('15386: should expose only the permitted payer actions when each of three roles opens the module', async ({
+    shapedNonAdmin,
     steps,
   }) => {
-    steps.blocked(
-      'this case compares THREE distinct roles - a partial role, an exporter role and a full '
-        + `role - and the framework carries one non-admin credential at most. `
-        + `${ROLE_REQUIREMENTS.partial.reason} ${ROLE_REQUIREMENTS.exporter.reason} `
-        + `${ROLE_REQUIREMENTS.full.reason}`,
-    );
+    for (const role of [ROLE_SHAPES.partial, ROLE_SHAPES.exporter, ROLE_SHAPES.full]) {
+      let session!: ShapedSession;
+
+      await steps.critical(`Sign in as ${role.label}`, async () => {
+        session = await shapedNonAdmin({ with: [...role.with], without: [...role.without] });
+        await session.payers.navigate();
+        await session.payers.expectRowsRendered();
+      });
+
+      await steps.step(`${role.label} is offered exactly its actions`, async () => {
+        const missing: string[] = [];
+        for (const control of role.offered) {
+          if ((await controlAvailability(session, GRANTED_CASE_PAYER.name, control)) !== 'available') {
+            missing.push(control);
+          }
+        }
+        const leaked: string[] = [];
+        for (const control of role.withheld) {
+          if ((await controlAvailability(session, GRANTED_CASE_PAYER.name, control)) === 'available') {
+            leaked.push(control);
+          }
+        }
+        expect(
+          { missing, leaked },
+          `${role.label}: every permitted action should be offered and every other one withheld`,
+        ).toEqual({ missing: [], leaked: [] });
+      });
+    }
   });
 
   // Azure test case 15388
@@ -89,12 +126,46 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
   });
 
   // Azure test case 15392
+  //
+  // Converted from BLOCKED on 2026-10-06 - the two roles are the same login,
+  // reshaped in turn. See ROLE_SHAPES.
   test('15392: should deny every payer action to a role with no permissions and allow every one to a full role', async ({
+    shapedNonAdmin,
     steps,
   }) => {
-    steps.blocked(
-      'this case compares a no-permission role against a full role in the same run, which '
-        + `needs two credentials. ${ROLE_REQUIREMENTS.none.reason} ${ROLE_REQUIREMENTS.full.reason}`,
-    );
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a role holding no payer permission', async () => {
+      session = await shapedNonAdmin({ without: ALL_PAYER_PERMISSIONS });
+      expect(
+        session.removed.length,
+        'every payer permission should have been taken off the role',
+      ).toBe(ALL_PAYER_PERMISSIONS.length);
+    });
+
+    // "Denied" may be a redirect, an Access Restricted screen or a module with
+    // nothing usable in it - the Page Object treats all three as the same answer.
+    await steps.step('The payer module is closed to the no-permission role', async () => {
+      await session.payers.navigate();
+      await session.payers.expectSearchAccessRestricted();
+    });
+
+    await steps.critical(`Sign in as ${ROLE_SHAPES.full.label}`, async () => {
+      session = await shapedNonAdmin({ with: [...ROLE_SHAPES.full.with] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('The full role is offered every payer action, including creation', async () => {
+      const missing: string[] = [];
+      for (const control of ROLE_SHAPES.full.offered) {
+        if ((await controlAvailability(session, GRANTED_CASE_PAYER.name, control)) !== 'available') {
+          missing.push(control);
+        }
+      }
+      if (!(await session.payers.isCreateActionAvailable())) missing.push('create');
+      expect(missing, 'a role holding every payer permission should be offered every payer action')
+        .toEqual([]);
+    });
   });
 });

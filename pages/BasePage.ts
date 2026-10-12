@@ -8,6 +8,7 @@ import { GLOBAL, LOGIN, TOAST, buttonSelector } from '../constants/ElementIds';
 import { AppRoutes } from '../constants/AppRoutes';
 import { AUTH_STORAGE_STATE_PATH } from '../constants/Paths';
 import * as fs from 'fs';
+import { PayerScopeDialog } from './components/PayerScopeDialog';
 
 /**
  * Base class for every Page Object in the framework.
@@ -60,6 +61,29 @@ export abstract class BasePage {
     await this.page.goto(url, { timeout: Timeouts.navigation, waitUntil: 'domcontentloaded' });
     await this.recoverIfSignedOut(relativePath, url);
     await this.waitForPageReady();
+    await this.answerPayerScopeGate();
+  }
+
+  /**
+   * Answers the "Select a Payer" gate if this screen raised one.
+   *
+   * HERE, NOT IN EACH MODULE, since 2026-10-04. The gate covers "payer,
+   * network, plan, policy, formulary and member screens", but only
+   * PayerManagementPage ever answered it - so every story working in a
+   * CONSUMING module met a modal nobody dismissed, and the page underneath
+   * never rendered. That cost 37 failures in one run (folders 09, 21, 32, 39,
+   * 40), each reading as a missing control rather than an unanswered dialog.
+   *
+   * The build of 2026-10-04 lifted the gate on the PAYER module only - "All
+   * Payers" is its default scope now - which is why this looks like a new
+   * problem and is in fact the same gate, newly visible everywhere else.
+   *
+   * Costs one DOM query per navigation for an account that never sees it, and
+   * never throws: a gate that cannot be answered is the caller's problem to
+   * report against its own assertion, not a navigation failure.
+   */
+  protected async answerPayerScopeGate(): Promise<void> {
+    await new PayerScopeDialog(this.page).chooseIfShowingNow().catch(() => null);
   }
 
   /**
@@ -197,6 +221,77 @@ export abstract class BasePage {
   }
 
   /** Any element by id: input, container, or a `pbm-select` combobox. */
+  // MOVED HERE from PayerManagementPage on 2026-10-11: the scope selector sits
+  // in the top bar of every gated module (Payer, Network, Plans ...), and the
+  // network stories need to switch it too.
+  /**
+   * Puts `payerName` in scope, so the module will show it.
+   *
+   * Answers false when the switcher does not offer that payer - a partial term,
+   * a payer code, or a name that genuinely is not in the register - so the
+   * caller can tell "not in scope" from "not there".
+   */
+  async scopeTo(payerName: string): Promise<boolean> {
+    const select = this.byId(GLOBAL.payerScopeSelect);
+    if ((await select.count()) === 0) return false;
+
+    // OPEN, AND CONFIRM IT OPENED (2026-10-11). Right after the gate is
+    // answered the top bar re-renders, and a click in that moment opens
+    // nothing - VERIFIED on the Policies module: no overlay, no options. So
+    // the click is repeated until the overlay is actually on screen.
+    const openOverlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true });
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      await select.click().catch(() => undefined);
+      const opened = await openOverlay
+        .first()
+        .waitFor({ state: 'visible', timeout: 2_500 })
+        .then(() => true)
+        .catch(() => false);
+      if (opened) break;
+    }
+
+    // NARROW BEFORE PICKING. The switcher carries every payer in the register -
+    // 1216 of them when this was written - so letting Playwright scan the whole
+    // option list costs seconds on every call, and the provisioning fixtures
+    // call it repeatedly. Typing into the overlay's own filter cuts the list to
+    // one or two rows first. The filter is optional: if the control has none,
+    // the pick below still works, just slower.
+    // locator-exception: the overlay's filter box and its option rows are
+    // PrimeNG internals with no ids; addressed by role, scoped to the open
+    // overlay.
+    //
+    // THE OVERLAY'S OWN SEARCHBOX (2026-10-11). The filter is an
+    // input[role="searchbox"] inside the open overlay, and it searches on the
+    // server (GetMyPayers?searchText=...); the list itself loads ten payers a
+    // page. The old lookup - the last visible role="textbox" - found the
+    // PAGE's search box instead, typed the payer's name into the list search,
+    // and never reached a payer past the first ten (14799; the network
+    // provisioning behind 58/59/73).
+    const overlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true }).last();
+    const filter = overlay.getByRole('searchbox'); // locator-exception: PrimeNG's overlay filter has no id; scoped to the open overlay
+    if ((await filter.count()) > 0) await filter.fill(payerName);
+
+    const option = this.page
+      .getByRole('option', { name: payerName, exact: true })
+      .filter({ visible: true })
+      .first();
+    // The filtered list settles asynchronously, so wait for the option rather
+    // than counting straight away - counting won the race and reported "not
+    // offered" for a payer that was about to appear.
+    const offered = await option
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!offered) {
+      await this.page.keyboard.press('Escape');
+      return false;
+    }
+
+    Logger.step(`Putting "${payerName}" in scope`);
+    await option.click();
+    await this.waitForPageReady();
+    return true;
+  }
   protected byId(id: string): Locator {
     return this.page.locator(`#${id}`);
   }

@@ -152,8 +152,10 @@ test.describe('Draft and pending assignment states', () => {
     await steps.step('And the Network list still reserves it to that payer', async () => {
       // The reservation is visible from the network side too: the network is
       // not offered back to the pool while a decision on it is outstanding.
-      await networkManagementPage.openList();
-      await networkManagementPage.search(candidate.network);
+      // THE PAYER IN SCOPE, THE SEARCH CONFIRMED (2026-10-11): under the gate's payer
+      // the network is not listed at all (batch 5: "No networks found.").
+      await networkManagementPage.openListFor(candidate.payer);
+      await networkManagementPage.searchUntilApplied(candidate.network);
       const owner = await networkManagementPage.getCellValue(candidate.network, NETWORK_COLUMN.payer);
       expect(
         owner,

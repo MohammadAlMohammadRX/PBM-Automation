@@ -152,13 +152,17 @@ test.describe('Network selection re-validation - Net-change detection', () => {
   }) => {
     let network!: string;
     let drawer!: AssignNetworkDrawer;
+    let before = 0;
 
     await steps.critical('Navigate to the module and open the assignment screen', async () => {
       network = await assignableNetwork(publishedPayer.nameEn);
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      const before = await detail.linkedNetworkCount();
-      expect(before, 'the payer starts with a known set of networks').toBe(0);
+      // The starting count is RECORDED, not required to be zero (changed
+      // 2026-10-11, decision D-002): a published payer always holds at least
+      // one network since 2026-09-27. "Unchanged" below means "back to this".
+      before = await detail.linkedNetworkCount();
+      expect(before, 'the payer\'s linked networks should be readable before the change').toBeGreaterThanOrEqual(0);
     });
 
     await steps.step('Selecting and then deselecting a network reverts the selection', async () => {
@@ -198,7 +202,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
       // it is dismissed here rather than earlier.
       await drawer.cancel();
       const detail = payerManagementPage.detail();
-      await detail.expectLinkedNetworkCount(0);
+      await detail.expectLinkedNetworkCount(before);
       await approvalManagementPage.open();
       await approvalManagementPage.expectNotInQueue(publishedPayer.nameEn);
     });

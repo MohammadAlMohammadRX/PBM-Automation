@@ -148,14 +148,28 @@ export interface MandatoryFieldSpec {
   step: 'Basic Information' | 'Contact Information' | 'Effective Period';
 }
 
+/**
+ * PREFERRED LANGUAGE and PREFERRED CONTACT METHOD WERE REMOVED from this list
+ * on 2026-09-29: the QA lead confirmed both fields have been deleted from the
+ * product and are no longer used.
+ *
+ * They were reporting as failures - "should reject saving when the mandatory
+ * 'Preferred Language' field is left blank" found no required-field error -
+ * and that read as a validation defect. It was not: there is no field left to
+ * validate. A case that demands an error from a field the product no longer
+ * has is asserting against a requirement that has been withdrawn.
+ *
+ * The labels remain in editPayer/detailsTabs/clonePayer data and in
+ * PAYER_FORM_FIELD for now; those need the same treatment once it is confirmed
+ * the fields are gone from the edit form and the detail screen too, rather than
+ * only from creation.
+ */
 export const MANDATORY_FIELDS: readonly MandatoryFieldSpec[] = [
   { label: 'Payer Name', step: 'Basic Information' },
   { label: 'Payer Type', step: 'Basic Information' },
   { label: 'Email Address', step: 'Contact Information' },
   { label: 'License Number', step: 'Contact Information' },
   { label: 'City', step: 'Contact Information' },
-  { label: 'Preferred Language', step: 'Contact Information' },
-  { label: 'Preferred Contact Method', step: 'Contact Information' },
   { label: 'Effective Date', step: 'Effective Period' },
   { label: 'Expiry Date', step: 'Effective Period' },
 ] as const;

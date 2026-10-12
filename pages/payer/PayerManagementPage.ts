@@ -1,4 +1,5 @@
 import { PayerScopeDialog } from '../components/PayerScopeDialog';
+import { findPayer } from '../../utils/PayerFinder';
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { ListPageBase } from '../components/ListPageBase';
@@ -67,6 +68,13 @@ import {
  * rendered header row and therefore only worked in English.
  */
 const COLUMN = PAYER_COLUMN;
+
+/**
+ * A PayerCode issued on approval: "PAY-" and digits only. Drafts carry
+ * "PAY-D-" codes in this build (seen 2026-10-11), so "has a code" no longer
+ * means "has been published".
+ */
+const PUBLISHED_PAYER_CODE = /^PAY-\d+$/;
 
 /**
  * Page Object for the Payer Management module (`/payer-management`).
@@ -178,52 +186,6 @@ export class PayerManagementPage extends ListPageBase {
     await super.search(term);
   }
 
-  /**
-   * Puts `payerName` in scope, so the module will show it.
-   *
-   * Answers false when the switcher does not offer that payer - a partial term,
-   * a payer code, or a name that genuinely is not in the register - so the
-   * caller can tell "not in scope" from "not there".
-   */
-  async scopeTo(payerName: string): Promise<boolean> {
-    const select = this.byId(GLOBAL.payerScopeSelect);
-    if ((await select.count()) === 0) return false;
-
-    await select.click();
-
-    // NARROW BEFORE PICKING. The switcher carries every payer in the register -
-    // 1216 of them when this was written - so letting Playwright scan the whole
-    // option list costs seconds on every call, and the provisioning fixtures
-    // call it repeatedly. Typing into the overlay's own filter cuts the list to
-    // one or two rows first. The filter is optional: if the control has none,
-    // the pick below still works, just slower.
-    // locator-exception: the overlay's filter box and its option rows are
-    // PrimeNG internals with no ids; addressed by role, scoped to the open
-    // overlay.
-    const filter = this.page.getByRole('textbox').filter({ visible: true }).last();
-    if ((await filter.count()) > 0) await filter.fill(payerName);
-
-    const option = this.page
-      .getByRole('option', { name: payerName, exact: true })
-      .filter({ visible: true })
-      .first();
-    // The filtered list settles asynchronously, so wait for the option rather
-    // than counting straight away - counting won the race and reported "not
-    // offered" for a payer that was about to appear.
-    const offered = await option
-      .waitFor({ state: 'visible', timeout: Timeouts.short })
-      .then(() => true)
-      .catch(() => false);
-    if (!offered) {
-      await this.page.keyboard.press('Escape');
-      return false;
-    }
-
-    Logger.step(`Putting "${payerName}" in scope`);
-    await option.click();
-    await this.waitForPageReady();
-    return true;
-  }
 
   /** Whether the list is currently showing any row at all. */
   private async hasAnyRow(): Promise<boolean> {
@@ -1162,7 +1124,21 @@ export class PayerManagementPage extends ListPageBase {
    * a real answer rather than a failed read, and the two count stories turn on
    * telling those apart.
    */
+  /**
+   * Puts a payer's row on screen if it is not there already - one instant DOM
+   * count, and a search only when the row is missing (2026-10-11). The count
+   * readers below used to assume every payer a case had found was on the
+   * current page; once the linkedCounts fixture began finding payers across
+   * the whole register, a case comparing two of them (14782, 14811) read the
+   * second on a list that showed only the first.
+   */
+  private async bringIntoView(payerName: string): Promise<void> {
+    if ((await this.rowByText(payerName).count()) > 0) return;
+    await this.search(payerName);
+  }
+
   async getCountValue(payerName: string, column: 'networks' | 'members'): Promise<number | null> {
+    await this.bringIntoView(payerName);
     const raw = (await this.getCellValue(payerName, PAYER_COLUMN[column])).trim();
     const digits = raw.replace(/[^0-9]/g, '');
     return digits === '' ? null : Number(digits);
@@ -1181,6 +1157,7 @@ export class PayerManagementPage extends ListPageBase {
    * is addressed by id.
    */
   async isCountClickable(payerName: string, column: 'networks' | 'members'): Promise<boolean> {
+    await this.bringIntoView(payerName);
     const cell = await this.cell(payerName, PAYER_COLUMN[column]);
     return (await cell.locator('a, button, [role="button"], [role="link"]').count()) > 0;
   }
@@ -1436,9 +1413,69 @@ export class PayerManagementPage extends ListPageBase {
     return dialog;
   }
 
+  /**
+   * Gives the payer a network when it has none, because approval now needs one.
+   *
+   * Since 2026-09-27 the server refuses to approve a payer holding no network:
+   * "A payer must have at least one assigned network before this change can be
+   * approved." Before that rule existed a payer could be created and approved
+   * on its own, and most of the suite does exactly that - so the requirement
+   * has to be met somewhere central rather than in the dozens of tests that
+   * create a payer and then approve it.
+   *
+   * CONDITIONAL, and that matters: a payer already holding a network must not
+   * be given a second one, because a network belongs to one payer only. The
+   * count is read from the list's own Networks column, so the check costs a
+   * cell read rather than a navigation, and payers that already have one (an
+   * edit, an inactivation, a delete) fall straight through.
+   *
+   * The pool comes from `npm run seed:networks`.
+   */
+  private async ensureNetworkForApproval(payerName: string): Promise<void> {
+    // ONLY AN UNPUBLISHED PAYER NEEDS ONE. The rule the application enforces is
+    // that a payer cannot be APPROVED INTO EXISTENCE without a network; a payer
+    // that already holds a PayerCode has been through that gate and kept its
+    // network, so a later submission - an edit, a status change, a staged
+    // DELETION - needs nothing added.
+    //
+    // Adding one anyway was actively destructive. `getCountValue` answers null
+    // for any cell it cannot read as a number, including the em-dash
+    // placeholder, so a count that could not be read was treated as "has no
+    // network" and a network was attached. In the delete and dependency
+    // stories that handed a DEPENDENCY to the very payers whose premise is
+    // having none: folder 06 logged six such assignments in a story about
+    // deleting payers with no dependencies, and folders 06, 22 and 27 lost
+    // nine cases to it on 2026-10-04. The suite was creating the condition it
+    // was meant to be testing for.
+    // A PUBLISHED code, not just any code (corrected 2026-10-11). This build
+    // gives DRAFTS a code too - "PAY-D-0166" - while published payers carry
+    // "PAY-003392". Treating any code as "already published" skipped the
+    // network for every new draft, approval was then refused, and 14888 and
+    // 14898 failed on "should leave the approval queue" with networks=0.
+    const code = (await this.getPayerCode(payerName).catch(() => '')).trim();
+    if (PUBLISHED_PAYER_CODE.test(code)) return;
+
+    const linked = await this.getCountValue(payerName, 'networks').catch(() => null);
+    if (linked !== null && linked > 0) return;
+
+    Logger.step(`"${payerName}" holds no network - assigning one so it can be approved`);
+    const detail = await this.openDetails(payerName);
+    const assigned = await detail.assignNetwork().catch((error: Error) => {
+      throw new Error(
+        `"${payerName}" holds no network and one could not be assigned, so approval will be `
+        + 'refused. The seeded pool may be exhausted - run "npm run seed:networks". '
+        + `Underlying failure: ${error.message.split('\n')[0]}`,
+      );
+    });
+    Logger.step(`Assigned "${assigned}" to "${payerName}"`);
+    await this.open();
+    await this.search(payerName);
+  }
+
   async sendForApproval(payerName: string): Promise<void> {
     Logger.step(`Sending "${payerName}" for approval`);
     await this.search(payerName);
+    await this.ensureNetworkForApproval(payerName);
     // Every sibling method waits for the row after searching; this one did not,
     // and clicked into a list that had not finished filtering. The submitted
     // record then never reached the approval queue, which surfaced much later as
@@ -1810,6 +1847,33 @@ export class PayerManagementPage extends ListPageBase {
   async findPayerWithApprovalStatus(
     approvalStatus: string,
   ): Promise<{ name: string; recordId: string }> {
+    try {
+      return await this.findListedPayerWithApprovalStatus(approvalStatus);
+    } catch (onScreen) {
+      // NOT ON THIS PAGE IS NOT "NOWHERE" (2026-10-11). The list opens on the
+      // newest payers - the suite's own drafts - so a "Published" payer was
+      // never on the first page and 15365 failed on "observed v0 - Draft".
+      // Locate one across the register, put it on screen, and read its row
+      // like any other.
+      const code = /publish/i.test(approvalStatus) ? null
+        : /pending/i.test(approvalStatus) ? 'pendingApproval'
+          : /draft/i.test(approvalStatus) ? 'draft' : undefined;
+      if (code === undefined) throw onScreen;
+      const found = await findPayer(
+        this.page,
+        (p) => (p.versionStatusCode ?? null) === code,
+        `a payer at approval status "${approvalStatus}"`,
+      );
+      if (!found) throw onScreen;
+      await this.search(found.payerNameEn);
+      return this.findListedPayerWithApprovalStatus(approvalStatus);
+    }
+  }
+
+  /** The on-screen half of findPayerWithApprovalStatus: the rows currently listed only. */
+  private async findListedPayerWithApprovalStatus(
+    approvalStatus: string,
+  ): Promise<{ name: string; recordId: string }> {
     await this.waitForRowsRendered();
     const rows = await this.table()
       .locator('tr[id^="' + this.screen + '-table-row-"]')
@@ -1927,7 +1991,21 @@ export class PayerManagementPage extends ListPageBase {
       if (!hasNext) break;
       await this.goToNextPage();
     }
-    return null;
+    // The pages scanned hold the newest payers - mostly v0/v1 drafts. Look
+    // across the register (payer number 2 holds v0-v3 - QA-lead note N-037),
+    // then confirm the version on screen before handing the name back.
+    const found = await findPayer(
+      this.page,
+      (p) => Number(p.currentVersion) >= minVersions,
+      `a payer with at least v${minVersions}`,
+    );
+    if (!found) return null;
+    await this.search(found.payerNameEn);
+    const listed = await this.getRowPairs(COLUMN.payerName, COLUMN.approvalStatus);
+    const row = listed.find((pair) => pair.name === found.payerNameEn
+      && Number((pair.status.match(/v(\d+)/) || [, '-1'])[1]) >= minVersions);
+    if (row) Logger.step(`Found "${row.name}" at ${row.status}`);
+    return row ? row.name : null;
   }
 
   /** Asserts the row shows exactly the given version and approval status. */

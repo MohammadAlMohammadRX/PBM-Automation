@@ -595,9 +595,27 @@ export const PAYER_DETAIL_ACTIVE_TAB_CLASS = 'is-active';
  * carries no `-cell-` ids and is read per entry rather than per column.
  */
 export const PAYER_AUDIT = {
+  /** Gone in the build seen 2026-10-11 - kept for older builds; see `bar`. */
   filters: 'payer-detail-audit-filters',
-  actionSelect: 'payer-detail-audit-action-select',
-  dateRangeInput: 'payer-detail-audit-date-range-input',
+  /**
+   * The audit panel's header bar and search, read off the live tab on
+   * 2026-10-11. The old filter strip ("-filters") no longer exists; the panel
+   * opens on this bar, with the type and date filters behind Advanced search.
+   */
+  bar: 'payer-detail-audit-bar',
+  /**
+   * The filters now live in a DRAWER ("Advance Search for Audit History"),
+   * opened by the filter icon beside the search box and applied by its Search
+   * button - read off the live tab 2026-10-11. The old inline controls
+   * ("-action-select", "-date-range-input") no longer exist.
+   */
+  advancedSearch: 'payer-detail-audit-advanced-search',
+  filterToggle: 'payer-detail-audit-search-filter-button',
+  advancedSearchApply: 'payer-detail-audit-advanced-search-search-button',
+  advancedSearchCancel: 'payer-detail-audit-advanced-search-cancel-button',
+  actorInput: 'payer-detail-audit-advanced-search-field-actorlabel-input',
+  actionSelect: 'payer-detail-audit-advanced-search-field-actiontype-input',
+  dateRangeInput: 'payer-detail-audit-advanced-search-field-daterange-input',
   timeline: 'payer-detail-audit-timeline',
   rowPrefix: 'payer-detail-audit-row-',
   /** Each entry's only action: `{rowPrefix}{id}-view-details`. */
@@ -798,6 +816,7 @@ export const PAYER_LINKED_NETWORKS = {
  */
 export const PAYER_LINKED_POLICIES = {
   prefix: 'payer-detail-policies',
+  table: 'payer-detail-policies-table',
   searchInput: 'payer-detail-policies-search-input',
   filterButton: 'payer-detail-policies-search-filter-button',
 } as const;

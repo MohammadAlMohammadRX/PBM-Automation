@@ -8,6 +8,22 @@
         "--browser",
         "chromium"
       ]
+    },
+    "azure-devops": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure-devops/mcp@2.10.0",
+        "neomatixco",
+        "-d",
+        "core",
+        "work",
+        "work-items",
+        "test-plans"
+      ],
+      "env": {
+        "ado_mcp_project": "CareConnect"
+      }
     }
   }
 }

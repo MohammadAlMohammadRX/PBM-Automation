@@ -1,3 +1,5 @@
+import { findPayer } from '../utils/PayerFinder';
+import { REFERENCE_PAYERS } from '../data/payers/referencePayers.data';
 import { test as base } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { Logger } from '../utils/Logger';
@@ -39,7 +41,17 @@ export const test = base.extend<VersionHistoryStateFixtures>({
     await use(async () => {
       await payerPage.open();
       await payerPage.expectRowsRendered();
-      const names = (await payerPage.getVisiblePayerNames()).slice(0, CANDIDATE_LIMIT);
+      // v0 / v1 PAYERS FIRST (QA-lead note N-064, 2026-10-11): the fewer
+      // versions a payer has, the likelier its history is empty, and the first
+      // page holds only new drafts. The QA lead's references come first -
+      // National Health Fund (v0), then Care (v1) - then any other v0/v1 payer.
+      const lowVersion: string[] = [];
+      for (const prefer of [[REFERENCE_PAYERS.noNetwork.name], [REFERENCE_PAYERS.care.name], []] as string[][]) {
+        const found = await findPayer(page, (p) => Number(p.currentVersion) <= 1 && !lowVersion.includes(p.payerNameEn), 'a v0/v1 payer', prefer);
+        if (found && !lowVersion.includes(found.payerNameEn)) lowVersion.push(found.payerNameEn);
+      }
+      const onScreen = (await payerPage.getVisiblePayerNames()).slice(0, CANDIDATE_LIMIT);
+      const names = [...lowVersion, ...onScreen.filter((n) => !lowVersion.includes(n))];
       const examined: string[] = [];
 
       for (const name of names) {

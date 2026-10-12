@@ -182,11 +182,14 @@ test.describe('Facility count per linked network', () => {
   test('15827: should withhold facility counts from a user without Linked Networks permission', async ({ shapedNonAdmin, steps }) => {
     let session!: ShapedSession;
 
-    await steps.critical('Sign in as a user without the Linked Networks permission', async () => {
-      session = await shapedNonAdmin({ without: ['viewLinkedNetworks'] });
-      await session.payers.navigate();
-      await session.payers.expectRowsRendered();
-    });
+    // BLOCKED since 2026-10-11, before any step - GetPayerNetworks is no longer
+    // in the role tree, so this role cannot be built (see 14793). Story excluded
+    // from the payer report (Network module), kept compiling for that module.
+    steps.blocked(
+      'The role tree no longer has a permission for reading a payer\'s linked networks '
+        + '(GetPayerNetworks was removed in this build), so this role cannot be built.',
+    );
+    expect(shapedNonAdmin, 'unreachable once blocked').toBeDefined();
 
     await steps.step('The Linked Networks tab, and so its facility counts, is withheld', async () => {
       const detail = await session.payers.openDetails(NON_ADMIN_PROFILE.scopedPayers[0]);

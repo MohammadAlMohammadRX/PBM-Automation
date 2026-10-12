@@ -1,6 +1,6 @@
 import { test } from '../../../fixtures';
-import { env } from '../../../constants/EnvironmentConfig';
-import { NETWORK_STATUS, RESTRICTED_ROLE_REQUIREMENT } from '../../../data/networks/networkActivation.data';
+import { NETWORK_STATUS } from '../../../data/networks/networkActivation.data';
+import type { NetworkManagementPage } from '../../../pages/network/NetworkManagementPage';
 
 /**
  * User story: Enable Network Activation Regardless of Payer Status.
@@ -18,21 +18,20 @@ test.describe('Network activation - Access control', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   // Azure test case 15456
+  //
+  // Converted 2026-10-06. It used to BLOCK because the non-admin account HOLDS
+  // the network lifecycle rights. Per the QA lead those are simply unticked on
+  // the "Payer Admin" role first - the same scenario as every permission case.
   test('15456: should withhold the network lifecycle actions when the user is not authorized to change a network status', async ({
-    requireNonAdmin,
-    loginPage,
-    networkManagementPage,
+    shapedNonAdmin,
     steps,
   }) => {
-    // BLOCKED (not FAIL) when the configured non-admin account cannot serve this
-    // case - see data/accounts/nonAdminAccount.data.ts for what it holds.
-    requireNonAdmin({ lacking: ['networkLifecycle'] });
-
+    let networkManagementPage!: NetworkManagementPage;
     let network!: string;
 
-    await steps.critical('Open the Networks module as the restricted user', async () => {
-      await loginPage.open();
-      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
+    await steps.critical('Open the Networks module as a user without network Activate/Inactivate', async () => {
+      const session = await shapedNonAdmin({ without: ['inactivateNetwork', 'activateNetwork'] });
+      networkManagementPage = session.networks;
       await networkManagementPage.openList();
       await networkManagementPage.expectRowsRendered();
     });

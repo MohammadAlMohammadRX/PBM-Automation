@@ -30,7 +30,11 @@
     "check:status": "cross-env SEED_CHECK_STATUS=1 playwright test tests/seed/check-status-data.spec.ts",
     "lint:steps": "node scripts/checkStepCoverage.js",
     "test:smoke": "cross-env WORKERS=1 playwright test --project=setup && cross-env WORKERS=1 playwright test --project=chromium --grep \"(14444|14446|15602|15599|15600|14913|14615|14638|14469):\"",
-    "test:payer": "bash scripts/run-payer-module.sh"
+    "test:payer": "node scripts/run-payer-module.js",
+    "seed:networks": "cross-env SEED_NETWORKS=1 playwright test tests/seed/seed-networks.spec.ts --project=chromium",
+    "azure:plans": "node scripts/publishToAzure.js --list-plans",
+    "azure:preview": "node scripts/publishToAzure.js",
+    "azure:publish": "node scripts/publishToAzure.js --publish"
   },
   "keywords": [
     "playwright",

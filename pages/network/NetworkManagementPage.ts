@@ -10,8 +10,19 @@ import { Timeouts } from '../../constants/Timeouts';
 import { CONSUMING_SCREEN, NETWORK_COLUMN } from '../../constants/ElementIds';
 import { NetworkUtils } from '../../utils/NetworkUtils';
 import { Logger } from '../../utils/Logger';
+import { findPayers, isEffectiveNow, type PayerShape } from '../../utils/PayerFinder';
+import { env } from '../../constants/EnvironmentConfig';
+import { GET_NETWORKS_ENDPOINT } from '../../data/networks/seedNetworks.data';
 
 /** A network the list shows as owned by a payer, with what else its row says. */
+/** The fields of a GetNetworks row the owned-network lookup selects on. */
+interface NetworkRegisterRow {
+  networkNameEn: string;
+  payerNameEn: string | null;
+  isActive: boolean;
+  versionStatusCode: string | null;
+}
+
 export interface OwnedNetwork {
   network: string;
   payer: string;
@@ -126,6 +137,116 @@ export class NetworkManagementPage extends ListPageBase {
    * walk all thirteen pages.
    */
   async findOwnedNetworks(minimum = 1, maxPages = 13): Promise<OwnedNetwork[]> {
+    const found = await this.scanOwnedNetworks(minimum, maxPages);
+    if (found.length > 0) return found;
+
+    // THE SCOPE DECIDES WHAT THIS LIST HOLDS (2026-10-11). The Network module
+    // shows one payer at a time and its gate offers no "All Payers", so the
+    // gate's first payer was taken - "AAA", which owns no network - and every
+    // linked-network story blocked on "no owning payer on any row". Switch to
+    // a payer that owns networks and look again.
+    //
+    // The SUITE'S OWN payers only: these stories stage and approve removals,
+    // so they must never act on a real record or on the QA lead's reference
+    // payers. Two or more networks preferred (QA-lead note N-046), one accepted.
+    //
+    // LIVE payers only, and TRY several (2026-10-11). The selector lists only
+    // payers whose effective date has arrived; the first pick was effective
+    // from 2027, the selector did not offer it, and the switch gave up after
+    // that one attempt. Candidates are tried in turn, 2+ networks first.
+    //
+    // LOCATED BY THE API, CONFIRMED ON SCREEN (2026-10-11). Even in the right
+    // scope the list opens on the newest networks - ~600 unowned seed networks
+    // - and a payer's own network sits far past the pages a scan reads. So the
+    // Networks API names which network each live suite payer owns, and the
+    // list is SEARCHED for that network: only a row the screen itself shows
+    // with that owner is returned.
+    const ours = (p: PayerShape) => /^Automation Payer /.test(p.payerNameEn) && !p.versionStatusCode && isEffectiveNow(p);
+    const live = new Map((await findPayers(this.page, ours, 'a live suite payer', [])).map((p) => [p.payerNameEn, p]));
+    const owned = (await this.readNetworkRegister())
+      .filter((n) => n.payerNameEn && live.has(n.payerNameEn) && n.isActive && !n.versionStatusCode);
+    // 2+ networks first (QA-lead note N-046), one accepted.
+    const perOwner = new Map<string, number>();
+    for (const n of owned) perOwner.set(n.payerNameEn!, (perOwner.get(n.payerNameEn!) ?? 0) + 1);
+    owned.sort((a, b) => (perOwner.get(b.payerNameEn!) ?? 0) - (perOwner.get(a.payerNameEn!) ?? 0));
+
+    const confirmed: OwnedNetwork[] = [];
+    let scope = '';
+    for (const candidate of owned.slice(0, 8)) {
+      if (candidate.payerNameEn !== scope) {
+        if (!(await this.scopeTo(candidate.payerNameEn!))) continue;
+        scope = candidate.payerNameEn!;
+        await this.openList();
+      }
+      await this.search(candidate.networkNameEn);
+      const rows = await this.readOwnershipOnPage().catch(() => [] as OwnedNetwork[]);
+      confirmed.push(...rows.filter((row) => row.network === candidate.networkNameEn && row.payer === candidate.payerNameEn));
+      if (confirmed.length >= minimum) break;
+    }
+    Logger.step(
+      `Owned networks located by the API and confirmed on the list: ${confirmed.length}`
+      + (confirmed.length > 0 ? ` (first: "${confirmed[0].network}" -> "${confirmed[0].payer}")` : ''),
+    );
+    return confirmed.length > 0 ? confirmed : found;
+  }
+
+  /**
+   * One network's row as the Network list shows it, with `payerName` in scope -
+   * found by SEARCHING the list, not by paging it (2026-10-11): the list opens
+   * on ~600 newer seed networks, so a payer's network lies past any page scan.
+   * Null when the list does not show it.
+   */
+  async findNetworkRow(networkName: string, payerName?: string): Promise<OwnedNetwork | null> {
+    if (payerName !== undefined) await this.openListFor(payerName);
+    else await this.openList();
+    await this.searchUntilApplied(networkName);
+    const rows = await this.readOwnershipOnPage().catch(() => [] as OwnedNetwork[]);
+    return rows.find((row) => row.network.trim() === networkName.trim()) ?? null;
+  }
+
+  /**
+   * Opens the list with `payerName` in the top-bar scope (2026-10-11). The
+   * Network module shows one payer at a time, and the gate takes the first
+   * payer offered ("23") - under which a network linked to another payer is
+   * simply not listed: batch 5 searched for the case's own network and got
+   * "No networks found." (15671, 15807).
+   */
+  async openListFor(payerName: string): Promise<void> {
+    await this.openList();
+    if (await this.scopeTo(payerName).catch(() => false)) await this.openList();
+  }
+
+  /**
+   * Searches, and repeats the search until the list has actually applied it -
+   * every row matches the term, or the list says nothing matched. VERIFIED in
+   * batch 5 (14661): right after a scope switch the term sat in the box while
+   * the unfiltered list stayed on screen, and the row was read from that.
+   */
+  async searchUntilApplied(term: string): Promise<void> {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await this.search(term);
+      const names = await this.rows()
+        .evaluateAll((rows, key) => rows.map((row) =>
+          ((row.querySelector(`[id$="-cell-${key}"]`) as HTMLElement | null)?.innerText ?? '').trim()), NETWORK_COLUMN.networkName)
+        .catch(() => [] as string[]);
+      if (names.every((name) => name.toLowerCase().includes(term.toLowerCase()))) return;
+      await this.page.waitForTimeout(1_000);
+    }
+  }
+
+  /** Every network in the register with its owner, from the Networks API (locating only). */
+  private async readNetworkRegister(): Promise<NetworkRegisterRow[]> {
+    if (!/^https?:/.test(this.page.url())) await this.page.goto(env.baseUrl);
+    const response = await NetworkUtils.postAsSession(this.page, GET_NETWORKS_ENDPOINT, { pageNumber: 1, rowsPerPage: 1000 });
+    try {
+      const body = JSON.parse(response.text) as { payload?: { networks?: { items?: NetworkRegisterRow[] } } };
+      return body.payload?.networks?.items ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async scanOwnedNetworks(minimum: number, maxPages: number): Promise<OwnedNetwork[]> {
     await this.openList();
     const found: OwnedNetwork[] = [];
     for (let page = 1; page <= maxPages; page += 1) {

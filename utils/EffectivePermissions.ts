@@ -1,7 +1,11 @@
 import type { Page } from '@playwright/test';
 import { env } from '../constants/EnvironmentConfig';
 import { ACCESS_TOKEN_KEY } from '../data/payers/lifecycleGuardrails.data';
-import { PAYER_PERMISSION, type PayerPermissionKey } from '../data/accounts/payerAdminRole.data';
+import {
+  NETWORK_PERMISSION,
+  ROLE_PERMISSION,
+  type RolePermissionKey,
+} from '../data/accounts/payerAdminRole.data';
 import { Logger } from '../utils/Logger';
 
 /**
@@ -31,6 +35,12 @@ const ENDPOINT = '/api/Manage/GetCurrentUserRolesAndPermissions';
 
 /** The Payers-module prefix the effective list uses for its codes. */
 const PAYER_PREFIX = 'Payers.';
+// Assumed from the tree's 'Networks' group heading, by analogy with 'Payers.'.
+// Evidence only: a wrong prefix costs an annotation, never a result.
+const NETWORK_PREFIX = 'Networks.';
+
+const codeOf = (key: RolePermissionKey): string =>
+  `${key in NETWORK_PERMISSION ? NETWORK_PREFIX : PAYER_PREFIX}${ROLE_PERMISSION[key]}`;
 
 /** The permission codes the signed-in session is told it holds. */
 export async function readEffectivePermissions(page: Page): Promise<string[]> {
@@ -61,24 +71,23 @@ export async function readEffectivePermissions(page: Page): Promise<string[]> {
  */
 export async function permissionsStillHeld(
   page: Page,
-  removed: readonly PayerPermissionKey[],
+  removed: readonly RolePermissionKey[],
 ): Promise<string[]> {
   if (removed.length === 0) return [];
   const effective = await readEffectivePermissions(page);
   if (effective.length === 0) return [];
 
   return removed
-    .map((key) => PAYER_PERMISSION[key])
-    .filter((label) => !label.includes(' '))
-    .filter((label) => effective.includes(`${PAYER_PREFIX}${label}`));
+    .filter((key) => !ROLE_PERMISSION[key].includes(' '))
+    .map((key) => codeOf(key))
+    .filter((code) => effective.includes(code));
 }
 
 /** The message a case reports when its setup did not reach the account. */
 export const propagationFailure = (stillHeld: readonly string[]): string =>
-  'the permission was taken off the "Payer Admin" role and the removal IS stored - a fresh '
-  + 'administrator window reads it back as unchecked - but the account is still told it holds '
-  + `${stillHeld.join(', ')} by ${ENDPOINT} after signing in again. A role\'s permissions do not `
-  + 'propagate to the users holding that role, so the right was never actually withdrawn and '
-  + 'nothing this case observes could say whether the application enforces it. This is an '
-  + 'application defect in the role/permission propagation, reported separately - not a result '
-  + 'for this case.';
+  'ROOT CAUSE OF THIS FAILURE: the permission was taken off the "Payer Admin" role and the '
+  + 'removal IS stored - a fresh administrator window reads it back as unchecked - yet after '
+  + `signing in again the account is still told it holds ${stillHeld.join(', ')} by ${ENDPOINT}. `
+  + 'Role permission changes do not reach the users holding the role, so the action stays '
+  + 'available. Per the QA lead (2026-10-06) that is a defect and the case FAILS on it; this note '
+  + 'tells the developers the fault is in propagation, not in the screen hiding the control.';

@@ -17,6 +17,12 @@ const path = require('path');
 
 const IN = process.argv[2] || path.join('reports', 'results.json');
 const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Results.html');
+/**
+ * Optional: the partials directory the merged input was built from. When given,
+ * the running time is the ACTIVE execution time - wall clock minus the periods
+ * the machine was asleep or frozen - per scripts/executionTiming.js.
+ */
+const PARTIALS_DIR = process.argv[4] || '';
 
 const ANSI = /\[[0-9;]*m/g;
 const clean = (t) => (t || '').replace(ANSI, '').trim();
@@ -258,6 +264,11 @@ const STORIES = [
     '75-automatically-transition-payer-status-to-expired',
     'Automatically Transition Payer Status to Expired',
   ],
+  // The three stories added from the 2026-09-27 change sheet. Missing here, so
+  // the first full run that reached them reported all 44 cases under "Other".
+  ['76-enforce-unique-active-payer-names', 'Enforce Unique Active Payer Names'],
+  ['77-clone-an-existing-payer-record', 'Clone an Existing Payer Record'],
+  ['78-bulk-import-and-export-payer-records', 'Bulk Import and Export Payer Records'],
   ['01-create-new-payer-organization-record', 'Create New Payer Organization Record'],
   ['04-edit-existing-payer-configuration-details', 'Edit Existing Payer Configuration Details'],
   ['06-delete-payer-with-dependency-validation', 'Delete Payer with/without Dependency Validation'],
@@ -302,9 +313,13 @@ const RUN_ENV = (Array.isArray(raw.stories) && raw.environment) || process.env.B
 // ---- collect every case ---------------------------------------------------
 const cases = [];
 
-(function walk(suites, hint = '') {
+(function walk(suites, hint = '', titles = []) {
   for (const suite of suites || []) {
     const file = suite.file || hint;
+    const chain = [...titles, suite.title || ''];
+    // A case under a describe tagged [MANUAL] is not executed by the
+    // automation - it is skipped by design - so it is kept out of the results.
+    const manual = chain.some((t) => /\[MANUAL\]/.test(t));
     for (const spec of suite.specs || []) {
       for (const test of spec.tests || []) {
         const results = test.results || [];
@@ -323,6 +338,7 @@ const cases = [];
 
         cases.push({
           file,
+          manual,
           storyDir: (file || '').split(/[\\/]/).slice(-2, -1)[0] || '',
           title: spec.title,
           playwrightStatus: last.status || test.status || 'unknown',
@@ -335,11 +351,38 @@ const cases = [];
         });
       }
     }
-    walk(suite.suites, file);
+    walk(suite.suites, file, chain);
   }
 })(raw.suites);
 
-const testCases = cases.filter((c) => !/setup/.test(c.file || ''));
+// MANUAL STORIES ARE LEFT OUT (2026-10-07). They are skipped by design - they
+// need scheduled jobs or time to pass - so counting them inflated the case total
+// and the SKIPPED share and pulled every percentage down. The report states
+// which stories were excluded instead of carrying them as results.
+const executed = cases.filter((c) => !/setup/.test(c.file || ''));
+const testCases = executed.filter((c) => !c.manual);
+const manualCases = executed.filter((c) => c.manual);
+/** Folders whose every case is manual - their run time is excluded too. */
+const MANUAL_DIRS = [...new Set(manualCases.map((c) => c.storyDir))]
+  .filter((d) => !testCases.some((c) => c.storyDir === d));
+
+// ---- QA-lead overrides (optional, REPORT_OVERRIDES=<json>) -------------------
+// Decisions recorded in reports/qa-review/report-overrides.json. The run's own
+// result is never altered: an overridden case keeps its original status and
+// actual result beside the decision, and removed stories are listed with the
+// reason rather than silently dropped.
+const OVERRIDES = (() => {
+  const file = process.env.REPORT_OVERRIDES;
+  if (!file || !fs.existsSync(file)) return { statusOverrides: [], removeStories: [], storyLabels: [] };
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+})();
+const dirOfStory = (name) => (STORIES.find(([, n]) => n === name) || [''])[0];
+const REMOVED = (OVERRIDES.removeStories || []).map((r) => ({ ...r, dir: dirOfStory(r.name) })).filter((r) => r.dir);
+const removedCases = [];
+for (let i = testCases.length - 1; i >= 0; i -= 1) {
+  const hit = REMOVED.find((r) => r.dir === testCases[i].storyDir);
+  if (hit) removedCases.push(...testCases.splice(i, 1).map((c) => ({ ...c, removedBy: hit })));
+}
 
 // ---- status + expected/actual --------------------------------------------
 function statusOf(c) {
@@ -350,6 +393,82 @@ function statusOf(c) {
 }
 
 /**
+ * The failure signatures the "Select a Payer" scope gate leaves behind.
+ *
+ * Since 2026-09-27 the payer list shows ONE payer at a time, where it used to
+ * return the whole register (1216 rows). Every case that asserts across the
+ * register - filter, sort, paginate, count, search, export scope - now fails,
+ * and fails in a recognisable way: the list is empty once filtered, a search
+ * for a payer that is not the one in scope returns nothing, there is no second
+ * page, or "mixed types" turns out to be a single type.
+ *
+ * These are NOT defects and NOT test faults: they are cases whose premise the
+ * product has withdrawn, and they need re-baselining with the business rather
+ * than a fix. Labelling them from the failure text rather than a hand-kept
+ * list means the label cannot drift as folders are added.
+ */
+const SCOPE_GATE_SIGNATURES = [
+  /Received:\s*"<empty>"/i,
+  /"none" below means the search returned/i,
+  /should include the payer .*, and did not/i,
+  /payer-list-table-pager-page-2/i,
+  /Expected substring: ","/,
+  /waiting for locator\('#payer-list-table-el'\)/i,
+  // Added after folders 06-07: the same one-payer list, different wording.
+  /No payer with a linked network found in the first/i,
+  /needs at least three pages/i,
+  /should settle at a full page of rows/i,
+  /offered \[none\]/i,
+  /the total counter should read/i,
+];
+
+/**
+ * Cases whose ACCEPTANCE CRITERIA describe something the product does not have.
+ *
+ * Distinct from the scope gate, and the distinction matters to whoever reads
+ * the report: a scope-gate case tested something real that the product has
+ * since narrowed, while these describe a control that was specified and never
+ * built - a configurable page size, a manual "go to page" input, a
+ * newest-to-oldest sort. Both need a business conversation; only the second is
+ * a gap between the specification and the build.
+ */
+const SPEC_GAP_SIGNATURES = [
+  /acceptance criteria require/i,
+  /the list should open on its default sort/i,
+  /the indicator should report "Newest to Oldest"/i,
+];
+
+/**
+ * WITHDRAWN 2026-10-04, kept rather than deleted.
+ *
+ * The build deployed that morning restored "All Payers" - it is the DEFAULT
+ * breadcrumb scope now, and GetPayers answers with the whole register again
+ * (1298 rows). The gate these signatures describe is gone, so every one of
+ * them has become a way to MISLABEL A GENUINE FAILURE: `Received: "<empty>"`
+ * matches any assertion that found an empty list, for any reason at all, and
+ * the label would tell the business team to re-baseline a case that is in
+ * fact broken.
+ *
+ * Flip SCOPE_GATE_ACTIVE back to true if the gate ever returns; the
+ * signatures below were earned over three folders and are worth keeping.
+ */
+const SCOPE_GATE_ACTIVE = false;
+
+function isScopeGate(c, status) {
+  if (!SCOPE_GATE_ACTIVE) return false;
+  if (status !== 'FAIL') return false;
+  const text = [c.message || '', ...(c.steps || []).map((s) => s.detail || s.reason || '')].join(' ');
+  if (SPEC_GAP_SIGNATURES.some((pattern) => pattern.test(text))) return false;
+  return SCOPE_GATE_SIGNATURES.some((pattern) => pattern.test(text));
+}
+
+function isSpecGap(c, status) {
+  if (status !== 'FAIL') return false;
+  const text = [c.message || '', ...(c.steps || []).map((s) => s.detail || s.reason || '')].join(' ');
+  return SPEC_GAP_SIGNATURES.some((pattern) => pattern.test(text));
+}
+
+/**
  * `15803: should block ...` -> { id: '15803', expected: 'Should block ...' }
  *
  * The bare number is an AZURE DEVOPS test-case id, which is what the titles now
@@ -357,6 +476,21 @@ function statusOf(c) {
  * Azure id yet and keep their sheet number, and older result files still carry
  * the previous titles.
  */
+/**
+ * The expected result in words anyone can read (QA-lead note N-016,
+ * 2026-10-11): the case's claim as a sentence, then its steps in order. Step
+ * names are written as the outcome each step expects ("The Create New Payer
+ * action is not offered"), so together they ARE the expected behaviour - the
+ * raw test title alone ("Should deny ... when ...") was not enough for someone
+ * outside the team to follow.
+ */
+function readableExpected(c) {
+  const claim = String(c.expected || '').replace(/^Should\s+/i, 'The system should ');
+  const sentence = /[.!?]$/.test(claim) ? claim : `${claim}.`;
+  const steps = (c.steps || []).map((s) => String(s.name || '').trim()).filter(Boolean);
+  return { sentence, steps };
+}
+
 function splitTitle(title) {
   const m = title.match(/^\s*((?:TC|AC|ST)-\d+|\d{4,})\s*:\s*(.*)$/);
   if (!m) return { id: '-', expected: title.trim() };
@@ -371,7 +505,34 @@ function splitTitle(title) {
  * literally what the application produced - so it is preferred over the raw
  * assertion text where present.
  */
+/**
+ * The actual result for one failed assertion: the test's OWN explanation first,
+ * then the observed values where they add something.
+ *
+ * FIXED 2026-10-11. This used to return only the matcher's values whenever
+ * Expected/Received were present, which discarded the sentence the test wrote
+ * for exactly this purpose. 36 failed cases read "Observed false - expected
+ * true" in the report while the raw result said, for instance, "The approval
+ * queue should list X after it was submitted ... the submission did not reach
+ * the queue". The actual result is what bug reports are written from, so the
+ * explanation must survive.
+ */
 function observed(message) {
+  const msg = clean(message);
+  if (!msg) return '';
+  // Everything before Playwright's matcher echo is the test's own message.
+  const own = msg.split(/\s*expect\((?:received|locator)\)|\n\s*Expected:/)[0].trim().replace(/[.:\s]+$/, '');
+  const detail = observedDetail(msg);
+  if (!own || own.length < 4 || /^Error:?$/i.test(own)) return detail;
+  const bare = /^Observed (true|false) — expected (true|false)\.$/.test(detail)
+    || /^The (expected|element|number|expected control)\b/.test(detail);
+  if (!detail || bare || detail.startsWith(own.slice(0, 40))) return `${own}.`;
+  const values = detail.match(/^Observed (.+) — expected (.+)\.$/);
+  return values ? `${own} — observed ${values[1]}, expected ${values[2]}.` : `${own}. ${detail}`;
+}
+
+/** The matcher-level reading of a failure: values, timeout or locator state. */
+function observedDetail(message) {
   const msg = clean(message);
   if (!msg) return '';
 
@@ -392,8 +553,32 @@ function observed(message) {
     }s of polling.`;
   }
 
-  const locator = msg.match(/expect\(locator\)\.(\w+)\(\)/);
+  // "(expected)" as well as "()": toHaveText / toContainText name their
+  // argument, and an empty-brackets-only pattern let them fall through.
+  const locator = msg.match(/expect\(locator\)\.(\w+)\([^)]*\)/);
   if (locator) {
+    // SAY WHAT WAS MISSING, AND WHERE (2026-10-11, QA-lead note N-036). The
+    // raw message names the element, the expected value and whether the
+    // element existed at all; "toHaveText failed" threw all three away. 15852
+    // read "expect(locator).toHaveText(expected) failed" while the run had
+    // recorded that the error message "Effective date cannot be earlier than
+    // today." never appeared under the date field.
+    const where = (msg.match(/Locator:\s*locator\('([^']+)'\)/) || [])[1];
+    const wanted = ((msg.match(/Expected(?: string| pattern| substring)?:\s*(.+)/) || [])[1] || '').trim();
+    const got = ((msg.match(/Received(?: string)?:\s*(.+)/) || [])[1] || '').trim();
+    const missing = /element\(s\) not found/.test(msg);
+    const secs = (msg.match(/Timeout:\s*(\d+)ms/) || [])[1];
+    const verb = {
+      toBeVisible: 'to be visible', toBeHidden: 'to disappear', toBeEnabled: 'to be enabled',
+      toBeDisabled: 'to be disabled', toContainText: 'to contain', toHaveText: 'to read', toHaveCount: 'to number',
+    }[locator[1]];
+    if (where && verb) {
+      const name = where.replace(/^#/, '').replace(/[-_]+/g, ' ');
+      const value = wanted && !/^(visible|hidden|enabled|disabled)$/i.test(wanted) ? ` ${wanted}` : '';
+      const wait = secs ? ` (waited ${Number(secs) / 1000} s)` : '';
+      if (missing) return `Expected "${name}" ${verb}${value}, but that element never appeared on the page${wait}.`;
+      if (got) return `Expected "${name}" ${verb}${value}; it showed ${got}${wait}.`;
+    }
     const map = {
       toBeVisible: 'The expected element never became visible.',
       toBeHidden: 'The element that should have disappeared stayed on screen.',
@@ -438,11 +623,34 @@ function actualOf(c, status) {
 
 for (const c of testCases) {
   c.status = statusOf(c);
+  c.scopeGate = isScopeGate(c, c.status);
+  c.specGap = isSpecGap(c, c.status);
   const t = splitTitle(c.title);
   c.id = t.id;
   c.expected = t.expected;
   c.actual = actualOf(c, c.status);
+  if (c.scopeGate) {
+    c.actual = `[SCOPE GATE] ${c.actual} — this case asserts across the whole payer `
+      + 'register, which the application no longer shows: since 2026-09-27 the list holds one '
+      + 'payer at a time. Needs re-baselining with the business, not a fix.';
+  }
+  if (c.specGap) {
+    c.actual = `[SPEC GAP] ${c.actual} — the acceptance criteria describe a control the `
+      + 'product does not have. Specified but not built, rather than broken.';
+  }
+  // What the RUN said, kept before any decision is applied - the re-run diff
+  // compares run results, and an overridden case shows this beside the decision.
+  c.runStatus = c.status;
+  const decision = (OVERRIDES.statusOverrides || []).find((o) => o.cases.includes(c.id));
+  if (decision && decision.status !== c.status) {
+    c.override = decision;
+    c.actual = `[${decision.ref}] ${decision.label} Original result: ${c.runStatus} — ${c.actual}`;
+    c.status = decision.status;
+  }
 }
+
+const scopeGateCount = testCases.filter((c) => c.scopeGate).length;
+const specGapCount = testCases.filter((c) => c.specGap).length;
 
 // ---- group by story ------------------------------------------------------
 const grouped = STORIES.map(([dir, name]) => ({
@@ -476,7 +684,37 @@ const CASE_COUNT = PREPARED
 
 const totalMs = testCases.reduce((n, c) => n + c.durationMs, 0);
 const workers = PREPARED ? raw.workers : (raw.config?.metadata?.actualWorkers ?? raw.config?.workers ?? '-');
-const durationMs = PREPARED ? raw.durationMs : (raw.stats?.duration ?? totalMs);
+let durationMs = PREPARED ? raw.durationMs : (raw.stats?.duration ?? totalMs);
+
+// ---- active execution time ----------------------------------------------
+// Wall clock overstates the run whenever the machine slept mid-folder, so with
+// the partials to hand the duration is recomputed as ACTIVE time, and folders
+// holding only manual stories are left out of it as they are out of the cases.
+let timing = null;
+if (!PREPARED && PARTIALS_DIR && fs.existsSync(PARTIALS_DIR)) {
+  const { measureTiming } = require('./executionTiming');
+  const all = measureTiming(PARTIALS_DIR);
+  // Removed stories are out of the time as they are out of the cases.
+  const manualFolders = new Set([...MANUAL_DIRS, ...REMOVED.map((r) => r.dir)].map((d) => d.slice(0, 2)));
+  const folders = all.folders.filter((f) => !manualFolders.has(f.folder));
+  const sum = (k) => folders.reduce((n, f) => n + f[k], 0);
+  const starts = folders.map((f) => f.start).filter(Boolean).sort();
+  const ends = folders.map((f) => f.end).filter(Boolean).sort();
+  timing = {
+    thresholdSec: all.thresholdSec,
+    folders,
+    wallMs: sum('wallMs'),
+    frozenMs: sum('frozenMs'),
+    activeMs: sum('activeMs'),
+    firstStart: starts[0] || null,
+    lastEnd: ends[ends.length - 1] || null,
+  };
+  durationMs = timing.activeMs;
+}
+
+/** Hours and minutes - a 26-hour run read as "1606m" is not a duration anyone can use. */
+const hm = (ms) => `${Math.floor(ms / 3600000)}h ${Math.round((ms % 3600000) / 60000)}m`;
+const MANUAL_STORY_NAMES = MANUAL_DIRS.map((d) => (STORIES.find(([dir]) => dir === d) || [d, d])[1]);
 
 // ---- render --------------------------------------------------------------
 const esc = (s) =>
@@ -552,7 +790,16 @@ const storySections = grouped
           disputed(x) ? ' r--unstable' : ''
         }">
         <td class="c-id">${esc(tagOf(g.name))}-${esc(x.id)}</td>
-        <td class="c-exp">${esc(x.expected)}</td>
+        <td class="c-exp">${
+          x.status === 'PASS'
+            ? esc(x.expected)
+            : (() => {
+              const r = readableExpected(x);
+              return `${esc(r.sentence)}${r.steps.length
+                ? `<ol class="exp-steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`
+                : ''}`;
+            })()
+        }</td>
         <td class="c-act">${codeify(x.actual)}${
           disputed(x)
             ? `<p class="repro">Not reproduced &mdash; the other run of the same day recorded this case as <b>${esc(
@@ -578,10 +825,42 @@ const storySections = grouped
   })
   .join('');
 
+// ---- re-run provenance ----------------------------------------------------
+// A report assembled from a full run plus a partial re-run says which stories
+// came from the re-run, and what the re-run changed. Optional, from the env:
+//   REPORT_RERUN     folder numbers that were re-run, e.g. "04,06,09"
+//   REPORT_RERUN_ON  when, for the label, e.g. "6 Oct 2026"
+//   REPORT_BASELINE  the prepared JSON of the run BEFORE the re-run, to diff against
+const RERUN = new Set((process.env.REPORT_RERUN || '').split(',').map((s) => s.trim()).filter(Boolean));
+const RERUN_ON = process.env.REPORT_RERUN_ON || 're-run';
+const isRerun = (g) => RERUN.size > 0 && RERUN.has((g.dir || '').slice(0, 2));
+const rerunChanges = (() => {
+  const file = process.env.REPORT_BASELINE;
+  if (!file || !fs.existsSync(file)) return null;
+  const base = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const key = (story, c) => `${story}||${c.id}||${c.expected}`;
+  const before = new Map();
+  for (const st of base.stories || []) for (const c of st.cases) before.set(key(st.name, c), c.status);
+  const out = [];
+  for (const g of grouped) {
+    for (const c of g.cases) {
+      const was = before.get(key(g.name, c)) || 'NOT IN FULL RUN';
+      const ran = c.runStatus || c.status;
+      if (was !== ran) out.push({ story: g.name, id: c.id, was, now: ran, actual: c.actual || '' });
+    }
+  }
+  return { baseTotals: base.totals, changes: out };
+})();
+
 const summaryRows = grouped
   .map((g) => {
     const c = storyCounts(g);
-    return `<tr><td><b>${esc(tagOf(g.name))}</b>&nbsp; ${esc(g.name)}</td><td class="n">${g.cases.length}</td>${ORDER.map(
+    return `<tr><td><b>${esc(tagOf(g.name))}</b>&nbsp; ${esc(g.name)}${
+      isRerun(g) ? ` <small class="rerun">re-run ${esc(RERUN_ON)}</small>` : ''
+    }${
+      (OVERRIDES.storyLabels || []).filter((l) => l.name === g.name)
+        .map((l) => `<br><small>${esc(l.label)}</small>`).join('')
+    }</td><td class="n">${g.cases.length}</td>${ORDER.map(
       (s) => `<td class="n${c[s] && s !== 'PASS' ? ' n--flag' : ''}">${c[s] || '–'}</td>`,
     ).join('')}</tr>`;
   })
@@ -701,6 +980,10 @@ const html = `<title>Payer Module Test Results</title>
   .flaky{display:block;margin-top:5px;font-size:.63rem;letter-spacing:.08em;text-transform:uppercase;
     color:var(--blocked);font-weight:600}
   .r--unstable td.c-id{border-left-style:dashed}
+  .exp-steps{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--muted)}
+  .exp-steps li{margin:1px 0}
+  .rerun{font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:3px;
+    padding:0 5px;margin-left:6px;white-space:nowrap;vertical-align:1px}
   .note{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--blocked);
     border-radius:8px;padding:14px 16px;font-size:.87rem}
   .note b{color:var(--blocked)}
@@ -715,19 +998,46 @@ const html = `<title>Payer Module Test Results</title>
 <header>
   <p class="eyebrow">NeoRx PBM &middot; Automated regression</p>
   <h1>Payer Module Test Results</h1>
-  <p class="lede">Every one of the ${CASE_COUNT} automated test cases across the six payer user
-  stories, with the expected result, what the application actually did, and the step at which it
-  diverged.</p>
+  <p class="lede">Every one of the ${CASE_COUNT} automated test cases across the
+  ${grouped.length} automated payer user stories, with the expected result, what the application
+  actually did, and the step at which it diverged.</p>
 </header>
 
 <dl class="meta">
-  <div><dt>Run</dt><dd>${esc(RUN_DATE)}</dd></div>
+  <div><dt>Run</dt><dd>${esc(timing && timing.firstStart
+    ? `${timing.firstStart.slice(0, 16).replace('T', ' ')} to ${timing.lastEnd.slice(0, 16).replace('T', ' ')} UTC`
+    : RUN_DATE)}</dd></div>
+  <div><dt>User stories</dt><dd>${grouped.length}</dd></div>
   <div><dt>Test cases</dt><dd>${CASE_COUNT}</dd></div>
   <div><dt>Workers</dt><dd>${esc(String(workers))}</dd></div>
   <div><dt>Retries</dt><dd>0</dd></div>
-  <div><dt>Duration</dt><dd>${mins(durationMs)}</dd></div>
+  <div><dt>${timing ? 'Active execution time' : 'Duration'}</dt><dd>${timing ? hm(durationMs) : mins(durationMs)}</dd></div>
+  ${timing ? `<div><dt>Wall clock</dt><dd>${hm(timing.wallMs)}</dd></div>` : ''}
   <div><dt>Environment</dt><dd>${esc(RUN_ENV)}</dd></div>
 </dl>
+
+${
+  MANUAL_DIRS.length || timing || REMOVED.length
+    ? `<p class="note"><b>What these figures cover.</b> ${
+      REMOVED.length
+        ? `${REMOVED.length} user stories are not reported (${removedCases.length} cases): ${
+          REMOVED.map((r) => `${esc(r.name)} — ${esc(r.reason)}`).join('; ')}. `
+        : ''
+    }${
+      MANUAL_DIRS.length
+        ? `Only results produced by the automation are counted. ${MANUAL_DIRS.length} manual user
+          stories (${manualCases.length} cases, skipped by design because they need scheduled jobs or
+          time to pass) are excluded from every total and percentage: ${esc(MANUAL_STORY_NAMES.join('; '))}. `
+        : ''
+    }${
+      timing
+        ? `Execution time is the active time only: any period of more than ${Math.round(timing.thresholdSec / 60)}
+          minutes with no test activity in the logs (the machine asleep or frozen) is excluded, which removed
+          ${hm(timing.frozenMs)} from a wall clock of ${hm(timing.wallMs)}.`
+        : ''
+    }</p>`
+    : ''
+}
 
 <div class="cards">
   ${ORDER.map(
@@ -752,6 +1062,48 @@ ${
     <tbody>${summaryRows}</tbody>
   </table></div>
 </section>
+
+${
+  rerunChanges
+    ? `<section class="story">
+  <h2>Changes after the re-run</h2>
+  <p class="note">${RERUN.size} user stories were re-run ${esc(RERUN_ON)} and their results replace the
+  full run's. ${rerunChanges.changes.length} cases changed status as a result. Totals before the
+  re-run: ${ORDER.map((s) => `${s} ${rerunChanges.baseTotals[s] || 0}`).join(', ')}; after:
+  ${ORDER.map((s) => `${s} ${totals[s]}`).join(', ')}.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Change</th><th class="n">Cases</th></tr></thead>
+    <tbody>${Object.entries(
+      rerunChanges.changes.reduce((m, x) => ({ ...m, [`${x.was} → ${x.now}`]: (m[`${x.was} → ${x.now}`] || 0) + 1 }), {}),
+    ).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<tr><td>${esc(t)}</td><td class="n">${n}</td></tr>`).join('')}</tbody>
+  </table></div>
+  <div class="tw"><table>
+    <thead><tr><th>Case</th><th>User story</th><th>Before</th><th>After</th><th>Result after the re-run</th></tr></thead>
+    <tbody>${rerunChanges.changes
+      .sort((a, b) => a.now.localeCompare(b.now) || a.story.localeCompare(b.story))
+      .map((x) => `<tr><td>${esc(x.id)}</td><td>${esc(x.story)}</td><td>${esc(x.was)}</td><td><b>${esc(x.now)}</b></td><td>${codeify(x.actual.replace(/\s+/g, ' ').slice(0, 220))}</td></tr>`)
+      .join('')}</tbody>
+  </table></div>
+</section>`
+    : ''
+}
+
+${
+  testCases.some((c) => c.override)
+    ? `<section class="story">
+  <h2>QA-lead decisions applied</h2>
+  <p class="note">These cases carry a status decided in review rather than the one the run produced.
+  The run's own result is shown beside each, so nothing is hidden.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Ref</th><th>Case</th><th>Run result</th><th>Reported as</th><th>Decision</th></tr></thead>
+    <tbody>${testCases.filter((c) => c.override)
+      .sort((a, b) => a.override.ref.localeCompare(b.override.ref) || a.id.localeCompare(b.id))
+      .map((c) => `<tr><td>${esc(c.override.ref)}</td><td>${esc(c.id)}</td><td>${esc(c.runStatus)}</td><td><b>${esc(c.status)}</b></td><td>${esc(c.override.label)}</td></tr>`)
+      .join('')}</tbody>
+  </table></div>
+</section>`
+    : ''
+}
 
 ${storySections}
 
@@ -785,6 +1137,10 @@ if (!PREPARED) fs.writeFileSync(
       workers,
       retries: 0,
       durationMs,
+      wallMs: timing ? timing.wallMs : null,
+      frozenMs: timing ? timing.frozenMs : null,
+      excludedManual: { stories: MANUAL_STORY_NAMES, cases: manualCases.length },
+      folderTiming: timing ? timing.folders : null,
       totals,
       stories: grouped.map((g) => ({
         name: g.name,
@@ -792,6 +1148,7 @@ if (!PREPARED) fs.writeFileSync(
         cases: g.cases.map((c) => ({
           id: c.id,
           expected: c.expected,
+          expectedReadable: readableExpected(c),
           actual: c.actual,
           status: c.status,
           steps: c.steps,
@@ -807,5 +1164,7 @@ if (!PREPARED) fs.writeFileSync(
 console.log(`Report written: ${OUT}`);
 console.log(`Data written  : ${jsonOut}`);
 console.log(
-  `  ${testCases.length} cases  |  ` + ORDER.map((s) => `${s} ${totals[s]}`).join('  '),
+  `  ${testCases.length} cases  |  ` + ORDER.map((s) => `${s} ${totals[s]}`).join('  ')
+    + (manualCases.length ? `  |  excluded ${manualCases.length} manual case(s) in ${MANUAL_DIRS.length} stories` : '')
+    + (timing ? `  |  active ${hm(timing.activeMs)} (wall ${hm(timing.wallMs)}, frozen ${hm(timing.frozenMs)})` : ''),
 );

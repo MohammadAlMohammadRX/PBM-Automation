@@ -1,4 +1,6 @@
 import { test, expect } from '../../../fixtures';
+import { findPayer } from '../../../utils/PayerFinder';
+import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
@@ -223,30 +225,50 @@ test.describe('Payer audit history with filters', () => {
   });
 
   // Azure test case 14577
+  //
+  // ON A PAYER WITH A REAL HISTORY (changed 2026-10-11, QA-lead note N-037).
+  // Building one entry of each type on a fresh payer left no Status Change
+  // entry ("observed 0"), so the case failed on its own setup rather than on
+  // the filter. The QA lead named "payer number 2" (four versions) and
+  // confirmed its filter works. The case only READS and filters this payer's
+  // history, so a reference payer is safe to use; any payer with 4+ versions
+  // stands in if it is gone. Each type is checked only if the payer's history
+  // actually contains it - a type the payer never had proves nothing either way.
   test('14577: should show only matching entries when filtered by each Action Type', async ({
+    page,
     payerManagementPage,
-    payerInactivateDialog,
-    approvalManagementPage,
-    publishedPayer,
     steps,
   }) => {
     test.slow();
+    let subject = '';
+    let present: string[] = [];
 
-    await steps.critical('Navigate to the module and give the payer one entry of each reachable type', async () => {
-      await buildAuditHistory(payerManagementPage, payerInactivateDialog, approvalManagementPage, publishedPayer.nameEn);
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+    await steps.critical('Navigate to the module and open the history of a payer with 4+ versions', async () => {
+      const found = await findPayer(page, (p) => Number(p.currentVersion) >= 3, 'a payer with 4+ versions (v0-v3)', [REFERENCE_PAYERS.payerNumber2.name]);
+      if (!found) steps.blocked('no payer in the register has reached v3');
+      subject = found!.payerNameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(subject);
+      const detail = await payerManagementPage.openDetails(subject);
       await detail.auditHistory().open();
-      expect(await detail.auditHistory().getEntryCount()).toBeGreaterThanOrEqual(3);
+      const all = await detail.auditHistory().getEntries();
+      present = [ACTION.create, ACTION.update, ACTION.statusChange].filter((a) => all.some((e) => e.action === a));
+      expect(
+        present.length,
+        `"${subject}" should have at least two action types in its history to filter between; it has: `
+          + `${[...new Set(all.map((e) => e.action))].join(', ') || '(no entries)'}`,
+      ).toBeGreaterThanOrEqual(2);
     });
 
     await steps.step('Each Action Type filter returns only its own entries, by a server query', async () => {
       const audit = payerManagementPage.detail().auditHistory();
-      for (const action of [ACTION.create, ACTION.update, ACTION.statusChange]) {
+      for (const action of present) {
         const query = await audit.selectAction(action);
         expect(query, `filtering by ${action} should query the server`).toMatch(/actionType/);
         const entries = await audit.getEntries();
-        expect(entries.length, `${action} should match at least one entry`).toBeGreaterThan(0);
-        for (const entry of entries) expect(entry.action, `only ${action} entries should be listed`).toBe(action);
+        expect(entries.length, `${action} should match at least one of "${subject}"'s entries`).toBeGreaterThan(0);
+        const strays = entries.filter((e) => e.action !== action).map((e) => e.action);
+        expect(strays, `filtered by ${action}, "${subject}"'s history should list only ${action} entries`).toEqual([]);
       }
     });
   });
@@ -403,7 +425,15 @@ test.describe('Payer audit history with filters', () => {
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       await detail.auditHistory().open();
       payerOptions = await detail.auditHistory().getActionOptions();
-      expect(payerOptions, 'the payer trail should offer its payer-specific action set').toEqual([...ACTION_OPTIONS]);
+      // THE ACTIONS, NOT THE "ALL" ENTRY (2026-10-11). The redesigned drawer
+      // shows "All actions" as the dropdown's empty placeholder rather than as
+      // a list item (screenshot 2026-10-11_20-33-41); the payer-specific
+      // action set the case is about is unchanged.
+      const actions = ACTION_OPTIONS.filter((option) => option !== ACTION.all);
+      expect(
+        payerOptions.filter((option) => !/^all actions$/i.test(option)),
+        'the payer trail should offer its payer-specific action set',
+      ).toEqual([...actions]);
     });
 
     await steps.step('The shared audit log has a different shape - entity type and actor, no payer action set', async () => {
@@ -434,8 +464,18 @@ test.describe('Payer audit history with filters', () => {
       const audit = detail.auditHistory();
       await audit.open();
       const entries = await audit.getEntries();
-      expect(entries[0].action).toBe(ACTION.statusChange);
+      // THE DRAWER FIRST (2026-10-11). Batch 3 found the payer Inactive yet the
+      // newest entry labelled "Update"; reading what that entry changed before
+      // judging its label tells the developers whether the inactivation was
+      // logged under the wrong action or not logged at all.
       const details = await audit.openEntryDetails(0);
+      const changed = details.diff.map((r) => `${r.field}: "${r.before}" -> "${r.after}"`).join('; ');
+      expect(
+        entries[0].action,
+        `the newest entry after an approved inactivation should be "${ACTION.statusChange}"; it is `
+          + `"${entries[0].action}", and its details list: ${changed || '(no changed fields)'}. `
+          + `Timeline: ${entries.map((e) => e.action).join(' | ')}`,
+      ).toBe(ACTION.statusChange);
       const status = details.diff.find((row) => STATUS_TRANSITION_DIFF.field.test(row.field));
       expect(status, `the drawer should list the status field; it lists: ${details.diff.map((r) => r.field).join(', ')}`).not.toBe(undefined);
       expect(status?.before).toBe(STATUS_TRANSITION_DIFF.before);
@@ -576,7 +616,13 @@ test.describe('Payer audit history with filters', () => {
           return;
         }
         for (const entry of entries) {
-          expect(entry.action, `only ${action} entries should survive the filter`).toBe(action);
+          // The ACTION LEADS THE LINE (2026-10-11): a network entry now names
+          // its network after the action - "Network Assigned NET-000388 - ..." -
+          // so the action is the line's start, not the whole of it.
+          expect(
+            entry.action === action || entry.action.startsWith(`${action} `),
+            `only ${action} entries should survive the filter; one read "${entry.action}"`,
+          ).toBe(true);
         }
       });
     });

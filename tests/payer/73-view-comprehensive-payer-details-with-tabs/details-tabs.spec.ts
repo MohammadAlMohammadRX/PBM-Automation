@@ -1,6 +1,8 @@
 import { test, expect } from '../../../fixtures';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { Logger } from '../../../utils/Logger';
+import { findPayer } from '../../../utils/PayerFinder';
+import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import { UNMODIFIED_INDICATORS } from '../../../data/payers/overviewMetadata.data';
@@ -83,14 +85,29 @@ test.describe('Comprehensive payer details', () => {
 
   // Azure test case 14646
   test('14646: should show empty states on the Linked Networks and Linked Policies tabs when nothing is linked', async ({
+    page,
     payerManagementPage,
-    publishedPayer,
     steps,
   }) => {
+    // NOT a freshly published payer (changed 2026-10-11, note N-033): since
+    // 2026-09-27 approval requires a network, so every published payer holds
+    // one. A payer with nothing linked is a never-approved one - the QA lead's
+    // reference is "National Health Fund 1791110252437"; any payer of the same
+    // shape will do if that one is gone.
+    let subject = '';
     await steps.critical('Navigate to the module and open a payer with nothing linked', async () => {
       await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect(await detail.linkedNetworkCount(), 'the payer should hold no networks').toBe(0);
+      const found = await findPayer(
+        page,
+        (p) => p.linkedNetworksCount === 0 && p.linkedPoliciesCount === 0,
+        'a payer with no network and no policy',
+        [REFERENCE_PAYERS.noNetwork.name],
+      );
+      if (!found) steps.blocked('no payer in the register holds neither a network nor a policy');
+      subject = found!.payerNameEn;
+      await payerManagementPage.search(subject);
+      const detail = await payerManagementPage.openDetails(subject);
+      expect(await detail.linkedNetworkCount(), `"${subject}" should hold no networks`).toBe(0);
     });
 
     await steps.step('The Linked Networks tab renders its section rather than breaking', async () => {
@@ -344,12 +361,13 @@ test.describe('Comprehensive payer details - the networks tab reads the network 
     });
 
     await steps.critical('Read the same network in the Network Management module', async () => {
-      const owned = await networkManagementPage.listNetworkOwnership();
-      const entry = owned.find((network) => network.network.trim() === candidate.network.trim());
+      // SEARCHED, with the payer in scope (2026-10-11): the list opens on ~600
+      // newer seed networks, and a page scan never reached this one.
+      const entry = await networkManagementPage.findNetworkRow(candidate.network, candidate.payer);
       expect(
         entry,
-        `the Network Management module should hold "${candidate.network}"`,
-      ).toBeDefined();
+        `the Network Management module should hold "${candidate.network}" (searched with "${candidate.payer}" in scope)`,
+      ).not.toBeNull();
       inModule = { name: entry!.network.trim(), status: entry!.status.trim() };
     });
 

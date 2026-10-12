@@ -137,17 +137,39 @@ test.describe('Manually inactivate an active payer', () => {
       // The point of the case. If the first selection is what gets stored, the
       // record misstates why the payer was taken offline - and nobody would
       // notice, because the dropdown showed the right value at submission.
+      //
+      // READ FROM THE ENTRY'S "VIEW DETAILS" (changed 2026-10-11, note N-058).
+      // The reason is not printed on the timeline row - it sits in the entry's
+      // detail drawer, as the QA lead described: Audit History, the update
+      // record, View Details. The timeline is also polled first, because it
+      // fills in after the tab opens and was read as "(nothing)" before it had.
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       await detail.openAuditHistory();
-      const entries = await detail.getAuditEntryTexts();
-      const trail = entries.join(' | ');
+      let entries: string[] = [];
+      await expect
+        .poll(async () => {
+          entries = await detail.getAuditEntryTexts();
+          return entries.findIndex((e) => /status change|update/i.test(e));
+        }, { timeout: 60_000, message: 'the audit history should list the status change' })
+        .toBeGreaterThanOrEqual(0)
+        .catch(() => {
+          throw new Error(
+            'the audit history should list the approved inactivation as a Status Change or Update entry '
+            + `within 60 s; it listed: ${entries.slice(0, 5).join(' | ') || '(nothing - the panel stayed empty)'}`,
+          );
+        });
+      const index = entries.findIndex((e) => /status change|update/i.test(e));
+      const opened = await detail.auditHistory().openEntryDetails(index);
+      const shown = [opened.summary, opened.meta, ...opened.diff.map((d) => `${d.field} ${d.before} ${d.after}`)]
+        .join(' | ');
       expect(
-        trail.includes(REASON_CHANGE.final),
-        `the trail should record "${REASON_CHANGE.final}"; it holds: ${trail || '(nothing)'}`,
+        shown.includes(REASON_CHANGE.final),
+        `the entry's View Details should show the final reason "${REASON_CHANGE.final}"; entry `
+          + `"${entries[index]}" shows: ${shown || '(nothing)'}`,
       ).toBe(true);
       expect(
-        trail.includes(REASON_CHANGE.first),
-        `the abandoned reason "${REASON_CHANGE.first}" must not have been stored`,
+        shown.includes(REASON_CHANGE.first),
+        `the abandoned reason "${REASON_CHANGE.first}" must not have been stored; the entry shows: ${shown}`,
       ).toBe(false);
     });
   });
@@ -221,19 +243,50 @@ test.describe('Manually inactivate an active payer', () => {
       );
     });
 
-    await steps.step('And both events survive as separate entries in the trail', async () => {
+    // ADDED 2026-10-11 (note N-058): the QA lead's sequence is inactivate,
+    // activate, inactivate - a third transition, so the trail has to keep each
+    // one rather than only "the latest change of each kind".
+    await steps.step('The payer is inactivated a second time and the change approved', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(publishedPayer.nameEn);
+      await payerManagementPage.inactivateRow(publishedPayer.nameEn);
+      await payerInactivateDialog.selectReason(PRIMARY_REASON);
+      await payerInactivateDialog.enterDetails(VALID_DETAILS);
+      await payerInactivateDialog.confirm();
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
+      await approvalManagementPage.open();
+      await approvalManagementPage.approve(publishedPayer.nameEn);
+      await payerManagementPage.open();
+      await payerManagementPage.search(publishedPayer.nameEn);
+      await payerManagementPage.expectLifecycleStatus(publishedPayer.nameEn, LIFECYCLE_STATUS.inactive.en);
+    });
+
+    await steps.step('And all three events survive as separate entries in the trail', async () => {
       // The reason this case exists rather than two shorter ones: a trail that
       // keeps only the latest status change cannot answer "why was this payer
       // ever taken offline?", and that question is the whole purpose of
       // recording a reason.
+      //
+      // POLLED (2026-10-11): the timeline fills in after the tab opens, and a
+      // single early read reported "the trail holds 0".
+      const transitions = AUDIT_EXPECTATION.distinctEntries + 1;
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
       await detail.openAuditHistory();
-      const entries = await detail.getAuditEntryTexts();
+      let entries: string[] = [];
+      await expect
+        .poll(async () => {
+          entries = await detail.getAuditEntryTexts();
+          return entries.length;
+        }, { timeout: 60_000 })
+        .toBeGreaterThanOrEqual(transitions)
+        .catch(() => undefined);
       expect(
         entries.length,
-        `two status changes should leave ${AUDIT_EXPECTATION.distinctEntries} entries; the `
-          + `trail holds ${entries.length}: ${entries.slice(0, 4).join(' | ') || '(nothing)'}`,
-      ).toBeGreaterThanOrEqual(AUDIT_EXPECTATION.distinctEntries);
+        `three status changes (inactivate, activate, inactivate) should leave at least ${transitions} `
+          + `entries; after waiting 60 s the trail holds ${entries.length}: `
+          + `${entries.slice(0, 5).join(' | ') || '(nothing)'}`,
+      ).toBeGreaterThanOrEqual(transitions);
       const trail = entries.join(' | ');
       expect(
         AUDIT_EXPECTATION.inactivated.test(trail),

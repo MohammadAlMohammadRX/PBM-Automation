@@ -40,7 +40,13 @@ export const PAYER_PERMISSION = {
   viewAuditTrail: 'GetPayerAuditTrail',
   viewImpactPreview: 'GetPayerImpactPreview',
   viewLinkedPolicies: 'GetPayerLinkedPolicies',
-  viewLinkedNetworks: 'GetPayerNetworks',
+  // GetPayerNetworks REMOVED 2026-10-11: no longer in the live tree, and asking
+  // for it stopped every shaping that included it ("No permission row is
+  // labelled exactly GetPayerNetworks") - 15386 and 15392 blocked on it. The
+  // three below are new in the same build (read off Payer Admin's tree).
+  importPayers: 'Import payers and linked networks',
+  viewUploadHistory: 'View payer upload history and results',
+  exportPayerNetworks: 'ExportPayerNetworks',
   viewDashboard: 'GetPayersDashboard',
   viewPayerDropdown: 'GetPayersDropdown',
   viewVersionHistory: 'GetPayerVersions',
@@ -53,6 +59,31 @@ export const PAYER_PERMISSION = {
 } as const;
 
 export type PayerPermissionKey = keyof typeof PAYER_PERMISSION;
+
+/**
+ * The few NETWORK-section permissions a payer-module case has to shape.
+ *
+ * KEPT SEPARATE from PAYER_PERMISSION on purpose. ALL_PAYER_PERMISSIONS is
+ * Object.keys(PAYER_PERMISSION), and the zero-permission cases strip exactly
+ * that set - folding these in would silently widen what "no payer permission"
+ * means. Labels read off the live Payer Admin tree on 2026-10-06; both were
+ * ticked.
+ */
+export const NETWORK_PERMISSION = {
+  inactivateNetwork: 'InactivateNetwork',
+  activateNetwork: 'SetNetworkActive',
+} as const;
+
+export type NetworkPermissionKey = keyof typeof NETWORK_PERMISSION;
+
+/** Any permission the role-shaping fixture can tick or untick. */
+export type RolePermissionKey = PayerPermissionKey | NetworkPermissionKey;
+
+/** The catalogue label for any shapeable permission. */
+export const ROLE_PERMISSION: Readonly<Record<RolePermissionKey, string>> = {
+  ...PAYER_PERMISSION,
+  ...NETWORK_PERMISSION,
+};
 
 /** The catalogue label for a permission, by the name a case uses. */
 export const permissionLabel = (key: PayerPermissionKey): string => PAYER_PERMISSION[key];
@@ -75,7 +106,6 @@ export const PAYER_READ_PERMISSIONS = [
   'viewPayerDetails',
   'viewDashboard',
   'viewPayerDropdown',
-  'viewLinkedNetworks',
   'viewLinkedPolicies',
   'viewVersionHistory',
   'viewAuditTrail',

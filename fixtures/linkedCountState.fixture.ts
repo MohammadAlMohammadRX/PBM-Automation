@@ -1,3 +1,4 @@
+import { findPayer } from '../utils/PayerFinder';
 import { test as base } from '@playwright/test';
 import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { PAYER_COLUMN, type PayerColumnKey } from '../constants/ElementIds';
@@ -76,6 +77,25 @@ export const test = base.extend<LinkedCountFixtures>({
           `payers whose "${column}" count can be read`,
           new Error('the payer list rendered no rows to read counts from'),
         );
+      }
+
+      // THE FIRST PAGE IS NOT THE REGISTER (2026-10-11). It holds the newest
+      // payers - always the suite's own drafts, never one with members and
+      // never one without a network - so every "find a payer with members"
+      // case failed while payer number 2 had two. For each class the sample
+      // lacks, locate a fitting payer across the whole register and READ ITS
+      // CELL ON SCREEN like any other: the API only says where to look.
+      const want: Array<[string, (n: number) => boolean]> = [['zero', (n) => n === 0], ['one', (n) => n === 1], ['many', (n) => n > 1]];
+      const has = (test: (n: number) => boolean) => samples.some((s) => test(s.value ?? 0));
+      const apiField = column === 'members' ? 'linkedMembersCount' : 'linkedNetworksCount';
+      for (const [label, test] of want) {
+        if (has(test) || (column !== 'members' && column !== 'networks')) continue;
+        const found = await findPayer(page, (p) => test(Number(p[apiField] ?? 0)), `a payer with ${label} ${column}`);
+        if (!found || samples.some((s) => s.name === found.payerNameEn)) continue;
+        await payerPage.search(found.payerNameEn);
+        const raw = (await payerPage.getCellValue(found.payerNameEn, PAYER_COLUMN[column]).catch(() => '')).trim();
+        const digits = raw.replace(/[^\d]/g, '');
+        samples.push({ name: found.payerNameEn, raw, value: digits === '' ? null : Number(digits) });
       }
 
       const numbered = samples.filter((s) => s.value !== null) as (CountSample & { value: number })[];

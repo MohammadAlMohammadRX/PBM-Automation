@@ -56,17 +56,18 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
       });
 
       await steps.step(`A payer row showing ${status.en} is on screen`, async () => {
-        const pairs = await payerManagementPage.getApprovalStatusTonePairs();
-        expect(
-          pairs.map((pair) => pair.status).join(' | '),
-          `the list should contain at least one payer whose approval status is ${status.en}`,
-        ).toContain(status.en);
+        // NOT the first page only (changed 2026-10-11, note N-009): the list
+        // opens on the newest payers - the suite's own drafts - so a Published
+        // payer was never there ("observed v0 - Draft | v1 - Pending Approval").
+        // findPayerWithApprovalStatus looks across the register when the page
+        // has none, puts the payer on screen, and reads its row.
         // The row is remembered by its RECORD ID, not its name. Payer names are
         // not unique in this register, so re-finding the row by name returns
         // whichever duplicate the search ranks first - which is how this check
         // once read "Pending Approval" from a row it had never looked at. The id
         // is also stable across the language switch below.
         const found = await payerManagementPage.findPayerWithApprovalStatus(status.en);
+        expect(found.recordId, `a payer whose approval status is ${status.en} should be on screen`).not.toBe('');
         recordId = found.recordId;
         // The payer CODE is captured too, and it is what brings the row back after
         // the language switch. The record id stays valid but its PAGE does not:

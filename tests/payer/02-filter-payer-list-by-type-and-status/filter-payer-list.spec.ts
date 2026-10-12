@@ -1,4 +1,5 @@
-import { test } from '../../../fixtures';
+import { test, expect } from '../../../fixtures';
+import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import {
   STATUS_BOUNDARY_CASES,
   FILTER_COMBINATIONS,
@@ -286,30 +287,36 @@ test.describe('Filter Payer List by Type and Status - Empty state & URL handling
    * record. It is reported SKIPPED with this reason.
    */
   // Azure test case 14400
+  //
+  // UN-PARKED 2026-10-11 (QA-lead note N-017). It was parked because, as the
+  // administrator, "Government + Expired" still returned rows - the Status
+  // filter leak (D-003). Run instead as the NON-ADMIN, whose list holds only
+  // its two assigned payers, with a status NEITHER of them has: the expected
+  // result is then provably empty, so if rows come back that is the filter
+  // defect showing, reported as the failure it is.
   test('14400: should show a no-results empty state when the filter combination matches no payers', async ({
-    payerManagementPage,
+    nonAdminSession,
+    steps,
   }) => {
-    // The in-body form of fixme, because it is the only one that carries a
-    // REASON into the report. `test.fixme(title, fn)` parks the case with no
-    // description, so the report could only say "intentionally excluded" - and a
-    // status without a reason is what this whole exercise set out to remove.
-    test.fixme(
-      true,
-      'Parked: the KPI strip on the list itself reports zero Expired payers, so '
-        + 'Government + Expired must match nothing, yet the application returns rows. '
-        + 'Same Status-filter defect as TC-003, TC-004 and TC-006 - the filter matches '
-        + 'an internal field rather than the displayed value, so the empty state never '
-        + 'renders. Not a conditional skip: gating on "did the filter return rows" '
-        + 'would skip precisely when the defect is present.',
-    );
+    const payers = nonAdminSession.payers;
+    let status = '';
 
-    await payerManagementPage.open();
+    await steps.critical('Sign in as the non-admin and read the statuses of its own payers', async () => {
+      await payers.open();
+      await payers.expectRowsRendered();
+      const held = (await payers.getRowPairs(PAYER_COLUMN.payerName, PAYER_COLUMN.status)).map((r) => r.status.trim());
+      const candidates = [EMPTY_RESULT_COMBINATION.status, 'Inactive', 'Pending'];
+      status = candidates.find((s) => !held.some((h) => new RegExp(`^${s}$`, 'i').test(h))) ?? '';
+      if (!status) steps.blocked(`the non-admin's payers already hold every candidate status (${held.join(', ')})`);
+      expect(status, `a status none of the non-admin's payers holds (${held.join(', ')})`).not.toBe('');
+    });
 
-    await payerManagementPage.filterByType(EMPTY_RESULT_COMBINATION.type);
-    await payerManagementPage.filterByStatus(EMPTY_RESULT_COMBINATION.status);
-
-    // A clear empty state - not an error, stale data, or a blank screen.
-    await payerManagementPage.expectEmptyState();
+    await steps.step('Filtering on a status none of its payers holds shows a clear empty state', async () => {
+      await payers.filterByType(EMPTY_RESULT_COMBINATION.type);
+      await payers.filterByStatus(status);
+      // A clear empty state - not an error, stale data, or a blank screen.
+      await payers.expectEmptyState();
+    });
   });
 
   // Azure test case 14404

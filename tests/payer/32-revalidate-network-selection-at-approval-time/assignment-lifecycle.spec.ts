@@ -39,10 +39,17 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.critical("Open the payer's network assignment screen", async () => {
       network = await assignableNetwork(publishedPayer.nameEn);
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      // NOT "starts with zero networks" (changed 2026-10-11, decision D-002).
+      // Since 2026-09-27 a payer cannot be approved without a network, so a
+      // published payer always holds one and a zero baseline is impossible.
+      // What the case needs is that the network being assigned is not linked
+      // already - otherwise "not linked until approved" would prove nothing.
+      const linked = (await detail.getLinkedNetworkRows()).map((row) => row.name);
       expect(
-        await detail.linkedNetworkCount(),
-        'the payer should start with no linked networks',
-      ).toBe(0);
+        linked.some((name) => name.includes(network)),
+        `the network about to be assigned ("${network}") should not already be linked; the payer `
+          + `holds: ${linked.join(', ') || '(none)'}`,
+      ).toBe(false);
     });
 
     await steps.step('The unassigned network is offered and can be submitted', async () => {

@@ -41,8 +41,17 @@ export type NonAdminRight =
 
 export const NON_ADMIN_PROFILE = {
   role: 'Payer Admin',
-  /** The payers the account is assigned to, by English name and by code. */
-  scopedPayers: ['Al Dawaa', 'NUPCO'],
+  /**
+   * The payers the account is assigned to, by English name and by code.
+   *
+   * PAY-000017 WAS RENAMED "Al Dawaa" -> "Al Dawaa 2" (found 2026-10-11); its
+   * code is unchanged and it is still this account's payer. A DIFFERENT,
+   * unrelated draft named "Al Dawaa" (PAY-000259) now exists outside the
+   * account's scope. The stale name made 15626, 15627, 15635 and 15338 compare
+   * the list against "Al Dawaa" and report a scope problem that was test data.
+   * The CODE is the stable identity - match on it where a case can.
+   */
+  scopedPayers: ['Al Dawaa 2', 'NUPCO'],
   scopedPayerCodes: ['PAY-000017', 'PAY-000002'],
   holds: {
     createPayer: false,

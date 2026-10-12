@@ -13,19 +13,20 @@ import { env } from '../constants/EnvironmentConfig';
 import { Logger } from '../utils/Logger';
 import {
   PAYER_ADMIN_ROLE,
-  PAYER_PERMISSION,
-  type PayerPermissionKey,
+  ROLE_PERMISSION,
+  type RolePermissionKey,
 } from '../data/accounts/payerAdminRole.data';
 import { AUTH_STORAGE_STATE_PATH } from '../constants/Paths';
 import { blockedByPrecondition } from './testStatus.fixture';
 import { permissionsStillHeld, propagationFailure } from '../utils/EffectivePermissions';
+import type { RowAction } from '../constants/ElementIds';
 
 /** What a case needs the shaped account to hold and to lack. */
 export interface PermissionShape {
   /** Permissions to take OFF the role, so a refusal can be observed. */
-  without?: readonly PayerPermissionKey[];
+  without?: readonly RolePermissionKey[];
   /** Permissions to ensure are ON, for the granted half of a gate. */
-  with?: readonly PayerPermissionKey[];
+  with?: readonly RolePermissionKey[];
 }
 
 /** A signed-in non-administrator whose role was shaped for this case. */
@@ -45,6 +46,26 @@ export interface ShapedSession {
 export interface RoleShape {
   removed: string[];
   granted: string[];
+}
+
+/** A control a shaped session may or may not be offered - a row action, or the export menu. */
+export type SessionControl = RowAction | 'export';
+
+/**
+ * Whether `control` is usable for this session on `payerName`.
+ *
+ * One question across two kinds of control, so a case comparing several roles
+ * can tabulate what each is offered without branching on where the control
+ * lives. Shared by the permission stories (16 and 68) rather than copied into
+ * each.
+ */
+export async function controlAvailability(
+  session: ShapedSession,
+  payerName: string,
+  control: SessionControl,
+): Promise<'absent' | 'disabled' | 'available'> {
+  if (control === 'export') return (await session.exportMenu.isAvailable()) ? 'available' : 'absent';
+  return session.payers.getRowActionAvailability(payerName, control);
 }
 
 export interface ShapedNonAdminFixtures {
@@ -95,8 +116,15 @@ export interface ShapedNonAdminFixtures {
  * need a worker to themselves.
  */
 export const test = base.extend<ShapedNonAdminFixtures>({
-  shapedNonAdmin: async ({ page, browser }, use, testInfo) => {
-    const roles = new RoleAdministrationPage(page);
+  shapedNonAdmin: async ({ browser }, use, testInfo) => {
+    // ITS OWN ADMINISTRATOR WINDOW (fixed 2026-10-11), as shapeRole has. It
+    // used the test's default page, and seven access specs opt that page OUT
+    // of the administrator session to sign in as the non-admin - so in those
+    // files the role edit landed on the login screen, timed out on waitForURL,
+    // and the case was reported BLOCKED. That is how 15386, 15392 and 15456,
+    // converted to real tests on 6 Oct, never actually ran.
+    const adminContext = await browser.newContext({ storageState: AUTH_STORAGE_STATE_PATH, viewport: DEFAULT_VIEWPORT });
+    const roles = new RoleAdministrationPage(await adminContext.newPage());
     /** What was changed, so teardown can put back exactly that. */
     const changed: Array<{ label: string; wanted: boolean }> = [];
     // A LIST rather than one handle: a case may shape the role more than once,
@@ -125,8 +153,8 @@ export const test = base.extend<ShapedNonAdminFixtures>({
 
     await use(async (shape: PermissionShape): Promise<ShapedSession> => {
       const wanted = [
-        ...(shape.without ?? []).map((key) => ({ label: PAYER_PERMISSION[key], wanted: false })),
-        ...(shape.with ?? []).map((key) => ({ label: PAYER_PERMISSION[key], wanted: true })),
+        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
+        ...(shape.with ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: true })),
       ];
 
       // THE BUDGET IS EXTENDED HERE, not in each case. Reshaping the role costs a
@@ -188,8 +216,8 @@ export const test = base.extend<ShapedNonAdminFixtures>({
           approvals: new ApprovalManagementPage(shaped),
           networks: new NetworkManagementPage(shaped),
           exportMenu: new ExportMenu(shaped),
-          removed: (shape.without ?? []).map((key) => PAYER_PERMISSION[key]),
-          granted: (shape.with ?? []).map((key) => PAYER_PERMISSION[key]),
+          removed: (shape.without ?? []).map((key) => ROLE_PERMISSION[key]),
+          granted: (shape.with ?? []).map((key) => ROLE_PERMISSION[key]),
         };
       } catch (error) {
         blockedByPrecondition(testInfo, 'a signed-in non-administrator session', error);
@@ -204,8 +232,18 @@ export const test = base.extend<ShapedNonAdminFixtures>({
       // Not swallowed: a failed restore leaves the shared role wrong, and the
       // next case would report a permission defect that does not exist. Better
       // to fail loudly here, where the cause is obvious.
-      await setPermissions(changed);
+      // UNDONE IN REVERSE, newest change first. Each entry records the state
+      // from just before ITS shaping call, so a case that grants a permission the
+      // role lacked and then withdraws it within one test ("with X", then
+      // "without X") must undo the withdrawal before the grant. Applied in
+      // forward order the pair restored "off" then "on" and left the SHARED role
+      // holding a right it never had - silently, for every later case. Latent
+      // until 2026-10-06: every case until then toggled a right the role already
+      // held, which happens to restore correctly in either order.
+      await setPermissions([...changed].reverse());
     }
+    // Closed only AFTER the restore, which runs through this window.
+    await adminContext.close();
   },
   shapeRole: async ({ browser }, use, testInfo) => {
     // Its OWN administrator window, because the calling spec has opted the
@@ -237,8 +275,8 @@ export const test = base.extend<ShapedNonAdminFixtures>({
 
     await use(async (shape: PermissionShape): Promise<RoleShape> => {
       const wanted = [
-        ...(shape.without ?? []).map((key) => ({ label: PAYER_PERMISSION[key], wanted: false })),
-        ...(shape.with ?? []).map((key) => ({ label: PAYER_PERMISSION[key], wanted: true })),
+        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
+        ...(shape.with ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: true })),
       ];
       // The same allowance as the sibling fixture, for the same reason: the role
       // round trip costs a minute or so before the case does anything of its own.
@@ -256,14 +294,22 @@ export const test = base.extend<ShapedNonAdminFixtures>({
         blockedByPrecondition(testInfo, `the "${PAYER_ADMIN_ROLE}" role reshaped for this case`, error);
       }
       return {
-        removed: (shape.without ?? []).map((key) => PAYER_PERMISSION[key]),
-        granted: (shape.with ?? []).map((key) => PAYER_PERMISSION[key]),
+        removed: (shape.without ?? []).map((key) => ROLE_PERMISSION[key]),
+        granted: (shape.with ?? []).map((key) => ROLE_PERMISSION[key]),
       };
     });
 
     if (changed.length > 0) {
       Logger.step(`[fixture] Restoring "${PAYER_ADMIN_ROLE}": ${changed.map((c) => c.label).join(', ')}`);
-      await setPermissions(changed);
+      // UNDONE IN REVERSE, newest change first. Each entry records the state
+      // from just before ITS shaping call, so a case that grants a permission the
+      // role lacked and then withdraws it within one test ("with X", then
+      // "without X") must undo the withdrawal before the grant. Applied in
+      // forward order the pair restored "off" then "on" and left the SHARED role
+      // holding a right it never had - silently, for every later case. Latent
+      // until 2026-10-06: every case until then toggled a right the role already
+      // held, which happens to restore correctly in either order.
+      await setPermissions([...changed].reverse());
     }
     await admin.close();
   },

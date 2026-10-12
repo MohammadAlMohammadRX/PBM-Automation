@@ -38,8 +38,10 @@ test.describe('Network removal dependency re-check', () => {
 
     await steps.critical('Navigate to the module and find a submitted removal of a network with no dependent policies', async () => {
       candidate = await linkedNetwork('pendingRemoval');
-      await networkManagementPage.openList();
-      await networkManagementPage.search(candidate.network);
+      // THE PAYER IN SCOPE, THE SEARCH CONFIRMED (2026-10-11): under the gate's payer
+      // the network is not listed at all (batch 5: "No networks found.").
+      await networkManagementPage.openListFor(candidate.payer);
+      await networkManagementPage.searchUntilApplied(candidate.network);
       const policies = await networkManagementPage.getCellValue(
         candidate.network,
         NETWORK_COLUMN.linkedPolicies,
@@ -70,8 +72,10 @@ test.describe('Network removal dependency re-check', () => {
     });
 
     await steps.step('And the Network list shows it as owned by no payer', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(candidate.network);
+      // THE PAYER IN SCOPE, THE SEARCH CONFIRMED (2026-10-11): under the gate's payer
+      // the network is not listed at all (batch 5: "No networks found.").
+      await networkManagementPage.openListFor(candidate.payer);
+      await networkManagementPage.searchUntilApplied(candidate.network);
       const owner = await networkManagementPage.getCellValue(candidate.network, NETWORK_COLUMN.payer);
       expect(
         owner === '' || UNOWNED_MARKER.test(owner),

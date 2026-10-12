@@ -119,20 +119,11 @@ export const EDITABLE_FIELD_CHECKLIST: readonly EditableFieldCase[] = [
     kind: 'dropdown',
     value: () => 'Jeddah',
   },
-  {
-    id: 'language',
-    label: 'Preferred Language',
-    step: 'Contact Information',
-    kind: 'dropdown',
-    value: () => 'Arabic',
-  },
-  {
-    id: 'contact-method',
-    label: 'Preferred Contact Method',
-    step: 'Contact Information',
-    kind: 'dropdown',
-    value: () => 'SMS',
-  },
+  // PREFERRED LANGUAGE and PREFERRED CONTACT METHOD REMOVED 2026-10-11: both
+  // fields were deleted from the product by the business team (QA lead,
+  // 2026-09-29 and 2026-10-11). The 11 Oct re-run of 14373 confirmed it - the
+  // other six editable fields passed and these two failed only because their
+  // controls no longer exist.
 ] as const;
 
 /** Suffix applied when a test edits a payer's name (TC-010 onward). */

@@ -244,12 +244,16 @@ test.describe('Sort Payer List by Column Headers - Matrix and state transitions'
 
     // The starting state is observed, not selected - the list must already be on
     // its default sort when it loads.
-    const [start, ...transitions] = SORT_TRANSITIONS;
+    //
+    // THE DEFAULT IS "Created On (Newest to Oldest)" since the 2026-09-27/28
+    // sheet (fixed in this case 2026-10-11 - it still expected Payer Name A-Z,
+    // and the run observed the new default). It orders by creation date, which
+    // has no column on the list, so it is checked by its indicator; the
+    // column transitions are checked by indicator AND order as before.
+    const transitions = SORT_TRANSITIONS.filter((t) => !/default/i.test(t.step));
 
-    await steps.step(`${start.step}: the list loads on ${start.column} ${start.direction}`, async () => {
-      await payerManagementPage.expectSortIndicator(start.column, start.direction);
-      await payerManagementPage.expectColumnSorted(start.column, start.direction);
-    });
+    await steps.step(`default state: the list loads on ${DEFAULT_SORT_LABEL.en}`, () =>
+      payerManagementPage.expectDefaultSortIndicator());
 
     // Default -> Payer Type asc -> Code desc -> back to the default. Each
     // transition is independent, so one failing transition still lets the next
@@ -263,6 +267,12 @@ test.describe('Sort Payer List by Column Headers - Matrix and state transitions'
         await payerManagementPage.sortMenu().expectSingleActiveOption();
       });
     }
+
+    await steps.step(`back to default: ${DEFAULT_SORT_LABEL.en} is selected again`, async () => {
+      await payerManagementPage.sortMenu().selectByLabel(DEFAULT_SORT_LABEL.en);
+      await payerManagementPage.expectDefaultSortIndicator();
+      await payerManagementPage.sortMenu().expectSingleActiveOption();
+    });
   });
 });
 

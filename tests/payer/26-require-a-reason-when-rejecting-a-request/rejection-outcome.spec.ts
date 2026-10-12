@@ -1,4 +1,6 @@
 import { test, expect } from '../../../fixtures';
+import { findPayer } from '../../../utils/PayerFinder';
+import { Logger } from '../../../utils/Logger';
 import { env } from '../../../constants/EnvironmentConfig';
 import {
   REJECT_DIALOG,
@@ -42,6 +44,9 @@ test.describe('Require a reason when rejecting - Outcome', () => {
 
     await steps.step('Submitting the rejection transitions the payer', async () => {
       await payerManagementPage.dialog().confirm('Reject');
+      // Let the decision land before leaving - the race that left 15516's
+      // rejection undone in batch 5 (2026-10-11).
+      await approvalManagementPage.waitForDecisionProcessed(draftPayer.nameEn);
       await payerManagementPage.open();
       await payerManagementPage.search(draftPayer.nameEn);
       await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, REJECTED_STATUS);
@@ -55,12 +60,26 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       // step reports.
       const detail = await payerManagementPage.openDetails(draftPayer.nameEn);
       await detail.openAuditHistory();
-      const entries = await detail.getAuditEntryTexts();
-      expect(
-        entries.some((entry) => entry.includes(reason)),
-        `the history should show the rejection reason "${reason}"; it showed: `
-          + `${entries.slice(0, 4).join(' | ') || '(nothing)'}`,
-      ).toBe(true);
+      // POLLED, not read once (changed 2026-10-11, note N-066). The history
+      // panel fills in after the tab opens; reading it immediately reported
+      // "(nothing)" for a panel that had not loaded yet. Keep re-reading until
+      // the entries arrive, then judge them.
+      let entries: string[] = [];
+      await expect
+        .poll(async () => {
+          entries = await detail.getAuditEntryTexts();
+          return entries.some((entry) => entry.includes(reason));
+        }, {
+          timeout: 60_000,
+          message: `the history should show the rejection reason "${reason}"`,
+        })
+        .toBe(true)
+        .catch(() => {
+          throw new Error(
+            `the history should show the rejection reason "${reason}" within 60 s; after waiting it `
+            + `showed: ${entries.slice(0, 4).join(' | ') || '(nothing - the history panel stayed empty)'}`,
+          );
+        });
     });
   });
 
@@ -108,15 +127,43 @@ test.describe('Require a reason when rejecting - Outcome', () => {
   });
 
   // Azure test case 15516
+  //
+  // ON AN ESTABLISHED PAYER (changed 2026-10-11, QA-lead note N-067). Run on a
+  // brand-new v0 registration, the rejection left an audit trail with no
+  // entries at all ("observed []"). The QA lead asked for a payer that already
+  // has at least three versions, so the request rejected here is an UPDATE to
+  // a live payer. One of the SUITE'S OWN payers is used - the case edits and
+  // rejects a change on it, so never a real record or a reference payer.
   test('15516: should state the requirement clearly and record who rejected what', async ({
     payerManagementPage,
     approvalManagementPage,
-    draftPayer,
+    publishedPayer,
     steps,
   }) => {
+    test.slow();
     const reason = REJECTION_DIALOG_REASONS[2];
+    const draftPayer = { nameEn: '' };
 
-    await steps.critical('Navigate to the module and submit a request', async () => {
+    await steps.critical('Navigate to the module and submit a change to a payer with 3+ versions', async () => {
+      // BUILT TO v3 (2026-10-11). The clean-up sweeps remove the suite's
+      // older payers, so a found v3 payer was gone by batch 4 (BLOCKED). The
+      // suite's own published payer (v1) is taken through two approved edits
+      // to v3, then the change this case rejects is submitted on top - an
+      // UPDATE to an established, active payer, as note N-067 asks.
+      draftPayer.nameEn = publishedPayer.nameEn;
+      for (const [round, phone] of [[2, '512345681'], [3, '512345682']] as const) {
+        await payerManagementPage.open();
+        await payerManagementPage.search(draftPayer.nameEn);
+        await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', phone);
+        await payerManagementPage.open();
+        await payerManagementPage.sendForApproval(draftPayer.nameEn);
+        await approvalManagementPage.open();
+        await approvalManagementPage.approve(draftPayer.nameEn);
+        Logger.step(`[case] "${draftPayer.nameEn}" approved at v${round}`);
+      }
+      await payerManagementPage.open();
+      await payerManagementPage.search(draftPayer.nameEn);
+      await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', '512345680');
       await payerManagementPage.open();
       await payerManagementPage.sendForApproval(draftPayer.nameEn);
       await approvalManagementPage.open();
@@ -144,6 +191,11 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       // The confirm needs the acknowledgement as well as the reason.
       await dialog.acknowledgeIfPresent();
       await dialog.confirm('Reject');
+      // LET THE DECISION LAND before leaving the page (2026-10-11). Batch 5
+      // navigated away 0.8 s after confirming, and v4 stayed "Pending Approval"
+      // with no reviewer - leaving cancels the in-flight reject, which is why
+      // approve()/reject() wait for the request to leave the queue.
+      await approvalManagementPage.waitForDecisionProcessed(draftPayer.nameEn);
       await payerManagementPage.open();
       await payerManagementPage.search(draftPayer.nameEn);
       await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, REJECTED_STATUS);

@@ -412,6 +412,17 @@ export class PayerFormDialog extends EntityWizardDialog {
     return this.field(label).inputValue();
   }
 
+  /**
+   * Whether a field can be typed into: present, enabled and not read-only.
+   * A field that is missing altogether also counts as not editable - a form
+   * that hides the control has refused the edit as surely as one that locks it.
+   */
+  async isFieldEditable(label: string): Promise<boolean> {
+    const field = this.field(label);
+    if ((await field.count()) === 0) return false;
+    return field.isEditable({ timeout: Timeouts.short }).catch(() => false);
+  }
+
   /** Current selection shown by a dropdown field. */
   async getDropdownValue(label: string): Promise<string> {
     return (await this.field(label).innerText()).trim();

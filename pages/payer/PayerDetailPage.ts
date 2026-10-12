@@ -707,6 +707,34 @@ export class PayerDetailPage extends BasePage {
    * panel text is the element following the id'd tab strip - both anchored on
    * ids, since the panel itself carries none.
    */
+  /**
+   * The Linked Policies table, row by row, each cell paired with its header.
+   *
+   * Read off the live tab on 2026-10-11 (payer number 2): the table is
+   * "payer-detail-policies-table", its rows "payer-detail-policies-table-row-
+   * <id>", and only the status badge carries an id of its own - the cells and
+   * headers carry none. So cells are read by POSITION inside the id'd row and
+   * labelled by the header in the same position.
+   *
+   * locator-exception: cells and headers have no ids; read by position inside
+   * the id'd table and rows.
+   */
+  async getLinkedPolicyRows(): Promise<Array<Record<string, string>>> {
+    await this.openLinkedPolicies();
+    const table = this.byId(PAYER_LINKED_POLICIES.table);
+    await table.locator('[id^="payer-detail-policies-table-row-"]').first() // locator-exception: rows are id-prefixed under the id'd table
+      .waitFor({ state: 'visible', timeout: Timeouts.default });
+    return table.evaluate((el) => {
+      const headers = Array.from(el.querySelectorAll('th')).map((h) => (h as HTMLElement).innerText.trim());
+      return Array.from(el.querySelectorAll('tr[id^="payer-detail-policies-table-row-"]'))
+        .filter((row) => /-row-[0-9a-f-]{36}$/.test(row.id))
+        .map((row) => {
+          const cells = Array.from(row.querySelectorAll('td')).map((c) => (c as HTMLElement).innerText.trim());
+          return Object.fromEntries(cells.map((value, i) => [headers[i] || `column ${i + 1}`, value]));
+        });
+    });
+  }
+
   async getLinkedPoliciesSection(): Promise<{ ids: string[]; text: string }> {
     await this.openLinkedPolicies();
     const ids = await this.page
@@ -800,7 +828,10 @@ export class PayerDetailPage extends BasePage {
     // belonged to the assertion that came after it. With the filters as the
     // signal, an empty trail reaches `expectAuditEntryMatching`, which reports
     // it as the empty list it is.
-    const ready = this.byId(PAYER_AUDIT.filters).or(this.byId(PAYER_AUDIT.timeline)).first();
+    // The BAR as well (2026-10-11): this build replaced the filter strip with a
+    // bar; an empty trail renders the bar but no timeline, and 15513 reported
+    // "the Audit History tab should open" for a tab that had opened.
+    const ready = this.byId(PAYER_AUDIT.bar).or(this.byId(PAYER_AUDIT.filters)).or(this.byId(PAYER_AUDIT.timeline)).first();
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await this.auditTab().click();
       const shown = await ready
@@ -831,7 +862,11 @@ export class PayerDetailPage extends BasePage {
   async expectAuditEntryMatching(pattern: RegExp, description: string): Promise<void> {
     await expect
       .poll(() => this.getAuditEntryTexts(), {
-        timeout: Timeouts.default,
+        // 60 s, not the default (2026-10-11): the audit timeline fills in well
+        // after the tab opens, and several cases (15513, 15516, 14702) read an
+        // empty trail that had simply not loaded yet. Costs time only when the
+        // entry is genuinely missing.
+        timeout: 60_000,
         message: `the audit trail should record ${description}`,
       })
       .toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));

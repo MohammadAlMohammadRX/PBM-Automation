@@ -31,8 +31,12 @@ export const NO_RESULTS_TEXT = 'No results found.';
  * so no spec hardcodes environment data.
  */
 export const KNOWN_PAYER = {
-  /** Full English name. */
-  name: process.env.SEARCH_PAYER_NAME ?? 'Al Dawaa',
+  /**
+   * Full English name. "Al Dawaa 2" since 2026-10-11: PAY-000017 was renamed,
+   * and the name "Al Dawaa" now belongs to an unrelated draft (PAY-000259) - so
+   * the old name and the code below no longer described the same payer.
+   */
+  name: process.env.SEARCH_PAYER_NAME ?? 'Al Dawaa 2',
   /** A leading substring of that name - drives the partial-match tests. */
   namePartial: process.env.SEARCH_PAYER_NAME_PARTIAL ?? 'Al Daw',
   /** Arabic name substring. */

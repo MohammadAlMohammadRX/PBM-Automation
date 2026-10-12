@@ -2,15 +2,17 @@ import { test, expect } from '../../../fixtures';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_PERMISSIONS } from '../../../data/payers/payerPermissions.data';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
-import { ALL_PAYER_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
+import { ALL_PAYER_PERMISSIONS, PAYER_PERMISSION } from '../../../data/accounts/payerAdminRole.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
-import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
+import { controlAvailability, type ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import {
   BLOCKED_CASES,
   GRANTED_CASE_PAYER,
+  PERMISSION_DECISION_TABLE,
   PAYER_APPROVALS_TAB,
 } from '../../../data/payers/permissionEnforcement.data';
+
 
 /**
  * User story: Add Inactivate, View Details and Approval Permissions.
@@ -306,11 +308,126 @@ test.describe('Payer permissions - catalogue and role assembly', () => {
       ).toBe(403);
     });
   });
+  // ---- Converted from BLOCKED on 2026-10-06 -------------------------------
+  // All three use the scenario the QA lead set out: the administrator edits the
+  // "Payer Admin" role in Role Administration, unticks the right, the
+  // non-administrator signs in, and an action that is still on screen is a
+  // defect. shapedNonAdmin does exactly that and restores the role afterwards.
+
+  // Azure test case 15791
+  test('15791: should expose exactly the actions each permission combination grants', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    for (const row of PERMISSION_DECISION_TABLE) {
+      let session!: ShapedSession;
+
+      await steps.critical(`Sign in as a role without ${PAYER_PERMISSION[row.without]}`, async () => {
+        session = await shapedNonAdmin({ without: [row.without] });
+        await session.payers.navigate();
+        await session.payers.expectRowsRendered();
+      });
+
+      await steps.step(`Without ${PAYER_PERMISSION[row.without]}, "${row.withheld}" is withheld`, async () => {
+        expect(
+          await controlAvailability(session, GRANTED_CASE_PAYER.name, row.withheld),
+          `a role without ${PAYER_PERMISSION[row.without]} must not be offered "${row.withheld}"`,
+        ).not.toBe('available');
+      });
+
+      // The half the single-permission cases cannot see: withdrawing one right
+      // must not take any OTHER action with it.
+      await steps.step(`...and only that - ${row.stillOffered.join(', ')} stay offered`, async () => {
+        const lost: string[] = [];
+        for (const control of row.stillOffered) {
+          if ((await controlAvailability(session, GRANTED_CASE_PAYER.name, control)) !== 'available') lost.push(control);
+        }
+        expect(
+          lost,
+          `withdrawing ${PAYER_PERMISSION[row.without]} should take away "${row.withheld}" alone; `
+            + `it also took: ${lost.join(', ')}`,
+        ).toEqual([]);
+      });
+    }
+  });
+
+  // Azure test case 15794
+  test('15794: should apply a permission change to an active session', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let signedIn!: ShapedSession;
+
+    await steps.critical('The user signs in while the role holds Inactivate Payer', async () => {
+      signedIn = await shapedNonAdmin({ with: ['inactivatePayer'] });
+      await signedIn.payers.navigate();
+      await signedIn.payers.expectRowsRendered();
+      // Without the baseline the case could pass on a payer that never offered
+      // the action in the first place - the state withholding it, not the role.
+      const offered = await signedIn.payers.getRowActionAvailability(GRANTED_CASE_PAYER.name, 'inactivate');
+      if (offered !== 'available') {
+        steps.blocked(
+          `"${GRANTED_CASE_PAYER.name}" does not offer inactivation even while the role HOLDS the `
+            + `right (the control is ${offered}), so its later absence would prove nothing.`,
+        );
+      }
+    });
+
+    // The second shaping also signs a fresh session in; this case ignores it.
+    // What matters is the session ABOVE, which stays signed in throughout.
+    await steps.critical('The administrator withdraws Inactivate Payer while that user is signed in', async () => {
+      const withdrawn = await shapedNonAdmin({ without: ['inactivatePayer'] });
+      expect(
+        withdrawn.removed,
+        'Inactivate Payer should have been taken off the role',
+      ).toContain(PAYER_PERMISSION.inactivatePayer);
+    });
+
+    await steps.step('On its next page load, the signed-in session no longer offers inactivation', async () => {
+      await signedIn.payers.navigate();
+      await signedIn.payers.expectRowActionUnavailable(GRANTED_CASE_PAYER.name, 'inactivate');
+    });
+  });
+
+  // Azure test case 15796
+  test('15796: should gate the two directions of the Active/Inactive transition independently', async ({
+    shapedNonAdmin,
+    steps,
+  }) => {
+    let session!: ShapedSession;
+
+    await steps.critical('Sign in as a role holding Activate Payer but NOT Inactivate Payer', async () => {
+      session = await shapedNonAdmin({ with: ['activatePayer'], without: ['inactivatePayer'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('Holding Activate does not bring Inactivate with it', async () => {
+      await session.payers.expectRowActionUnavailable(GRANTED_CASE_PAYER.name, 'inactivate');
+    });
+
+    // The reverse combination. Only the inactivate direction is observable on
+    // an active payer - reactivation is offered on an INACTIVE one whatever the
+    // role holds (see 15780) - so independence is shown by Inactivate coming
+    // back on its own once Activate is the right withdrawn.
+    await steps.critical('Sign in as a role holding Inactivate Payer but NOT Activate Payer', async () => {
+      session = await shapedNonAdmin({ with: ['inactivatePayer'], without: ['activatePayer'] });
+      await session.payers.navigate();
+      await session.payers.expectRowsRendered();
+    });
+
+    await steps.step('Inactivate is offered on its own, without Activate', async () => {
+      expect(
+        await session.payers.getRowActionAvailability(GRANTED_CASE_PAYER.name, 'inactivate'),
+        'a role holding Inactivate Payer must be offered inactivation even without Activate Payer',
+      ).toBe('available');
+    });
+  });
+
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
     //   TC-001 = 15777,  TC-003 = 15779,  TC-009 = 15785
-    //   TC-011 = 15787,  TC-012 = 15788,  TC-014 = 15791
-    //   TC-018 = 15794,  TC-020 = 15796
+    //   TC-011 = 15787,  TC-012 = 15788
     test(`${azureOrCase('68', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });

@@ -1,5 +1,7 @@
 import { NON_ADMIN_PROFILE, nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
 import type { BlockedCase } from './payerTypes';
+import type { RowAction } from '../../constants/ElementIds';
+import type { PayerPermissionKey } from '../accounts/payerAdminRole.data';
 
 /**
  * Test data for "Add Inactivate, View Details and Approval Permissions".
@@ -49,7 +51,35 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
   { id: '009', title: 'should let a user with View Dashboard open the payer dashboard', reason: needsOtherAccount('The analytics dashboard turns the configured non-admin account away ("Access Restricted"), so the granted half needs an account holding View Dashboard.') },
   { id: '011', title: 'should let a user with Manage Network Links change network links', reason: MUTATES_SCOPED_PAYER },
   { id: '012', title: 'should let a user with Approval Management · Payer act as checker on approval requests', reason: needsOtherAccount('The only checker here is the shared administrator, whose approvals every workflow case already exercises; the case needs a SECOND account holding the permission.') },
-  { id: '014', title: 'should expose exactly the actions each permission combination grants', reason: needsOtherAccount('The decision table needs a role per combination.') },
-  { id: '018', title: 'should apply a permission change to an active session', reason: needsOtherAccount('The case also changes the role of a logged-in test user mid-session, which would alter the shared non-admin account for every later case.') },
-  { id: '020', title: 'should gate the two directions of the Active/Inactive transition independently', reason: needsOtherAccount('It needs an account with Activate but not Inactivate.') },
+];
+
+/**
+ * TC-014's decision table - one row per permission withdrawn from the role.
+ *
+ * Each row claims more than its sibling single-permission cases do: that the
+ * withdrawn right takes away ITS action and NOTHING ELSE. A role that lost
+ * Export but also lost Inactivate would pass 15784 and fail here, which is the
+ * point of having a table at all.
+ *
+ * Only controls with a single, unambiguous refusal are used as the withheld
+ * side. View Payer Details is not, because its refusal may be the route or the
+ * page (see 15781), so it appears only as a control that must stay offered.
+ *
+ * Converted from BLOCKED on 2026-10-06, with TC-018 and TC-020: the QA lead
+ * confirmed the scenario - edit the Payer Admin role, untick the right, sign
+ * in as the non-admin, and the control appearing is a bug - and shapedNonAdmin
+ * already builds exactly that.
+ */
+export type DecisionControl = RowAction | 'export';
+
+export interface DecisionRow {
+  without: PayerPermissionKey;
+  withheld: DecisionControl;
+  stillOffered: readonly DecisionControl[];
+}
+
+export const PERMISSION_DECISION_TABLE: readonly DecisionRow[] = [
+  { without: 'inactivatePayer', withheld: 'inactivate', stillOffered: ['view', 'edit', 'export'] },
+  { without: 'exportPayers', withheld: 'export', stillOffered: ['view', 'edit', 'inactivate'] },
+  { without: 'editPayer', withheld: 'edit', stillOffered: ['view', 'inactivate', 'export'] },
 ];

@@ -6,6 +6,10 @@ import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
 import type { PayerVersionHistoryTab } from '../../../pages/payer/PayerVersionHistoryTab';
 import { VERSION_LABEL } from '../../../data/payers/versionHistory.data';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
+
+/** Version-row elements that READ rather than act - the badge, the menu trigger and View. */
+const READ_ONLY_VERSION_CONTROLS: readonly string[] = ['status-badge', 'actions', 'view'];
 
 /**
  * User story: Add Version History Tab to Payer Details.
@@ -225,16 +229,44 @@ test.describe('Add Version History Tab to Payer Details - Access control', () =>
     // permission off the shared "Payer Admin" role, this case signs in as that
     // account, and the permission goes back when the case ends. It used to report
     // BLOCKED because the only non-administrator here HELD the right.
-    await shapeRole({ without: ['editPayer', ...PAYER_READ_PERMISSIONS] });
+    //
+    // EXPECTED RESULT CHANGED 2026-10-11 (QA-lead note N-005): the non-admin's
+    // role gives NO action on Version History, so for the non-admin the tab is
+    // READ-ONLY - it can be opened and read, and offers nothing to act on.
+    // Previously the case expected the whole module to be refused. Revert is
+    // the only Version History action, so RevertPayer is the right taken off;
+    // the read rights stay, because reading is what the role is meant to keep.
+    await shapeRole({ without: ['revertPayer'] });
+    const scoped = NON_ADMIN_PROFILE.scopedPayers[0];
 
-    await steps.critical('Sign in as a non-administrator', async () => {
+    await steps.critical('Administrator unticks RevertPayer on the "Payer Admin" role; the non-admin signs in', async () => {
       await loginPage.open();
       await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
     });
 
-    await steps.critical('Navigate to the payer module', () => payerManagementPage.navigate());
+    await steps.critical('The non-admin opens one of its payers and its Version History', async () => {
+      await payerManagementPage.navigate();
+      await payerManagementPage.search(scoped);
+      const detail = await payerManagementPage.openDetails(scoped);
+      await detail.versionHistory().open();
+      expect(
+        await detail.versionHistory().getEntryCount(),
+        `the non-admin should be able to READ "${scoped}"'s version history`,
+      ).toBeGreaterThan(0);
+    });
 
-    await steps.step('The payer module and its Version History are not available', () =>
-      payerManagementPage.expectSearchAccessRestricted());
+    await steps.step('Version History is read-only: no version offers any action beyond View', async () => {
+      const history = payerManagementPage.detail().versionHistory();
+      const offered: string[] = [];
+      for (const label of await history.getVersionLabels()) {
+        const actions = (await history.getEntryActions(label))
+          .filter((a) => !READ_ONLY_VERSION_CONTROLS.includes(a));
+        if (actions.length) offered.push(`${label}: ${actions.join(', ')}`);
+      }
+      expect(
+        offered,
+        `the non-admin's role holds no Version History action, so no version should offer one; offered: ${offered.join('; ')}`,
+      ).toEqual([]);
+    });
   });
 });

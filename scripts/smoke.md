@@ -37,12 +37,32 @@ the create wizard, both halves of maker-checker, a status change, an edit, the
 detail screen, and a shaped non-admin role. Nothing else in the suite runs
 without at least one of these working.
 
+## Before the smoke test: the network pool
+
+Since 2026-09-27 a payer cannot be approved until it has a network assigned,
+so every provisioning fixture claims one from a seeded pool - and a network
+cannot be shared between payers. Check the pool holds enough before running
+anything:
+
+```bash
+npm run seed:networks
+```
+
+It tops the pool up to 300 and carries any part-built network the rest of the
+way, so it is safe to re-run and cheap when nothing is needed. A full run
+consumes about 260. If the pool runs dry mid-run the fixtures report
+`could not give "<payer>" a network`, which reads like an approval failure
+and is not one.
+
 ## Reading the result
 
 - **All nine pass** - start the full run.
-- **A fixture reports BLOCKED** - the environment could not build a precondition
-  (no free network, no expired payer). The full run will report the same, and
-  those cases are already written to say so. Not a reason to stop.
+- **A fixture reports BLOCKED** - the environment could not build a
+  precondition (no expired payer, for instance). The full run will report the
+  same, and those cases are already written to say so. Not a reason to stop.
+- **A fixture says it could not give a payer a network** - the seeded pool is
+  empty, not the application refusing. Run `npm run seed:networks` and start
+  again; nothing else in the run is trustworthy until the pool is stocked.
 - **14444 or 14446 fails** - the list itself is wrong. Stop; a full run would
   report hundreds of failures with one cause.
 - **15599/15600 fail** - the approval queue is not clearing. This is the
@@ -64,6 +84,6 @@ every lookup, so plan for more rather than less.
 
 Run it a folder at a time rather than in one invocation - a single whole-suite
 invocation degraded the application mid-run once and lost ten folders' results.
-`scripts/run-payer-module.sh` does this: one folder per invocation, the setup
+`scripts/run-payer-module.js` does this: one folder per invocation, the setup
 project per folder so the session never expires mid-run, a partial written after
-each, and a merged report at the end. It can be resumed from any folder.
+each, and a merged report at the end. It can be resumed from any folder: `npm run test:payer 38`.

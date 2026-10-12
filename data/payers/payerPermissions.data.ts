@@ -1,3 +1,9 @@
+import { ALL_PAYER_PERMISSIONS, type PayerPermissionKey } from '../accounts/payerAdminRole.data';
+import type { RowAction } from '../../constants/ElementIds';
+
+/** Mirrors SessionControl in the shapedNonAdmin fixture - data must not import a fixture. */
+type SessionControl = RowAction | 'export';
+
 /**
  * Test data for "Define Bilingual Names for All Payer Module Permissions".
  *
@@ -236,3 +242,46 @@ export const findPermission = (
 
 /** A label rendered in Arabic contains at least one Arabic letter. */
 export const ARABIC_LETTER = /[\u0600-\u06FF]/;
+
+/**
+ * The roles ROLE_REQUIREMENTS asks for, BUILT rather than waited for.
+ *
+ * Until 2026-10-06 the comparison cases (15386, 15392) reported BLOCKED because
+ * the environment has one non-admin login. The QA lead pointed out they never
+ * needed several logins: each role is the same "Payer Admin" role reshaped in
+ * Role Administration, signed into in turn - shapedNonAdmin does exactly that,
+ * and puts the role back afterwards.
+ *
+ * `offered` / `withheld` are what each role must see on a payer row and the
+ * export menu. Approve/reject is not modelled: it lives in a different section
+ * of the permission tree from the one these shapes edit.
+ */
+export const ROLE_SHAPES = {
+  partial: {
+    label: 'Role A - view only',
+    with: ['viewPayerDetails'],
+    without: ['exportPayers', 'inactivatePayer', 'viewDashboard', 'viewAuditLogs', 'viewAuditTrail'],
+    offered: ['view'],
+    withheld: ['export', 'inactivate'],
+  },
+  exporter: {
+    label: 'Role B - view and export',
+    with: ['viewPayerDetails', 'exportPayers'],
+    without: ['inactivatePayer'],
+    offered: ['view', 'export'],
+    withheld: ['inactivate'],
+  },
+  full: {
+    label: 'Role C - every payer permission',
+    with: ALL_PAYER_PERMISSIONS,
+    without: [],
+    offered: ['view', 'edit', 'export', 'inactivate'],
+    withheld: [],
+  },
+} as const satisfies Record<string, {
+  label: string;
+  with: readonly PayerPermissionKey[];
+  without: readonly PayerPermissionKey[];
+  offered: readonly SessionControl[];
+  withheld: readonly SessionControl[];
+}>;

@@ -28,9 +28,18 @@ export class PolicyManagementPage extends ListPageBase {
     await this.goto(AppRoutes.policyManagement);
   }
 
-  /** Opens the module and guarantees its table is on screen. */
-  async openList(): Promise<void> {
+  /**
+   * Opens the module - with `payerName` in scope when one is given - and
+   * guarantees its table is on screen.
+   *
+   * SCOPE BEFORE THE TABLE (2026-10-11). The gate takes the first payer
+   * offered ("23", a draft with no policies), and a payer with no policies
+   * renders "No policies found." and NO table - so waiting for the table
+   * before switching scope failed before the payer under test was ever shown.
+   */
+  async openList(payerName?: string): Promise<void> {
     await this.open();
+    if (payerName !== undefined) await this.scopeTo(payerName).catch(() => false);
     await this.ensureTableView(this.screen);
     await expect(this.tableFor(this.screen)).toBeVisible({ timeout: Timeouts.default });
   }
@@ -69,7 +78,11 @@ export class PolicyManagementPage extends ListPageBase {
    * it as none would loosen the ceiling the invariant depends on.
    */
   async getPolicyMemberCounts(payerName: string): Promise<number[]> {
-    await this.openList();
+    // THE PAYER IN SCOPE FIRST (2026-10-11). The Policies module shows one
+    // payer at a time and its gate takes the first payer offered, so 14799 read
+    // another payer's policies while asking about payer number 2's. openList
+    // puts the payer being measured in scope before it waits for the table.
+    await this.openList(payerName);
     const rows = await this.rows().evaluateAll(
       (nodes, keys) =>
         nodes.map((node) => ({
@@ -90,7 +103,7 @@ export class PolicyManagementPage extends ListPageBase {
   }
 
   async getPoliciesOfPayer(payerName: string): Promise<{ name: string; status: string }[]> {
-    await this.openList();
+    await this.openList(payerName);
     const rows = await this.getPolicyRows();
     return rows
       .filter((row) => row.payer === payerName)

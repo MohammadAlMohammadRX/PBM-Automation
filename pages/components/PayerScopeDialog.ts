@@ -77,7 +77,16 @@ export class PayerScopeDialog {
       'the payer gate should offer at least one payer to a scoped account',
     ).toBeGreaterThan(0);
 
-    const wanted = payerName ?? offered[0];
+    // PREFER "All Payers" WHEN THE CALLER DOES NOT CARE. The gate offers that
+    // entry to an account that may see the whole register, and taking it keeps
+    // a consuming module as wide as the payer module now is - picking an
+    // arbitrary first payer would silently narrow every later assertion to one
+    // payer's data, which is the subtler half of the same bug. A scoped
+    // account is offered no such entry and still gets the first payer it may
+    // use.
+    const wanted = payerName
+      ?? offered.find((label) => /^All\s|^كل\s|^جميع\s/i.test(label))
+      ?? offered[0];
     Logger.step(`Selecting "${wanted}" in the payer scope gate`);
     await this.page
       .getByRole('option', { name: wanted, exact: true })

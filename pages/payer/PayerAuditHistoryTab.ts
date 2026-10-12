@@ -72,9 +72,35 @@ export class PayerAuditHistoryTab {
 
   /** The Action Type control - PrimeNG puts the id on a hidden element inside the widget. */
   private actionControl(): Locator {
+    // The WHOLE-TOKEN class match (2026-10-11): contains(@class,"p-select")
+    // also matched the inner "p-select-label" span - the id'd element itself -
+    // which PrimeNG re-renders while the drawer slides in, so the click hit a
+    // detached node and timed out (14577, 14582, 14606).
     return this.byId(PAYER_AUDIT.actionSelect)
-      .locator('xpath=ancestor-or-self::*[contains(@class,"p-select")][1]')
+      .locator('xpath=ancestor-or-self::*[contains(concat(" ", normalize-space(@class), " "), " p-select ")][1]')
       .first();
+  }
+
+  /**
+   * Opens the Action Type list, retrying while the drawer is still animating.
+   * VERIFIED in batch 3: the first click can land while the drawer slides in
+   * ("element is not stable", then "detached"), so a click that does not show
+   * the options is tried again after the drawer settles.
+   */
+  private async openActionOptions(): Promise<Locator> {
+    const options = this.page.getByRole('option').filter({ visible: true });
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await this.revealFilters();
+      const opened = await this.actionControl()
+        .click({ timeout: Timeouts.short })
+        .then(() => options.first().waitFor({ state: 'visible', timeout: Timeouts.short }))
+        .then(() => true)
+        .catch(() => false);
+      if (opened) return options;
+    }
+    await expect(options.first(), 'the Action Type filter should open its list of actions')
+      .toBeVisible({ timeout: Timeouts.default });
+    return options;
   }
 
   /**
@@ -87,7 +113,12 @@ export class PayerAuditHistoryTab {
    * three, so every reader waits for the panel to settle.
    */
   async open(): Promise<void> {
-    const ready = this.byId(PAYER_AUDIT.filters);
+    // READY = THE BAR OR THE TIMELINE (2026-10-11). The tab used to open on a
+    // filter strip, "payer-detail-audit-filters"; this build replaced it with a
+    // bar and moved the filters behind Advanced search. Waiting for the old
+    // strip reported "the Audit History tab should open" on a tab that HAD
+    // opened and listed its entries - six cases failed on it in one batch.
+    const ready = this.byId(PAYER_AUDIT.bar).or(this.byId(PAYER_AUDIT.timeline)).or(this.byId(PAYER_AUDIT.filters)).first();
     let shown = false;
     for (let attempt = 1; attempt <= 3 && !shown; attempt += 1) {
       await this.tab().click();
@@ -139,9 +170,7 @@ export class PayerAuditHistoryTab {
 
   /** The Action Type options the filter offers, as labelled. */
   async getActionOptions(): Promise<string[]> {
-    await this.actionControl().click();
-    const options = this.page.getByRole('option').filter({ visible: true });
-    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const options = await this.openActionOptions();
     const labels = (await options.allInnerTexts()).map((t) => t.trim());
     await this.page.keyboard.press('Escape');
     return labels;
@@ -167,16 +196,38 @@ export class PayerAuditHistoryTab {
   }
 
   /** Applies an Action Type filter and returns the query it sent (or null). */
-  async selectAction(label: string): Promise<string | null> {
-    Logger.step(`Filtering the audit trail by action "${label}"`);
+  /**
+   * Opens Advanced search if the type/date filters are not already showing -
+   * where this build keeps them (2026-10-11). A no-op on a build that shows
+   * them inline.
+   */
+  private async revealFilters(): Promise<void> {
+    if (await this.byId(PAYER_AUDIT.actionSelect).isVisible().catch(() => false)) return;
+    await this.byId(PAYER_AUDIT.filterToggle).click();
+    await expect(this.byId(PAYER_AUDIT.actionSelect), 'the Advance Search drawer should open with its filters')
+      .toBeVisible({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Presses the drawer's Search and returns the trail query it sent. The
+   * redesigned drawer applies nothing until Search is pressed - selecting an
+   * action used to query on its own.
+   */
+  private async applyFilters(): Promise<string | null> {
     const waiting = this.trailQuery();
-    await this.actionControl().click();
-    const option = this.page.getByRole('option', { name: label, exact: true }).filter({ visible: true }).first();
-    await expect(option, `the action filter should offer "${label}"`).toBeVisible({ timeout: Timeouts.default });
-    await option.click();
+    await this.byId(PAYER_AUDIT.advancedSearchApply).click();
     const query = await waiting;
     await this.waitForSettled();
     return query;
+  }
+
+  async selectAction(label: string): Promise<string | null> {
+    Logger.step(`Filtering the audit trail by action "${label}"`);
+    await this.openActionOptions();
+    const option = this.page.getByRole('option', { name: label, exact: true }).filter({ visible: true }).first();
+    await expect(option, `the action filter should offer "${label}"`).toBeVisible({ timeout: Timeouts.default });
+    await option.click();
+    return this.applyFilters();
   }
 
   /** PrimeNG's day-cell key for a date: zero-based month. */
@@ -192,17 +243,18 @@ export class PayerAuditHistoryTab {
    */
   async setDateRange(from: Date, to: Date): Promise<string | null> {
     Logger.step(`Filtering the audit trail to ${from.toDateString()} - ${to.toDateString()}`);
+    await this.revealFilters();
     await this.byId(PAYER_AUDIT.dateRangeInput).click();
     const fromCell = this.page.locator(`[${PAYER_AUDIT.calendarDayAttribute}="${PayerAuditHistoryTab.dayKey(from)}"]`).first();
     const toCell = this.page.locator(`[${PAYER_AUDIT.calendarDayAttribute}="${PayerAuditHistoryTab.dayKey(to)}"]`).first();
     await expect(fromCell, 'the calendar should show the start day').toBeVisible({ timeout: Timeouts.default });
     await fromCell.click();
-    const waiting = this.trailQuery();
     await toCell.click();
-    const query = await waiting;
-    await this.page.keyboard.press('Escape');
-    await this.waitForSettled();
-    return query;
+    // No Escape here any more: inside the drawer it would close the drawer and
+    // drop the selection. The drawer's title takes the click that dismisses
+    // the calendar, and Search applies the range.
+    await this.byId(`${PAYER_AUDIT.advancedSearch}-title`).click().catch(() => undefined);
+    return this.applyFilters();
   }
 
   /** Types into the date input and returns the query it sent - VERIFIED: none. */

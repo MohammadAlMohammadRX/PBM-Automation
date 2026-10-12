@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { azureOrCase } from '../../../data/azureTestIds.data';
 import { env } from '../../../constants/EnvironmentConfig';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
@@ -328,16 +329,70 @@ test.describe('Restrict Effective Date - Editing', () => {
   });
 
   // Azure test case 15848
+  //
+  // CONVERTED FROM BLOCKED on 2026-10-11 (QA-lead note N-052). The create form
+  // refuses a past effective date, but the register already holds payers whose
+  // date HAS passed - including the suite's own, created on earlier days with an
+  // effective date of "today". One of THOSE is used, never a real record or a
+  // reference payer, because the case edits it.
+  //
+  // PROVISIONED since 2026-10-11: the clean-up sweeps remove the suite's older
+  // payers, so a found one was often gone (batch 4: BLOCKED). The suite's own
+  // published payer is created effective 30 days back, so it already carries a
+  // past effective date - the precondition, made to order.
   test('15848: should allow editing a payer that already carries a past effective date', async ({
+    payerManagementPage,
+    publishedPayer,
     steps,
   }) => {
-    steps.blocked(
-      'This case needs a payer whose Effective Date is already in the past - a record from '
-      + 'before the today-or-later rule. The create form refuses a past effective date, so the '
-      + 'precondition cannot be built here. Provide a grandfathered payer, then this case can '
-      + 'confirm that leaving its past date untouched while editing other fields still saves, '
-      + 'and that moving it to another past value is refused.',
-    );
+    let name = '';
+    let stored = '';
+
+    await steps.critical('Find a payer whose effective date is already in the past', async () => {
+      name = publishedPayer.nameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      const form = await payerManagementPage.openEditForm(name);
+      await form.goToStep('Effective Period');
+      stored = await form.getFieldValue('Effective Date');
+      await form.closeAndDiscard();
+      expect(stored, `"${name}" should show its stored effective date`).not.toBe('');
+    });
+
+    await steps.step('Editing another field while leaving the past date untouched still saves', async () => {
+      // The save's own confirmation is the evidence - once saved the form has
+      // closed, so checking it for field errors would prove nothing.
+      await payerManagementPage.saveTextFieldEdit(name, 'Phone Number', '512345679');
+      await payerManagementPage.expectToastContains('Saved as draft');
+    });
+
+    await steps.step('But moving the date to a different past value is refused', async () => {
+      const form = await payerManagementPage.openEditForm(name);
+      await form.goToStep('Effective Period');
+      await form.fillDateField('Effective Date', effectiveDate(-2));
+      const shown = (): Promise<boolean> => form
+        .expectFieldError('Effective Date', EFFECTIVE_MESSAGES.beforeToday)
+        .then(() => true)
+        .catch(() => false);
+      // AND IF NOTHING SHOWS, SAVE AND SAY WHAT HAPPENED (2026-10-11). Batch 5
+      // found the past date sitting in the field with no message and Save
+      // enabled (screenshot 2026-10-11_20-56-02). Whether the rule only bites on
+      // Save, or the date is accepted, decides between a pass and a defect - so
+      // the case presses Save and reports which. The expectation is unchanged.
+      let outcome = 'refused with the inline message as soon as it was entered';
+      if (!(await shown())) {
+        await form.save().catch(() => undefined);
+        if (await shown()) outcome = 'refused with the message only once Save was pressed';
+        else if (await form.isOpen().catch(() => false)) outcome = 'no message, and Save left the form open without saying why';
+        else outcome = 'ACCEPTED - no message, and Save closed the form with the past date';
+      }
+      expect(
+        outcome.startsWith('refused'),
+        `moving the effective date to ${effectiveDate(-2)} (a past day) should be refused with `
+          + `"${EFFECTIVE_MESSAGES.beforeToday}"; observed: ${outcome}`,
+      ).toBe(true);
+      await form.closeAndDiscard();
+    });
   });
 });
 
@@ -373,6 +428,25 @@ test.describe('Restrict Effective Date - Access control', () => {
         await payerManagementPage.isCreateActionAvailable(),
         'a non-administrator should not be offered payer creation, which is where the effective '
           + 'date is set',
+      ).toBe(false);
+    });
+
+    // ADDED 2026-10-11 (QA-lead note N-040): with UpdatePayer unticked the
+    // non-admin must not be able to EDIT the effective date either. Two
+    // refusals are acceptable - the Edit action is withheld, or the edit form
+    // opens with the date locked; an editable date field is the failure.
+    await steps.step('Editing the effective date is not possible for this role', async () => {
+      const scoped = NON_ADMIN_PROFILE.scopedPayers[0];
+      await payerManagementPage.search(scoped);
+      const edit = await payerManagementPage.getRowActionAvailability(scoped, 'edit');
+      if (edit !== 'available') return;
+      const form = await payerManagementPage.openEditForm(scoped);
+      await form.goToStep('Effective Period');
+      const editable = await form.isFieldEditable('Effective Date');
+      await form.closeAndDiscard();
+      expect(
+        editable,
+        `a role without UpdatePayer was offered Edit on "${scoped}" and the Effective Date field was editable`,
       ).toBe(false);
     });
   });

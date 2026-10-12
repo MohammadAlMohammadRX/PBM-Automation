@@ -6,9 +6,10 @@ import { Timeouts } from '../../../constants/Timeouts';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
+import { findPayer } from '../../../utils/PayerFinder';
+import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
 import {
   BLOCKED_CASES,
-  NEEDS_POLICY_OWNER,
   EMPTY_STATE_PATTERN,
   FORBIDDEN_CONTROL_PATTERN,
   POLICY_REQUEST_PATTERN,
@@ -17,11 +18,10 @@ import {
 /**
  * User story: Display Read-Only Linked Policies List.
  *
- * Three cases reach a payer that owns no policies - which is every payer this
- * suite can create. VERIFIED: for such a payer the tab renders a search bar and
- * nothing else, and issues no request. So the empty-state and data-source cases
- * are expected to FAIL against that, and the read-only case passes. Every case
- * that needs a payer WITH policies is BLOCKED on one - see BLOCKED_CASES.
+ * Since 2026-10-11 14975 and 14962 run on a payer that OWNS policies (payer
+ * number 2). The empty-state case still uses a fresh suite payer, which owns
+ * none. The rest stay BLOCKED, each naming what it is still missing - see
+ * BLOCKED_CASES.
  */
 test.describe('Linked Policies tab', () => {
   // Azure test case 14966
@@ -54,31 +54,48 @@ test.describe('Linked Policies tab', () => {
   test('14962: should read the payer\'s policies from the policy records when the tab is opened', async ({
     page,
     payerManagementPage,
-    publishedPayer,
     steps,
   }) => {
-    let detail!: PayerDetailPage;
+    let subject = '';
 
-    await steps.critical('Navigate to the module and open a payer', async () => {
+    await steps.critical('Navigate to the module and find a payer that owns policies', async () => {
+      // A PAYER WITH POLICIES since 2026-10-11 (QA-lead note). On a fresh
+      // suite payer there is nothing to read, so a missing request proved
+      // little; payer number 2 owns two policies, so the tab has data to fetch.
+      const found = await findPayer(
+        page,
+        (p) => Number(p.linkedPoliciesCount) > 0,
+        'a payer that owns at least one policy',
+        [REFERENCE_PAYERS.payerNumber2.name],
+      );
+      if (!found) steps.blocked('no payer in the register owns a policy');
+      subject = found!.payerNameEn;
       await payerManagementPage.open();
-      detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.waitForLoaded();
+      await payerManagementPage.search(subject);
+      await payerManagementPage.expectRowsRendered();
     });
 
-    await steps.step('Opening the tab asks the server for the payer\'s policies', async () => {
-      // "Reads directly from true payer-owned policy data" has an observable
-      // half even with no policies: the tab must ASK for them. A tab that
-      // renders without a request cannot be reading anything.
+    await steps.step('Opening the payer and its tab asks the server for the payer\'s policies', async () => {
+      // "Reads directly from true payer-owned policy data": the screen must ASK
+      // the policy records for this payer's policies. LISTENED FROM THE PAYER'S
+      // OPENING (2026-10-11): VERIFIED the page asks GetPayerLinkedPolicies
+      // {payerId} as the detail loads - it feeds the tab's "(2)" count - and the
+      // tab adds no request of its own; listening only from the tab click
+      // reported "no request" for a page that had made it.
+      let detail!: PayerDetailPage;
       const url = await NetworkUtils.captureRequestUrl(
         page,
         POLICY_REQUEST_PATTERN,
-        () => detail.openLinkedPolicies(),
-        Timeouts.short,
+        async () => {
+          detail = await payerManagementPage.openDetails(subject);
+          await detail.openLinkedPolicies();
+        },
+        Timeouts.default,
       );
       expect(
         url,
-        'the Linked Policies tab should fetch the payer\'s policies from the policy records; '
-          + 'no request naming policies was made when the tab opened',
+        `opening "${subject}" and its Linked Policies tab should fetch the payer's policies from the `
+          + 'policy records (GetPayerLinkedPolicies); no such request was made',
       ).not.toBeNull();
     });
   });
@@ -158,14 +175,44 @@ test.describe('Linked Policies tab', () => {
 
   // Azure test case 14975
   test('14975: should show every required column populated on every linked policy row', async ({
+    page,
+    payerManagementPage,
     steps,
   }) => {
-    // Reported BLOCKED rather than run against a payer with no policies: the
-    // case is about the CONTENT of the rows, and a tab with nothing in it
-    // would pass it without ever reading a policy.
-    steps.blocked(
-      `${NEEDS_POLICY_OWNER} This case needs at least one linked policy to read the columns from.`,
-    );
+    let rows: Array<Record<string, string>> = [];
+    let subject = '';
+
+    await steps.critical('Navigate to the module and open a payer that owns policies', async () => {
+      // Runs since 2026-10-11: payers now own policies (payer number 2 has two),
+      // so the rows' content can be read instead of reported BLOCKED.
+      const found = await findPayer(
+        page,
+        (p) => Number(p.linkedPoliciesCount) > 0,
+        'a payer that owns at least one policy',
+        [REFERENCE_PAYERS.payerNumber2.name],
+      );
+      if (!found) steps.blocked('no payer in the register owns a policy');
+      subject = found!.payerNameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(subject);
+      const detail = await payerManagementPage.openDetails(subject);
+      rows = await detail.getLinkedPolicyRows();
+      expect(rows.length, `"${subject}" should list at least one linked policy`).toBeGreaterThan(0);
+    });
+
+    await steps.step('Every column of every policy row carries a value', async () => {
+      // The case checks that no cell is blank. WHICH columns are required is
+      // the open question on 14954, so every rendered column is held to it.
+      const blanks = rows.flatMap((row, i) =>
+        Object.entries(row)
+          .filter(([, value]) => value === '' || /^[-–—]$|^N\/A$/i.test(value))
+          .map(([column, value]) => `row ${i + 1} "${column}" = "${value}"`));
+      expect(
+        blanks,
+        `every linked-policy cell on "${subject}" should be populated; columns read: `
+          + `${Object.keys(rows[0] ?? {}).join(', ')}`,
+      ).toEqual([]);
+    });
   });
 
   for (const blocked of BLOCKED_CASES) {

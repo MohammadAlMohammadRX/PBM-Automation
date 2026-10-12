@@ -151,9 +151,21 @@ export const SORT_TRIGGER_LABEL = { en: 'Sort By', ar: 'ترتيب حسب' } as 
  * directions = 14 combinations, plus Newest to Oldest and Oldest to Newest =
  * 16 total".
  */
+/**
+ * ENGLISH LABELS UPDATED 2026-10-11 to the live menu's wording: "Created On
+ * (Newest to Oldest)" where the sheet said "Newest to Oldest". Same ordering -
+ * creation date, newest first - so this is wording, not a requirement change.
+ * The ARABIC labels are still the sheet's and have NOT been re-read from the
+ * live menu; 14421's Arabic half may fail on wording until they are.
+ *
+ * NOT CHANGED: the live menu also offers "Last Modified (Newest to Oldest)" and
+ * "(Oldest to Newest)" - 18 options against the sheet's 16. Whether those two
+ * are an approved addition is a question for the BA, so SORT_MENU_OPTION_COUNT
+ * still states the requirement (16) and 14442 reports the difference.
+ */
 export const RECENCY_SORTS = [
-  { key: 'newest', label: { en: 'Newest to Oldest', ar: 'الأحدث إلى الأقدم' } },
-  { key: 'oldest', label: { en: 'Oldest to Newest', ar: 'الأقدم إلى الأحدث' } },
+  { key: 'newest', label: { en: 'Created On (Newest to Oldest)', ar: 'الأحدث إلى الأقدم' } },
+  { key: 'oldest', label: { en: 'Created On (Oldest to Newest)', ar: 'الأقدم إلى الأحدث' } },
 ] as const;
 
 /**

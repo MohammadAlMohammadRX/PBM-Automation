@@ -13,7 +13,15 @@ import type { BlockedCase } from './payerTypes';
  * BLOCKED on those resources.
  */
 
-/** The Overview and contact attributes the checklist requires, by their labels. */
+/**
+ * The Overview and contact attributes the checklist requires, by their labels.
+ *
+ * PREFERRED LANGUAGE AND PREFERRED CONTACT METHOD REMOVED on 2026-10-11 (note
+ * N-032): the business team removed both fields from the product (QA lead,
+ * 2026-09-29 and again 2026-10-11). 14638 and 14644 failed on "the Overview
+ * section should show Preferred Language" - a requirement that no longer
+ * exists, not a defect.
+ */
 export const OVERVIEW_LABELS = [
   'Payer Code',
   'License Number',
@@ -23,8 +31,6 @@ export const OVERVIEW_LABELS = [
   'Created At',
   'Email Address',
   'Phone Number',
-  'Preferred Language',
-  'Preferred Contact Method',
 ] as const;
 
 /**
