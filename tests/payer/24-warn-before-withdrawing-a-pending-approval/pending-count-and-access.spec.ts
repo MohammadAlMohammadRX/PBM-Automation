@@ -107,8 +107,18 @@ test.describe('Withdraw a pending approval - Access control', () => {
     });
 
     await steps.critical('A payer awaiting approval is on screen', async () => {
-      const found = await payerManagementPage.findPayerWithApprovalStatus(APPROVAL_STATE.pending);
-      payerName = found.name;
+      // BLOCKED rather than FAILED when none is in scope (2026-10-19): this
+      // account sees only Al Dawaa 2 and NUPCO, shared live records the suite
+      // must not submit changes on, so a pending payer cannot be made for it.
+      const found = await payerManagementPage.findPayerWithApprovalStatus(APPROVAL_STATE.pending).catch(() => null);
+      if (!found || !found.name) {
+        steps.blocked(
+          'No payer in the non-admin account\'s scope (Al Dawaa 2, NUPCO) is awaiting approval, and the suite '
+            + 'must not submit changes on those shared live records to make one. Provide a pending payer in '
+            + 'this account\'s scope, or assign it a disposable payer, then re-run.',
+        );
+      }
+      payerName = found!.name;
       expect(payerName, 'the queue should hold at least one pending payer to look at').not.toBe(
         '',
       );

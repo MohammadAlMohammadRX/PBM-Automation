@@ -25,55 +25,6 @@ const NAME_COLUMN = PAYER_COLUMN.payerName;
  * Each case names exactly what seed data would unblock it.
  */
 test.describe('Display Payer Names in the Interface Language - Fallback rules', () => {
-  // Azure test case 15276
-  test('15276: should fall back to the English name when the Arabic name is blank', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs a payer whose Arabic name is blank while its English name is '
-        + 'populated. The Add Payer wizard makes the Arabic name mandatory, so such a record '
-        + 'cannot be created through the application. To unblock: seed one payer with '
-        + 'payerNameAr = null and a populated payerNameEn, then set SEARCH-style .env '
-        + 'overrides for its English name.',
-    );
-  });
-
-  // Azure test case 15273
-  test('15273: should fall back to the Arabic name when the English name is blank', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs a payer whose English name is blank while its Arabic name is '
-        + 'populated. The Add Payer wizard makes the English name mandatory, so such a record '
-        + 'cannot be created through the application. To unblock: seed one payer with '
-        + 'payerNameEn = null and a populated payerNameAr.',
-    );
-  });
-
-  // Azure test case 15277
-  test('15277: should show a defined placeholder when both names are blank', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs a payer with BOTH names blank. Both fields are mandatory in the Add '
-        + 'Payer wizard, so the record cannot be created through the application. To unblock: '
-        + 'seed one payer with payerNameEn = null and payerNameAr = null. The expected '
-        + 'placeholder is not specified by the criteria either ("e.g. N/A or PayerCode"), so '
-        + 'the intended value needs confirming before this can be asserted.',
-    );
-  });
-
-  // Azure test case 15281
-  test('15281: should display mismatched-language name data as stored, without breaking', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs a payer with English text stored in its Arabic name field. The Arabic '
-        + 'name field rejects any character that is not an Arabic letter, so the data-entry '
-        + 'error it simulates cannot be made through the application. To unblock: seed one '
-        + 'payer with payerNameAr set to Latin text.',
-    );
-  });
 
   // Azure test case 15283
   test('15283: should display a maximum-length name without breaking the layout', async ({

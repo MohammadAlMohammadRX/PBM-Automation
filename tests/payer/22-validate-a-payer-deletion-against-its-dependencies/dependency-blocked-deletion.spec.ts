@@ -1,5 +1,7 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
+import { findPayer } from '../../../utils/PayerFinder';
+import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
+import { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
 import {
   DELETE_CHANGE_TYPE,
   DELETE_MESSAGES,
@@ -7,9 +9,7 @@ import {
 } from '../../../data/payers/deletePayer.data';
 import {
   DEPENDENCY_TYPES,
-  DISCOVERY,
   PENDING_DELETION,
-  PLAN_DEPENDENCY_BLOCKER,
   TYPES_NAMED_IN_MESSAGE,
 } from '../../../data/payers/deleteDependencies.data';
 
@@ -138,30 +138,55 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
   });
 
   // Azure test case 15462
+  //
+  // CONVERTED FROM BLOCKED on 2026-10-13 (QA lead: try it on a payer that has
+  // at least one policy - a policy belongs to a plan). Located across the whole
+  // register by GetPayers, payer number 2 preferred. SAFE TO ATTEMPT: the payer
+  // must also hold a network, and a payer holding a network is always refused
+  // deletion (verified, 15472/D-017) - so nothing is ever staged on it.
   test('15462: should refuse the deletion and name Plans when the payer is linked to a plan', async ({
+    page,
+    payerManagementPage,
     steps,
   }) => {
-    // Reported before anything is touched. See the data file for the full
-    // reasoning: the only payers holding an active plan are real records whose
-    // staged deletion would need manual withdrawal, and what this case would
-    // assert is already reported by TC-014.
-    steps.blocked(PLAN_DEPENDENCY_BLOCKER.reason);
-  });
+    test.slow();
+    let holder = '';
+    let plans: string[] = [];
+    let messages: string[] = [];
 
-  for (const type of DISCOVERY.undiscoverable) {
-    const caseId = type === 'Facilities' ? 'TC-004' : 'TC-005';
-
-    // Azure test cases - one per generated case:
-    //   TC-004 = 15464,  TC-005 = 15465
-    test(`${azureOrCase('22', caseId)}: should refuse the deletion and name ${type} when the payer is linked to one`, async ({
-      steps,
-    }) => {
-      // BLOCKED rather than approximated. A case that attempted this against an
-      // arbitrary payer would report whatever the lumped message says and claim
-      // to have tested a dependency type it never established was present.
-      steps.blocked(`${DISCOVERY.undiscoverableReason} (${type})`);
+    await steps.critical('Find a payer that owns at least one policy, and so a plan', async () => {
+      const found = await findPayer(
+        page,
+        (p) => Number(p.linkedPoliciesCount) > 0 && Number(p.linkedNetworksCount) > 0,
+        'a payer with at least one policy (and a network, so its deletion is certain to be refused)',
+        [REFERENCE_PAYERS.payerNumber2.name],
+      );
+      if (!found) steps.blocked('No payer in the register owns a policy and a network.');
+      holder = found!.payerCode || found!.payerNameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(holder);
+      const rows = await (await payerManagementPage.openDetails(holder)).getLinkedPolicyRows();
+      plans = rows.map((row) => Object.entries(row).find(([header]) => /plan/i.test(header))?.[1] ?? '').filter(Boolean);
+      expect(plans, `"${holder}" should show at least one linked policy with its plan; rows: ${JSON.stringify(rows)}`).not.toEqual([]);
     });
-  }
+
+    await steps.critical('Its deletion is refused', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(holder);
+      await payerManagementPage.clickDelete(holder);
+      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
+      expect(await payerManagementPage.wasDeletionBlockedByDependency(), `"${holder}" holds a plan; its deletion must be refused`).toBe(true);
+      messages = await new PayerFormDialog(page).getVisibleMessages();
+    });
+
+    await steps.step('The refusal names Plans as a reason', async () => {
+      const refusal = messages.find((m) => /cannot be deleted|لا يمكن حذف/i.test(m)) ?? messages.join(' | ');
+      expect(
+        /plan/i.test(refusal),
+        `"${holder}" is linked to plan(s) ${plans.join(', ')}; the refusal should name Plans - it reads: "${refusal}"`,
+      ).toBe(true);
+    });
+  });
 
   // Azure test case 15474
   test('15474: should name the blocking dependency precisely, in both languages', async ({
@@ -242,8 +267,11 @@ test.describe('Payer deletion dependencies - Blocked deletions', () => {
 
       // Cross-checked against the network module, so the status the payer
       // screen shows is not taken on trust.
-      await networkManagementPage.openList();
-      await networkManagementPage.search(linked.name);
+      // Scoped to the holder first (2026-10-19): the Network list shows a
+      // payer's networks only once that payer is chosen, so an unscoped search
+      // never found the row.
+      await networkManagementPage.openListFor(holder);
+      await networkManagementPage.searchUntilApplied(linked.name);
       expect(
         await networkManagementPage.getStatusText(linked.name),
         'both screens should agree about the dependency',

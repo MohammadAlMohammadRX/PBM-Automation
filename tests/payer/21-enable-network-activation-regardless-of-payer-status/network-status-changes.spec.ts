@@ -294,6 +294,9 @@ test.describe('Network activation - Status combinations', () => {
     inactivePayer,
     steps,
   }) => {
+    // Several disposable networks, each waited on until the lifecycle job makes
+    // it Active (2026-10-19) - more than the default budget allows.
+    test.setTimeout(20 * 60_000);
     const payerOf = { Active: publishedPayer.nameEn, Inactive: inactivePayer.nameEn };
     const seen: string[] = [];
 

@@ -360,19 +360,6 @@ test.describe('Payer overview metadata', () => {
       ).toEqual([]);
     });
   });
-
-  // Azure test case 15802
-  test('15802: should hold up when the creating user account no longer exists', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'This case needs a payer created by a user account that has since been deleted, and this '
-      + 'suite must not delete a user account on a shared environment to set it up. Provide a '
-      + 'payer whose creator was removed, or a disposable account to delete, then this case can '
-      + 'check the Overview shows a historical identifier or a "Deactivated User" label rather '
-      + 'than a blank field or an error.',
-    );
-  });
 });
 
 /** Access control, signed out of the shared administrator session. */

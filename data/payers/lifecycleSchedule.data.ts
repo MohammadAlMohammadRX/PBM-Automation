@@ -1,4 +1,3 @@
-import type { BlockedCase } from './payerTypes';
 
 /**
  * Test data for "Make the Lifecycle Job Schedule Configurable and Resilient".
@@ -77,27 +76,3 @@ export const SCHEDULE_ROLE_REQUIREMENT = {
     'The case proves only the System Administrator can view and change the lifecycle schedule. '
     + 'The shared administrator can, so it cannot show the refusal.',
 } as const;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '005',
-    title: 'should fall back to the default schedule and log it when the stored schedule is missing at startup',
-    reason: 'This case deletes the stored schedule before an application restart and reads the server log - data-layer and host access this suite does not have.',
-  },
-  {
-    id: '006',
-    title: 'should fall back to the default schedule and log it when the stored schedule is corrupted at startup',
-    reason: 'This case corrupts the stored schedule before a restart and reads the server log - data-layer and host access this suite does not have.',
-  },
-  {
-    id: '007',
-    title: 'should apply a schedule change to the next run when the job is currently in progress',
-    reason: 'This case needs the lifecycle job to be running while the schedule is saved; the job runs nightly at its CRON time and cannot be triggered from here.',
-  },
-  {
-    id: '014',
-    title: 'should transition eligible payers correctly when the job runs on the newly saved schedule',
-    reason: 'End-to-end execution needs the job to fire on the saved schedule; it runs nightly (UTC) and cannot be triggered or fast-forwarded from here.',
-  },
-];

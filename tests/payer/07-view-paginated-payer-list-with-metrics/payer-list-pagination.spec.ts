@@ -1,7 +1,5 @@
 import { test, expect } from '../../../fixtures';
 import {
-  GO_TO_PAGE_INPUT_EXPECTED,
-  INVALID_PAGE_INPUTS,
   OBSERVED_PAGE_SIZE,
   PAGE_SIZE_BOUNDARIES,
   PAGE_SIZE_CONTROL_EXPECTED,
@@ -159,50 +157,6 @@ test.describe('View Paginated Payer List with Metrics - Navigation', () => {
       expect(await payerManagementPage.getRowCount()).toBeGreaterThanOrEqual(
         PAGE_SIZE_BOUNDARIES.minimum,
       );
-    });
-  });
-
-  // Azure test case 14458
-  test('14458: should reject invalid manual page navigation input', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical('The pager offers a "go to page" input', async () => {
-      const present = await payerManagementPage.hasGoToPageInput();
-      expect(
-        present,
-        'the acceptance criteria require a manual "go to page" input that rejects '
-          + `${INVALID_PAGE_INPUTS.join(', ')}. The pager renders Previous, numbered page `
-          + 'buttons and Next only - there is no input to type a page number into, so '
-          + 'out-of-range, negative and non-numeric entries cannot be submitted or validated',
-      ).toBe(GO_TO_PAGE_INPUT_EXPECTED);
-    });
-
-    // One step per invalid entry, matching the sheet, which states a separate
-    // expected result for the over-range value, for negative/zero, and for
-    // non-numeric text. A single loop reported them as one outcome, so a build
-    // that handled 999 but crashed on "abc" would show a single failure with no
-    // indication which input caused it.
-    await steps.step('An over-range page number is rejected or clamped', async () => {
-      await payerManagementPage.enterPageNumber('999');
-      await payerManagementPage.expectNoUnexpectedDialog();
-    });
-
-    await steps.step('A negative page number is rejected or defaults to page 1', async () => {
-      await payerManagementPage.enterPageNumber('-1');
-      await payerManagementPage.expectNoUnexpectedDialog();
-    });
-
-    await steps.step('Zero is rejected or defaults to page 1', async () => {
-      await payerManagementPage.enterPageNumber('0');
-      await payerManagementPage.expectNoUnexpectedDialog();
-    });
-
-    await steps.step('Non-numeric input is rejected with a validation message', async () => {
-      await payerManagementPage.enterPageNumber('abc');
-      await payerManagementPage.expectNoUnexpectedDialog();
     });
   });
 

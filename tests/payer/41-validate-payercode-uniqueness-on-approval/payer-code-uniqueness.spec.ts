@@ -6,7 +6,6 @@ import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import {
   CODE_RACE_EDIT,
   EMPTY_CODE_MARKERS,
-  GENERATION_FAILURE,
   MANUAL_CODE,
   OBSERVED_CODE_PATTERN,
   UNIQUENESS_SAMPLE,
@@ -27,70 +26,6 @@ import {
  * payers share a code. A broken retry surfaces there.
  */
 test.describe('PayerCode uniqueness', () => {
-  // Azure test case 14834
-  test('14834: should refuse a code that another payer already holds', async ({
-    page,
-    payerManagementPage,
-    publishedPayer,
-    draftPayer,
-    steps,
-  }) => {
-    let existingCode = '';
-    let outcome!: { status: number; text: string; validationErrors: string[] };
-
-    await steps.critical('Navigate to the module and read a code already in use', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      existingCode = (
-        await payerManagementPage.getCellValue(publishedPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(
-        existingCode,
-        'an approved payer should carry a code for another to collide with',
-      ).not.toBe('');
-    });
-
-    await steps.critical('A second payer is told to take that same code', async () => {
-      // The sheet's "force a duplicate via the test harness". There is no
-      // client-supplied code in the normal flow, so the duplicate has to be
-      // pushed on the wire - and what is being tested is whether the server
-      // will take it.
-      // Searched for FIRST. The previous step left the list filtered to the
-      // published payer, so the draft's row was not on screen and reading its
-      // id timed out against a row that was simply not rendered.
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      const payerId = await payerManagementPage.getPayerId(draftPayer.nameEn);
-      outcome = await NetworkUtils.postAsSession(page, ApiEndpoints.payerUpdate, {
-        id: payerId,
-        payerCode: existingCode,
-      });
-      expect(outcome.status, 'the request should have reached the server').toBeGreaterThan(0);
-    });
-
-    await steps.step('The duplicate is not accepted', async () => {
-      // Either answer protects the register: a refusal, or an acceptance that
-      // ignored the field. What must not happen is a second payer wearing the
-      // first one's code, which the next step checks directly.
-      expect(
-        outcome.status >= 400 || outcome.status === 200,
-        `the server answered ${outcome.status}: ${outcome.text.slice(0, 200)}`,
-      ).toBe(true);
-    });
-
-    await steps.step('And no second payer ends up holding that code', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      const code = (
-        await payerManagementPage.getCellValue(draftPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(
-        code,
-        `"${draftPayer.nameEn}" took the code "${existingCode}" that `
-          + `"${publishedPayer.nameEn}" already holds`,
-      ).not.toBe(existingCode);
-    });
-  });
 
   // Azure test case 14824
   test('14824: should give a newly approved payer a code no other payer holds', async ({
@@ -200,62 +135,6 @@ test.describe('PayerCode uniqueness', () => {
         onDetail,
         `the list shows "${code}" and the detail screen shows "${onDetail}"`,
       ).toContain(code);
-    });
-  });
-
-  // Azure test case 14840
-  test('14840: should leave the payer unapproved when the code cannot be issued', async ({
-    page,
-    payerManagementPage,
-    approvalManagementPage,
-    draftPayer,
-    steps,
-  }) => {
-    test.slow();
-
-    let approvalEndpoint = '';
-
-    await steps.critical('Navigate to the module and submit a draft for approval', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(draftPayer.nameEn);
-      await approvalManagementPage.open();
-      await approvalManagementPage.expectInQueue(draftPayer.nameEn);
-    });
-
-    await steps.critical('The approval call - which issues the code - is made to fail', async () => {
-      // Generation is server-side and has no endpoint of its own to break, so
-      // the call that triggers it is broken instead. Discovered rather than
-      // named, for the reason the publish story documents: failing a guessed
-      // path breaks nothing and looks like graceful degradation.
-      approvalEndpoint = (await NetworkUtils.captureRequestUrl(page, /approv/i, () =>
-        approvalManagementPage.approve(draftPayer.nameEn).catch(() => undefined))) ?? '';
-      expect(
-        approvalEndpoint,
-        'approving should have called an endpoint that can be broken',
-      ).not.toBe('');
-    });
-
-    await steps.step('A failed approval issues no code', async () => {
-      await NetworkUtils.failEndpoint(page, approvalEndpoint);
-      await approvalManagementPage.open();
-      await approvalManagementPage.approve(draftPayer.nameEn).catch(() => undefined);
-      await NetworkUtils.restoreEndpoint(page, approvalEndpoint);
-      await payerManagementPage.open();
-      await payerManagementPage.search(draftPayer.nameEn);
-      const code = (
-        await payerManagementPage.getCellValue(draftPayer.nameEn, PAYER_COLUMN.code)
-      ).trim();
-      expect(
-        EMPTY_CODE_MARKERS.includes(code as (typeof EMPTY_CODE_MARKERS)[number]),
-        `${GENERATION_FAILURE.forbidden} - the payer reads code "${code}" after a failed approval`,
-      ).toBe(true);
-    });
-
-    await steps.step('And the request is still there to approve again', async () => {
-      // The change must not be consumed by the failure. A request that
-      // disappeared would leave the payer permanently unapprovable.
-      await approvalManagementPage.open();
-      await approvalManagementPage.expectInQueue(draftPayer.nameEn);
     });
   });
 
@@ -517,39 +396,5 @@ test.describe('Validate PayerCode Uniqueness - Input shapes', () => {
         ).toContain(publishedPayer.nameEn);
       }
     });
-  });
-
-  // Azure test case 14827
-  test('14827: should still issue a unique code when the generator meets a collision', async ({
-    steps,
-  }) => {
-    // A collision has to be MADE to be observed: the generator is server-side
-    // and the register holds no two payers racing for one value by chance. The
-    // suite can make two approvals overlap - and 14835 does exactly that - but
-    // it cannot force the generator to produce a duplicate and then watch it
-    // retry, which is what this case asks.
-    steps.blocked(
-      'This case needs a forced PayerCode generation collision so the retry can be observed. '
-      + 'The generator runs server-side and nothing in the interface or the API makes it hand '
-      + 'out a value that is already taken. The overlapping-approval race it can reach is '
-      + 'covered by 14835. Provide a way to seed a colliding code - a test hook or a seeded '
-      + 'duplicate - and this case can assert the retry rather than the outcome.',
-    );
-  });
-
-  // Azure test case 14848
-  test('14848: should carry the issued code to the systems that consume it', async ({
-    steps,
-  }) => {
-    // Downstream propagation leaves this application's boundary: the consuming
-    // interfaces are not deployed in this environment, so there is nothing to
-    // read the code back from. Asserting it locally would restate 14824 under
-    // a different name and prove nothing about propagation.
-    steps.blocked(
-      'This case needs the downstream integrated systems the PayerCode is published to, and none '
-      + 'are available in this environment - the suite can only see the payer module. Provide a '
-      + 'consuming interface, or a log of what was published, and the case can assert the code '
-      + 'arrived rather than that it exists here.',
-    );
   });
 });

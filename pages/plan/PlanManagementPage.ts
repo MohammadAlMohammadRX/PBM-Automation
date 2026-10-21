@@ -78,6 +78,46 @@ export class PlanManagementPage extends ListPageBase {
     );
   }
 
+  /**
+   * One payer's plans read with that payer IN THE TOP-BAR SCOPE (2026-10-18).
+   *
+   * The Plans list shows one payer at a time, and a payer with no plans renders
+   * no table - so the scope is set before anything is waited for. Returns []
+   * when the selector does not offer the payer or it holds no plans. For the
+   * cases that need a payer with an ACTIVE, PUBLISHED plan (15616).
+   */
+  async plansInScopeOf(payerName: string): Promise<{ name: string; code: string; approval: string; status: string }[]> {
+    await this.open();
+    if (!(await this.scopeTo(payerName).catch(() => false))) return [];
+    await this.waitForPageReady();
+    // The scope change refetches the table, and the previous payer's rows stay
+    // on screen until it lands - wait until every row names the scoped payer
+    // (or the table empties) before reading.
+    const payerCells = this.rows().locator(`[id$="-cell-${PLAN_COLUMN.payer}"]`);
+    await expect
+      .poll(
+        async () => {
+          const payers = await payerCells.allInnerTexts();
+          return payers.every((p) => p.replace(/\s+/g, ' ').trim() === payerName);
+        },
+        { timeout: Timeouts.loadingIndicator, message: `the plan list never showed only "${payerName}"'s plans` },
+      )
+      .toBe(true)
+      .catch(() => undefined);
+    if ((await this.rows().count()) === 0) return [];
+    return this.rows().evaluateAll(
+      (rows, keys) =>
+        rows.map((row) => {
+          const read = (key: string): string => {
+            const cell = row.querySelector(`[id$="-cell-${key}"]`);
+            return cell ? (cell as HTMLElement).innerText.replace(/\s+/g, ' ').trim() : '';
+          };
+          return { name: read(keys.name), code: read(keys.code), approval: read(keys.approval), status: read(keys.status) };
+        }),
+      { name: PLAN_COLUMN.name, code: PLAN_COLUMN.code, approval: PLAN_COLUMN.approvalStatus, status: PLAN_COLUMN.status },
+    );
+  }
+
   /** The plans belonging to one payer, with the status each displays. */
   async getPlansOfPayer(payerName: string): Promise<{ name: string; status: string }[]> {
     await this.openList();

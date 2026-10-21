@@ -5,6 +5,7 @@ import { env } from '../../constants/EnvironmentConfig';
 import { Logger } from '../../utils/Logger';
 import { withProtectionSuspended } from '../../constants/ProtectedData';
 import { LIFECYCLE_STATUS } from '../../data/payers/statusTransition.data';
+import { assignANetwork } from '../../fixtures/payerState.fixture';
 import {
   STATUS_SEED_MANIFEST_PATH,
   STATUS_SEED_ROWS,
@@ -98,6 +99,10 @@ test.describe('Seed - expiry precedence payers', () => {
       await steps.critical(`Create and publish "${row.key}" (${row.lifecycle})`, async () => {
         await payerManagementPage.open();
         await payerManagementPage.createDraftPayer(payer);
+        // Since 2026-09-27 a payer cannot be approved without a network, so
+        // each row takes one from the seeded pool first (the same step the
+        // publishedPayer fixture uses).
+        await withProtectionSuspended(() => assignANetwork(payerManagementPage, payer.nameEn));
         await payerManagementPage.open();
         await payerManagementPage.sendForApproval(payer.nameEn);
         await approvalManagementPage.open();
@@ -131,6 +136,12 @@ test.describe('Seed - expiry precedence payers', () => {
           // approval queue is drained if the request is there, and the end
           // state is asserted either way - which makes this correct whether or
           // not inactivation needs review, instead of depending on which.
+          // SENT FIRST since the maker-checker change: the inactivation is
+          // saved as a draft ("Send it for approval when you are ready") and
+          // nothing reaches the queue until it is sent - the same sequence the
+          // inactivePayer fixture uses.
+          await payerManagementPage.open();
+          await payerManagementPage.sendForApproval(payer.nameEn).catch(() => undefined);
           await approvalManagementPage.open();
           await approvalManagementPage.approveIfPending(payer.nameEn);
 

@@ -85,30 +85,6 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
       + 'combination in Network Management and re-run.',
   },
   {
-    id: '004',
-    title: 'should revert the draft with no effect and no audit entry when a reviewer rejects a network change',
-    reason: NEEDS_FREE_NETWORK,
-  },
-  {
-    id: '005',
-    title: 'should warn and still allow removal when the network has active dependent policies',
-    reason:
-      'This case needs a linked network with at least one active policy depending on it. No '
-      + 'linked network here carries a policy, and policies are created in the Policies module, '
-      + 'outside this framework. Provide such a link and re-run.',
-  },
-  {
-    id: '006',
-    title: 'should let the user stop the removal when warned about dependent policies',
-    reason:
-      'Same precondition as the previous case: a linked network with an active dependent policy.',
-  },
-  {
-    id: '007',
-    title: 'should record the correct audit details when a network change is approved',
-    reason: NEEDS_FREE_NETWORK,
-  },
-  {
     id: '009',
     title: 'should behave consistently across search, filter and cancel-draft on the Linked Networks tab',
     reason:

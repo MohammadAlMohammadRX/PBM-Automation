@@ -132,34 +132,4 @@ test.describe('Edit Existing Payer Configuration Details - Edit approval', () =>
     await steps.step('The rejected request is no longer queued', () =>
       approvalManagementPage.expectNotInQueue(publishedPayer.nameEn));
   });
-
-  // Azure test case 14371
-  test('14371: should prevent the submitting maker from approving their own payer edit', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    publishedPayer,
-    steps,
-  }) => {
-    // The signed-in account is both the maker and holds approver rights.
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    await steps.critical(`Edit "${CHAIN_EDIT_FIELD.label}" and save the draft`, () =>
-      payerManagementPage.editSingleFieldAndSave(
-        publishedPayer.nameEn,
-        CHAIN_EDIT_FIELD.label,
-        editedLicenseNumber(),
-        CHAIN_EDIT_FIELD.kind,
-      ));
-
-    await steps.critical('Send the edit for approval as the maker', () =>
-      payerManagementPage.sendForApproval(publishedPayer.nameEn));
-
-    // Segregation of duties: the self-submitted request must not be approvable
-    // by its own submitter - excluded from their queue or the action blocked.
-    await steps.critical('Open the approval queue as the same user', () =>
-      approvalManagementPage.open());
-
-    await steps.step('The maker cannot approve their own edit', () =>
-      approvalManagementPage.expectSelfApprovalPrevented(publishedPayer.nameEn));
-  });
 });

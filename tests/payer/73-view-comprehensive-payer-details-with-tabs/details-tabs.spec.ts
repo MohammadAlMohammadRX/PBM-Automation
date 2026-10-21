@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import { Logger } from '../../../utils/Logger';
 import { findPayer } from '../../../utils/PayerFinder';
 import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
@@ -11,7 +10,6 @@ import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import {
   ACTION_WITHHELD_FROM_PAYER_ADMIN,
   ATTRIBUTE_FORMAT,
-  BLOCKED_CASES,
   DETAIL_TAB_LABELS,
   OVERVIEW_LABELS,
   RAPID_TAB_CYCLES,
@@ -201,7 +199,6 @@ test.describe('Comprehensive payer details', () => {
     });
   });
 
-
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
   // environment HOLDS the permission whose absence the case is about. The
@@ -306,13 +303,54 @@ test.describe('Comprehensive payer details', () => {
     );
   });
 
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-003 = 14639,  TC-005 = 14652
-    test(`${azureOrCase('73', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
+  // Azure test case 14639
+  //
+  // WRITTEN 2026-10-13 (QA lead: check it on a payer that has at least one
+  // policy). Located across the whole register by GetPayers, payer number 2
+  // preferred; read-only. The acceptance criteria do not list the REQUIRED
+  // columns (open question, 14954), so the columns found are recorded and every
+  // one is held to being populated; "accurate" is checked against the policy's
+  // own record in the Policies module.
+  test('14639: should show the required columns with accurate data on the Linked Policies tab', async ({
+    page,
+    payerManagementPage,
+    policyManagementPage,
+    steps,
+  }) => {
+    test.slow();
+    let payer = '';
+    let rows: Array<Record<string, string>> = [];
+
+    await steps.critical('Find a payer that owns at least one policy and open its Linked Policies tab', async () => {
+      const found = await findPayer(page, (p) => Number(p.linkedPoliciesCount) > 0, 'a payer with at least one policy', [REFERENCE_PAYERS.payerNumber2.name]);
+      if (!found) steps.blocked('No payer in the register owns a policy.');
+      payer = found!.payerNameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(found!.payerCode || payer);
+      rows = await (await payerManagementPage.openDetails(found!.payerCode || payer)).getLinkedPolicyRows();
+      expect(rows.length, `"${payer}" should list its ${found!.linkedPoliciesCount} polic(ies)`).toBe(Number(found!.linkedPoliciesCount));
     });
-  }
+
+    await steps.step('Every column of every row carries a value', async () => {
+      const blanks = rows.flatMap((row, i) => Object.entries(row)
+        .filter(([, value]) => value === '' || /^[-–—]$|^N\/A$/i.test(value))
+        .map(([column, value]) => `row ${i + 1} "${column}" = "${value}"`));
+      expect(blanks, `columns shown: ${Object.keys(rows[0] ?? {}).join(', ')}`).toEqual([]);
+    });
+
+    await steps.step('Each policy\'s name and status match its record in the Policies module', async () => {
+      const nameOf = (row: Record<string, string>) => Object.entries(row).find(([h]) => /name/i.test(h) && !/plan/i.test(h))?.[1] ?? '';
+      const statusOf = (row: Record<string, string>) => Object.entries(row).find(([h]) => /status/i.test(h))?.[1] ?? '';
+      const records = await policyManagementPage.getPoliciesOfPayer(payer);
+      const mismatches: string[] = [];
+      for (const row of rows) {
+        const record = records.find((r) => r.name.trim() === nameOf(row).trim());
+        if (!record) { mismatches.push(`"${nameOf(row)}" is not in the Policies module for "${payer}"`); continue; }
+        if (record.status.trim() !== statusOf(row).trim()) mismatches.push(`"${nameOf(row)}": ${statusOf(row)} on the payer, ${record.status} in the Policies module`);
+      }
+      expect(mismatches, `Policies module rows for "${payer}": ${JSON.stringify(records)}`).toEqual([]);
+    });
+  });
 });
 
 /**

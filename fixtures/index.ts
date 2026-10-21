@@ -17,6 +17,7 @@ import { test as shapedNonAdminTest } from './shapedNonAdmin.fixture';
 import { test as cleanupTest } from './cleanup.fixture';
 import { test as screenshotTest } from './screenshot.fixture';
 import { test as testStatusTest } from './testStatus.fixture';
+import { test as azureTraceTest } from './azureTrace.fixture';
 
 /**
  * Single entry point for every test file: merges the auth/Page-Object,
@@ -48,5 +49,6 @@ export const test = mergeTests(
   cleanupTest,
   screenshotTest,
   testStatusTest,
+  azureTraceTest,
 );
 export { expect } from '@playwright/test';

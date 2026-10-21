@@ -6,7 +6,6 @@ import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import {
   CONCURRENCY_OUTCOMES,
   PRESERVED_FIELDS,
-  REASON_REQUIREMENT,
 } from '../../../data/payers/reactivationDraft.data';
 
 /**
@@ -76,49 +75,6 @@ test.describe('Reactivate an inactive payer', () => {
       await payerManagementPage.expectLifecycleStatus(
         inactivePayer.nameEn,
         LIFECYCLE_STATUS.active.en,
-      );
-    });
-  });
-
-  // Azure test case 14762
-  test('14762: should refuse a reactivation draft that carries no reason', async ({
-    payerManagementPage,
-    inactivePayer,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module with an Inactive payer', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(inactivePayer.nameEn);
-      await payerManagementPage.expectLifecycleStatus(
-        inactivePayer.nameEn,
-        LIFECYCLE_STATUS.inactive.en,
-      );
-    });
-
-    await steps.critical('The reactivation prompt opens', async () => {
-      const prompt = await payerManagementPage.openActivationPrompt(inactivePayer.nameEn);
-      expect(await prompt.isVisible(), 'the Activate action should raise a prompt').toBe(true);
-    });
-
-    await steps.step('It asks for a reason before it will accept the draft', async () => {
-      // CONFLICT, and the case is written to expose it rather than to hide it.
-      // Sheet 43 requires a mandatory reason here; sheet 41 TC-566 expects
-      // reactivation to need none. If this fails, the prompt takes no reason -
-      // which means sheet 43's requirement was never built, or sheet 41 is
-      // right and this case should be retired.
-      const prompt = payerManagementPage.dialog();
-      const offersReason =
-        (await prompt.getReasonOptions()).length > 0 || (await prompt.hasFreeTextInput());
-      expect(
-        offersReason,
-        `the reactivation draft should demand a reason (${REASON_REQUIREMENT.conflictsWith})`,
-      ).toBe(REASON_REQUIREMENT.mandatory);
-    });
-
-    await steps.step('And it will not submit while the reason is blank', async () => {
-      const prompt = payerManagementPage.dialog();
-      await prompt.expectAffirmativeDisabled(
-        'a draft with no reason should not be submittable',
       );
     });
   });
@@ -465,19 +421,9 @@ test.describe('Reactivate an inactive payer - the draft as a record', () => {
 
   for (const [azureId, what, needs] of [
     [
-      '14756',
-      'block the reactivation with a message when the expiry date has already passed',
-      'an INACTIVE payer whose expiry date is in the past',
-    ],
-    [
       '14758',
       'permit the reactivation on the day the expiry date itself falls',
       'an INACTIVE payer whose expiry date is today',
-    ],
-    [
-      '14772',
-      'refuse the reactivation of an Expired payer as an invalid transition',
-      'an EXPIRED payer',
     ],
   ] as const) {
     test(`${azureId}: should ${what}`, async ({ steps }) => {

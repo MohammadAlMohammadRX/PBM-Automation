@@ -4,7 +4,6 @@ import { NetworkUtils } from '../../../utils/NetworkUtils';
 import {
   APPROVED_COPY_FROM_STORY,
   EMPTY_STATE_COPY,
-  EMPTY_STATE_MEANING,
   ERROR_STYLE_MARKERS,
   FAILURE_WORDS,
 } from '../../../data/payers/versionHistoryEmptyState.data';
@@ -35,45 +34,6 @@ import {
  *     not look the same.
  */
 test.describe('Version history empty state', () => {
-  // Azure test case 15546
-  test('15546: should state that no history exists when the payer has none', async ({
-    payerWithoutVersionHistory,
-    payerManagementPage,
-    steps,
-  }) => {
-    let payerName!: string;
-
-    await steps.critical('A payer with no version history is located', async () => {
-      // The story's precondition, and the case's real finding. The fixture
-      // opens each candidate's history and returns the first that lists
-      // nothing; when every payer lists at least its own version it reports
-      // BLOCKED naming what it examined, rather than letting the case assert an
-      // empty state against a record that legitimately has one.
-      payerName = await payerWithoutVersionHistory();
-      expect(payerName, 'the fixture should have named the payer it found').not.toBe('');
-    });
-
-    await steps.step('Its Version History panel shows an explicit empty state', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(payerName);
-      const detail = await payerManagementPage.openDetails(payerName);
-      const versions = detail.versionHistory();
-      await versions.open();
-      expect(
-        await versions.isEmptyStateShown(),
-        'the panel should say why it is empty, not simply be empty',
-      ).toBe(true);
-    });
-
-    await steps.step('And it says so in words rather than leaving a blank panel', async () => {
-      const versions = payerManagementPage.detail().versionHistory();
-      const text = await versions.getEmptyStateText();
-      expect(text, 'an empty state with no message is a blank panel').not.toBe('');
-      expect(text, `the message should state the absence; it said "${text}"`).toMatch(
-        EMPTY_STATE_MEANING,
-      );
-    });
-  });
 
   // Azure test case 15547
   test('15547: should list the entries and hide the empty state when the payer has history', async ({

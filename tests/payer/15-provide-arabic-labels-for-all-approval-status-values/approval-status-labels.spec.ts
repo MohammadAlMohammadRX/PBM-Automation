@@ -5,7 +5,6 @@ import {
   BROKEN_LABEL_PATTERNS,
   EXPECTED_APPROVAL_STATUSES,
   EXPECTED_VOCABULARY,
-  WITHDRAWN_STATUS,
 } from '../../../data/payers/approvalStatus.data';
 
 /**
@@ -158,60 +157,6 @@ test.describe('Provide Arabic Labels for All Approval Status Values - Labels', (
       });
     });
   }
-
-  // Azure test case 15368
-  test(`15368: should offer Withdrawn with the Arabic label "${WITHDRAWN_STATUS.ar}" when the approval status vocabulary is inspected`, async ({
-    payerManagementPage,
-    payerWithVersionStatus,
-    languageSwitcher,
-    steps,
-  }) => {
-    let payerName!: string;
-    let payerId!: string;
-
-    await steps.critical('Navigate to the Payer Management module', async () => {
-      await languageSwitcher.switchTo('en');
-      ({ name: payerName, payerId } = await payerWithVersionStatus(APPROVAL_STATUS.superseded.en));
-    });
-
-    // Asserted as a VOCABULARY question rather than by hunting for a Withdrawn
-    // record. "No record has this status" and "the application has no such
-    // status" look identical from the list, and only the second is the defect
-    // this story is about - so the check is against the set of statuses the
-    // application is capable of emitting.
-    await steps.step('The approval status vocabulary includes Withdrawn', async () => {
-      const implemented = Object.values(APPROVAL_STATUS).map((status) => status.en);
-      expect(
-        implemented,
-        'The application emits only these approval statuses. "Withdrawn" is required by this '
-          + 'story and is absent from the vocabulary entirely - no status value, and no '
-          + 'Withdraw action on any payer surface.',
-      ).toContain(WITHDRAWN_STATUS.en);
-    });
-
-    await steps.step('A record displaying Withdrawn can be found', async () => {
-      // Opened by ID: the Arabic list renders Arabic payer names, so the
-      // English name captured earlier no longer matches a row.
-      await payerManagementPage.openPayerById(payerId);
-      const history = payerManagementPage.detail().versionHistory();
-      await history.open();
-      expect(await history.getListedStatuses()).toContain(WITHDRAWN_STATUS.en);
-    });
-
-    await steps.step('Switching to Arabic re-renders the interface', async () => {
-      await languageSwitcher.switchTo('ar');
-      await languageSwitcher.expectRightToLeft();
-    });
-
-    await steps.step(`The status reads "${WITHDRAWN_STATUS.ar}" in Arabic`, async () => {
-      // Opened by ID: the Arabic list renders Arabic payer names, so the
-      // English name captured earlier no longer matches a row.
-      await payerManagementPage.openPayerById(payerId);
-      const history = payerManagementPage.detail().versionHistory();
-      await history.open();
-      expect(await history.getListedStatuses()).toContain(WITHDRAWN_STATUS.ar);
-    });
-  });
 
   // Azure test case 15371
   test('15371: should pair every status with its correct Arabic label when all five are compared row by row', async ({

@@ -48,9 +48,6 @@ export const EMPTY_STATE_COPY = 'No version history yet.';
 /** The sheet's draft wording, quoted in failure messages for comparison. */
 export const APPROVED_COPY_FROM_STORY = 'No version history exists yet';
 
-/** What the message must say, whatever words it uses: that there is none. */
-export const EMPTY_STATE_MEANING = /no version history/i;
-
 /**
  * Words that would mean the panel is dressed as an ERROR rather than as
  * information.

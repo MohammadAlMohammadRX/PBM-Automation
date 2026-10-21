@@ -100,3 +100,18 @@ export const DELETE_REJECTION_REASON = 'Change Not Required';
 // TC-008 (zero-versus-one dependency boundary) was withdrawn from the suite at
 // the product owner's request - the zero and one dependency paths are already
 // covered by TC-001 and TC-002 respectively.
+
+/**
+ * Why the staged-deletion cases report BLOCKED (2026-10-19).
+ *
+ * They need a LIVE (published) payer with no dependency. Since 2026-09-27 a
+ * payer cannot be approved without a network, a payer holding a network cannot
+ * be deleted, and removing its last network is refused (409) - so such a payer
+ * cannot exist. Deleting a dependency-free payer is covered on a never-published
+ * (v0) draft instead (14348, 15472).
+ */
+export const LIVE_PAYER_UNDELETABLE =
+  'This case needs a published payer with no dependency, and none can exist: approval requires a network, '
+  + 'a payer holding a network cannot be deleted, and removing its last network is refused. The deletion was '
+  + 'refused for a dependency, so the staged-deletion behaviour under test was never reached. Deleting a '
+  + 'dependency-free payer is covered on a never-published draft (14348, 15472). Re-run if the rule changes.';

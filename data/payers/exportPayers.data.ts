@@ -1,7 +1,6 @@
 import { PAYER_EXPORT_COLUMN } from '../../constants/ElementIds';
 import { MISSING_SCOPE, SCOPE_FILTER } from './exportScope.data';
 import { nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
-import type { BlockedCase } from './payerTypes';
 
 /**
  * Test data for "Export Payer List to CSV and Excel".
@@ -75,12 +74,3 @@ export const EXPORT_ROLE_REQUIREMENT = {
   role: 'a read-only role without Export Payers',
   reason: 'The case proves the Export control is withheld from a role without the permission; the shared administrator cannot show the refusal.',
 } as const;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '015',
-    title: 'should behave consistently across combined filters, sorting and column configurations',
-    reason: 'An exploratory session across filter, sort and column combinations is a manual activity; its deterministic parts (scope, order, search) are the cases here.',
-  },
-];

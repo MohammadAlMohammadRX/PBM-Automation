@@ -1,14 +1,13 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
-import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
+import { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
+import { AUTH_STORAGE_STATE_PATH } from '../../../constants/Paths';
+import { DEFAULT_VIEWPORT } from '../../../constants/BrowserConfig';
 import { APPROVAL_STATE, WITHDRAWAL_WARNING } from '../../../data/payers/withdrawApproval.data';
 import { UNMODIFIED_INDICATORS } from '../../../data/payers/overviewMetadata.data';
 import {
-  BLOCKED_CASES,
   DECIDED_STATUS,
   RAPID_WITHDRAW_CLICKS,
   WITHDRAW_EDIT,
-  WITHDRAWAL_AUDIT_HINT,
 } from '../../../data/payers/withdrawChange.data';
 
 /**
@@ -303,41 +302,56 @@ test.describe('Withdraw a pending payer change', () => {
     });
   });
 
-  // Azure test case 15726
-  test('15726: should record the withdrawal in the audit trail with the maker and no reviewer', async ({
+  // Azure test case 15725
+  //
+  // WRITTEN 2026-10-18 (QA lead: it passes when the status does not change
+  // after the navigation, refresh and new session). The suite's own published
+  // payer is used: a change is staged and sent, then withdrawn, and the
+  // withdrawn state is re-read after each interruption.
+  test('15725: should keep the withdrawn status through navigation, refresh and session interruption', async ({
+    browser,
+    page,
     payerManagementPage,
+    approvalManagementPage,
     publishedPayer,
     steps,
   }) => {
     test.slow();
+    const name = publishedPayer.nameEn;
+    let withdrawn = '';
 
-    await steps.critical('Navigate to the module, stage a change and withdraw it', async () => {
-      await stagePendingChange(payerManagementPage, publishedPayer.nameEn);
-      await withdrawViaEdit(payerManagementPage, publishedPayer.nameEn);
+    await steps.critical('Stage a change, send it for approval and withdraw it', async () => {
+      await stagePendingChange(payerManagementPage, name);
+      await withdrawViaEdit(payerManagementPage, name);
+      withdrawn = await payerManagementPage.getApprovalStatus(name);
+      expect(withdrawn, 'the withdrawn payer should read Draft').toContain(APPROVAL_STATE.draft);
     });
 
-    await steps.step('The audit trail records the withdrawal', async () => {
-      // Polled: the timeline loads after the tab activates, and a single
-      // instantaneous read came back empty on a slow environment.
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.openAuditHistory();
-      await detail.expectAuditEntryMatching(WITHDRAWAL_AUDIT_HINT, 'the withdrawal of the pending change');
+    await steps.step('The status is unchanged after navigating to another module and back', async () => {
+      await approvalManagementPage.open();
+      await payerManagementPage.open();
+      expect(await payerManagementPage.getApprovalStatus(name)).toBe(withdrawn);
     });
 
-    await steps.step('And the version carries no reviewer', async () => {
-      const history = payerManagementPage.detail().versionHistory();
-      await history.open();
-      const draft = (await history.getEntries()).find((entry) => /draft/i.test(entry.status));
-      expect(noReviewer(draft?.reviewedBy ?? ''), `the withdrawn version should name no reviewer; it reads "${draft?.reviewedBy}"`).toBe(true);
+    await steps.step('The status is unchanged after a page refresh', async () => {
+      await page.reload();
+      await payerManagementPage.open();
+      expect(await payerManagementPage.getApprovalStatus(name)).toBe(withdrawn);
+    });
+
+    await steps.step('The status is unchanged in a new session, and the request is not back in the queue', async () => {
+      // A fresh browser context - the "interrupted session" - signed in from the
+      // stored administrator state.
+      const context = await browser.newContext({ storageState: AUTH_STORAGE_STATE_PATH, viewport: DEFAULT_VIEWPORT });
+      try {
+        const fresh = new PayerManagementPage(await context.newPage());
+        await fresh.open();
+        expect(await fresh.getApprovalStatus(name), 'a new session should read the same withdrawn status').toBe(withdrawn);
+      } finally {
+        await context.close();
+      }
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectNotInQueue(name);
     });
   });
-
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-006 = 15717,  TC-007 = 15719,  TC-011 = 15722
-    //   TC-015 = 15725,  TC-016 = 15727
-    test(`${azureOrCase('67', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

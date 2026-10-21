@@ -1,6 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { env } from '../../../constants/EnvironmentConfig';
-import { ROLE_REQUIREMENTS, ROLE_SHAPES } from '../../../data/payers/payerPermissions.data';
+import { ROLE_SHAPES } from '../../../data/payers/payerPermissions.data';
 import { ALL_PAYER_PERMISSIONS } from '../../../data/accounts/payerAdminRole.data';
 import { GRANTED_CASE_PAYER } from '../../../data/payers/permissionEnforcement.data';
 import { controlAvailability, type ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
@@ -101,28 +101,6 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Access 
 
     await steps.step('The Approve and Reject controls are hidden or disabled', () =>
       approvalManagementPage.expectApprovalActionsDenied());
-  });
-
-  // Azure test case 15389
-  test('15389: should apply the change when a reviewer other than the submitter approves the request', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs TWO accounts - a submitter and a different reviewer - and this '
-        + `environment exposes one. ${ROLE_REQUIREMENTS.secondReviewer.reason} Approving as `
-        + 'the submitter would exercise the opposite rule, which TC-014 already covers.',
-    );
-  });
-
-  // Azure test case 15391
-  test('15391: should block or flag the decision when a reviewer cannot view the change they are approving', async ({
-    steps,
-  }) => {
-    steps.blocked(
-      'this case needs an account holding the approve/reject permission but NOT view-details, '
-        + 'so that the two can be shown to be governed separately. No such account exists '
-        + `here. ${ROLE_REQUIREMENTS.reviewerWithoutApproval.reason}`,
-    );
   });
 
   // Azure test case 15392

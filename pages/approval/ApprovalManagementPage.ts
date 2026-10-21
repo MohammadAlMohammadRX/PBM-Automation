@@ -183,6 +183,46 @@ export class ApprovalManagementPage extends BasePage {
   }
 
   /**
+   * Opens a queued request's Review panel and reads its change table - one row
+   * per field, with the value before and after (2026-10-18, for 15622).
+   *
+   * VERIFIED live: the panel is "approvals-payer-review-drawer" and each field
+   * row is "...-diff-row-<key>" with "-field", "-before" and "-after" cells. The
+   * panel lists every field, changed or not; the caller decides which changed.
+   */
+  async openReview(payerName: string): Promise<{ field: string; before: string; after: string }[]> {
+    const prefix = 'approvals-payer-review-drawer';
+    await this.search(payerName);
+    await this.expectInQueue(payerName);
+    await (await this.rowAction(payerName, 'review')).click();
+    await expect(this.page.locator(`#${prefix}-title`), 'the Review panel should open').toBeVisible({ timeout: Timeouts.default });
+    await expect(this.page.locator(`[id^="${prefix}-diff-row-"][id$="-field"]`).first(), 'the Review panel should list the changed fields')
+      .toBeVisible({ timeout: Timeouts.default });
+    const keys = await this.page
+      .locator(`[id^="${prefix}-diff-row-"][id$="-field"]`)
+      .evaluateAll((els, p) => els.map((e) => (e as HTMLElement).id.slice(`${p}-diff-row-`.length).replace(/-field$/, '')), prefix);
+    const read = async (id: string): Promise<string> => {
+      const el = this.page.locator(`#${id}`);
+      return (await el.count()) ? (await el.first().innerText()).replace(/\s+/g, ' ').trim() : '';
+    };
+    const rows: { field: string; before: string; after: string }[] = [];
+    for (const key of keys) {
+      rows.push({
+        field: await read(`${prefix}-diff-row-${key}-field`),
+        before: await read(`${prefix}-diff-row-${key}-before`),
+        after: await read(`${prefix}-diff-row-${key}-after`),
+      });
+    }
+    return rows;
+  }
+
+  /** Closes the Review panel. */
+  async closeReview(): Promise<void> {
+    await this.page.locator(buttonSelector('approvals-payer-review-drawer-close')).first().click();
+    await expect(this.page.locator('#approvals-payer-review-drawer-title')).toBeHidden({ timeout: Timeouts.default });
+  }
+
+  /**
    * Whether a request for this payer is pending, WAITING for the queue to render.
    * `locator.isVisible()` is avoided on purpose: it ignores its timeout and
    * reports the state before the search results arrive.

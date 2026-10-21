@@ -148,7 +148,7 @@ export class AssignNetworkDrawer {
     await expect
       .poll(
         async () => {
-          const current = (await options.allInnerTexts()).join('|').replace(/s+/g, ' ');
+          const current = (await options.allInnerTexts()).join('|').replace(/\s+/g, ' ');
           const settled = current !== '' && current === previous;
           previous = current;
           return settled;

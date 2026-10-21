@@ -14,6 +14,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { storyOfFolder, workItemUrl } = require('./azureIds');
 
 const IN = process.argv[2] || path.join('reports', 'results.json');
 const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Results.html');
@@ -727,6 +728,21 @@ const esc = (s) =>
 /** Story tag, because case ids repeat across stories (TC-003 exists in four). */
 const tagOf = (name) => name.replace(/[^A-Za-z ]/g, '').split(' ')[0].slice(0, 3).toUpperCase();
 
+// AZURE IDS ON SCREEN (2026-10-12). Every story shows its Azure User Story id and
+// every case its Azure Test Case id, each linked to the work item, so a reader
+// can trace a result straight back to Azure. Stories are matched by FOLDER,
+// not by name: 16 story names here differ from their Azure titles.
+const azureStoryOf = (g) => storyOfFolder(g.dir);
+const caseLink = (id) => (/^\d+$/.test(String(id))
+  ? `<a href="${workItemUrl(id)}" target="_blank" rel="noopener" title="Azure Test Case ${esc(id)}">${esc(id)}</a>`
+  : esc(id));
+const storyBadge = (g) => {
+  const us = azureStoryOf(g);
+  return us
+    ? `<a class="us" href="${workItemUrl(us.id)}" target="_blank" rel="noopener" title="Azure User Story ${esc(us.id)}: ${esc(us.title)}">US ${esc(us.id)}</a> `
+    : '';
+};
+
 /** Cases that did not pass come first; failures before blocked before skipped. */
 const RANK = { FAIL: 0, BLOCKED: 1, SKIPPED: 2, PASS: 3 };
 const byAttention = (a, b) =>
@@ -789,7 +805,7 @@ const storySections = grouped
         (x) => `<tr class="r r--${x.status.toLowerCase()}${
           disputed(x) ? ' r--unstable' : ''
         }">
-        <td class="c-id">${esc(tagOf(g.name))}-${esc(x.id)}</td>
+        <td class="c-id">${caseLink(x.id)}</td>
         <td class="c-exp">${
           x.status === 'PASS'
             ? esc(x.expected)
@@ -815,7 +831,7 @@ const storySections = grouped
       .join('');
 
     return `<section class="story">
-      <h2>${esc(g.name)}</h2>
+      <h2>${storyBadge(g)}${esc(g.name)}</h2>
       <p class="story__meta">${g.cases.length} test case${g.cases.length === 1 ? '' : 's'} ${chips}</p>
       <div class="tw"><table>
         <thead><tr><th>Case</th><th>Expected result</th><th>Actual result</th><th>Status</th></tr></thead>
@@ -855,7 +871,7 @@ const rerunChanges = (() => {
 const summaryRows = grouped
   .map((g) => {
     const c = storyCounts(g);
-    return `<tr><td><b>${esc(tagOf(g.name))}</b>&nbsp; ${esc(g.name)}${
+    return `<tr><td>${storyBadge(g)}${esc(g.name)}${
       isRerun(g) ? ` <small class="rerun">re-run ${esc(RERUN_ON)}</small>` : ''
     }${
       (OVERRIDES.storyLabels || []).filter((l) => l.name === g.name)
@@ -942,6 +958,8 @@ const html = `<title>Payer Module Test Results</title>
   th{background:var(--panel-2);font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;
     color:var(--muted);font-weight:600;position:sticky;top:0;z-index:1}
   tbody tr:last-child td{border-bottom:0}
+  a.us{color:var(--accent);background:var(--panel);font-family:var(--mono);font-size:.78em;font-weight:600;padding:2px 7px;margin-right:6px;border:1px solid var(--rule);border-radius:4px;text-decoration:none;white-space:nowrap;vertical-align:middle}
+  td.c-id a{color:inherit;text-decoration:underline dotted}
   td.c-id{font-family:var(--mono);font-weight:500;white-space:nowrap;width:78px;
     border-left:3px solid transparent;font-variant-numeric:tabular-nums}
   .r--pass td.c-id{border-left-color:var(--pass)}
@@ -1081,7 +1099,7 @@ ${
     <thead><tr><th>Case</th><th>User story</th><th>Before</th><th>After</th><th>Result after the re-run</th></tr></thead>
     <tbody>${rerunChanges.changes
       .sort((a, b) => a.now.localeCompare(b.now) || a.story.localeCompare(b.story))
-      .map((x) => `<tr><td>${esc(x.id)}</td><td>${esc(x.story)}</td><td>${esc(x.was)}</td><td><b>${esc(x.now)}</b></td><td>${codeify(x.actual.replace(/\s+/g, ' ').slice(0, 220))}</td></tr>`)
+      .map((x) => `<tr><td>${caseLink(x.id)}</td><td>${esc(x.story)}</td><td>${esc(x.was)}</td><td><b>${esc(x.now)}</b></td><td>${codeify(x.actual.replace(/\s+/g, ' ').slice(0, 220))}</td></tr>`)
       .join('')}</tbody>
   </table></div>
 </section>`
@@ -1098,7 +1116,7 @@ ${
     <thead><tr><th>Ref</th><th>Case</th><th>Run result</th><th>Reported as</th><th>Decision</th></tr></thead>
     <tbody>${testCases.filter((c) => c.override)
       .sort((a, b) => a.override.ref.localeCompare(b.override.ref) || a.id.localeCompare(b.id))
-      .map((c) => `<tr><td>${esc(c.override.ref)}</td><td>${esc(c.id)}</td><td>${esc(c.runStatus)}</td><td><b>${esc(c.status)}</b></td><td>${esc(c.override.label)}</td></tr>`)
+      .map((c) => `<tr><td>${esc(c.override.ref)}</td><td>${caseLink(c.id)}</td><td>${esc(c.runStatus)}</td><td><b>${esc(c.status)}</b></td><td>${esc(c.override.label)}</td></tr>`)
       .join('')}</tbody>
   </table></div>
 </section>`
@@ -1144,6 +1162,9 @@ if (!PREPARED) fs.writeFileSync(
       totals,
       stories: grouped.map((g) => ({
         name: g.name,
+        folder: g.dir,
+        azureStoryId: azureStoryOf(g)?.id ?? null,
+        azureStoryTitle: azureStoryOf(g)?.title ?? null,
         counts: storyCounts(g),
         cases: g.cases.map((c) => ({
           id: c.id,

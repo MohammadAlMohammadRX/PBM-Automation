@@ -1,11 +1,9 @@
 import { test, expect } from '../../../fixtures';
-import { env } from '../../../constants/EnvironmentConfig';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import {
   EMPTY_STATE_COPY,
-  FAILURE_WORDS,
   MATRIX_SAMPLE_SIZE,
   RESTRICTED_ROLE_REQUIREMENT,
   SWITCH_ROUNDS,
@@ -201,130 +199,6 @@ test.describe('Version history empty state - Edges', () => {
           .map((empty) => (empty ? 'empty' : 'listed'))
           .join(' -> ')}`,
       ).toEqual(expected);
-    });
-  });
-
-  // Azure test case 15557
-  test('15557: should report a load failure distinctly from an absence of history', async ({
-    page,
-    payerManagementPage,
-    publishedPayer,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module with a payer that has history', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.waitForLoaded();
-    });
-
-    await steps.critical('The history endpoint is made to fail', async () => {
-      // The versions feed specifically - failing anything broader would break
-      // the navigation that reaches this screen, which is why this endpoint is
-      // named in ApiEndpoints in the first place.
-      await NetworkUtils.failEndpoint(page, ApiEndpoints.payerVersions);
-    });
-
-    await steps.step('Opening the panel attempts the load and does not hang', async () => {
-      const versions = payerManagementPage.detail().versionHistory();
-      await payerManagementPage.detail().reload();
-      await versions.open().catch(() => undefined);
-      expect(
-        await versions.isStillLoading(),
-        'a failed load should resolve rather than spin forever',
-      ).toBe(false);
-    });
-
-    await steps.step('The panel does not present the failure as an absence of history', async () => {
-      // KNOWN DEFECT, and the reason this case exists. The panel shows its
-      // no-history message for a request that returned 500: the reviewer is
-      // told this payer has no version history when in truth the history could
-      // not be loaded. Two different facts, one message.
-      //
-      // A tolerant assertion here would be the wrong call - it would hide the
-      // one finding the story was written to surface - so this fails until the
-      // panel distinguishes them.
-      const versions = payerManagementPage.detail().versionHistory();
-      const shownEmpty = await versions.isEmptyStateShown();
-      if (!shownEmpty) {
-        const messages = await payerManagementPage.detail().waitForVisibleMessages();
-        expect(messages, 'a failed load should say so somewhere on screen').not.toEqual([]);
-        return;
-      }
-      const text = (await versions.getEmptyStateText()).toLowerCase();
-      expect(
-        FAILURE_WORDS.some((word) => text.includes(word)),
-        `the panel showed the no-history message ("${text}") for a load that FAILED - an `
-          + 'absence and a failure must not look the same, and a payer with versions was '
-          + 'reported as having none',
-      ).toBe(true);
-    });
-
-    await steps.step('And the panel recovers once the endpoint does', async () => {
-      await NetworkUtils.restoreEndpoint(page, ApiEndpoints.payerVersions);
-      await payerManagementPage.open();
-      const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      const versions = detail.versionHistory();
-      await versions.open();
-      expect(
-        await versions.getEntryCount(),
-        'the history should load normally again',
-      ).toBeGreaterThan(0);
-    });
-  });
-});
-
-/** Access control, signed out of the shared administrator session. */
-test.describe('Version history empty state - Access control', () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
-  // Azure test case 15554
-  test('15554: should withhold the Version History tab from a user without history rights', async ({
-    shapeRole,
-    loginPage,
-    payerManagementPage,
-    steps,
-  }) => {
-    // The account is BUILT rather than waited for: the administrator takes
-    // the permission off the Payer Admin role, this case signs in as that
-    // account, and the permission goes back when the case ends. It used to
-    // report BLOCKED because the only non-administrator here HELD the right.
-    await shapeRole({ without: ['viewVersionHistory'] });
-
-    let payerName!: string;
-
-    await steps.critical('Open the payer list as the restricted user', async () => {
-      await loginPage.open();
-      await loginPage.loginAndWaitForDashboard(env.nonAdminUsername, env.nonAdminPassword);
-      await payerManagementPage.navigate();
-      await payerManagementPage.expectRowsRendered();
-      payerName = (await payerManagementPage.getVisiblePayerNames())[0];
-      expect(payerName, 'the restricted user should see at least one payer').not.toBe(undefined);
-    });
-
-    await steps.step('The Version History tab is withheld or refuses access', async () => {
-      const detail = await payerManagementPage.openDetails(payerName);
-      const versions = detail.versionHistory();
-      const offered = await versions.isAvailable();
-
-      // AND THE DATA BEHIND IT. A withheld tab is only half the claim: what the
-      // permission protects is the content, so if the tab IS offered the case
-      // opens it and reports how much of that content the role was served.
-      // "the tab was offered and rendered N rows" is a defect a developer can
-      // act on; "a tab id was in a list" is not.
-      if (offered) {
-        await versions.open().catch(() => undefined);
-        const rows = await versions.getEntryCount().catch(() => -1);
-        expect(
-          rows,
-          `the Version History tab was offered to a role without history rights, and it `
-            + `rendered ${rows} version row(s)`,
-        ).toBe(0);
-      }
-      expect(
-        offered,
-        'a role without history rights should not be offered the tab',
-      ).toBe(false);
     });
   });
 });

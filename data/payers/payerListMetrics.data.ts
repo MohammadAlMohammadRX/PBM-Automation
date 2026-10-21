@@ -214,7 +214,6 @@ export const OBSERVED_PAGE_SIZE = 10;
  * when the control is delivered, one edit re-enables the real boundary checks.
  */
 export const PAGE_SIZE_CONTROL_EXPECTED = true;
-export const GO_TO_PAGE_INPUT_EXPECTED = true;
 
 /** Page-size boundary values the criteria call for, once a control exists. */
 export const PAGE_SIZE_BOUNDARIES = {
@@ -222,9 +221,6 @@ export const PAGE_SIZE_BOUNDARIES = {
   maximum: 100,
   belowMinimum: 5,
 } as const;
-
-/** Invalid "go to page" inputs the criteria require to be rejected. */
-export const INVALID_PAGE_INPUTS = ['999', '-1', '0', 'abc'] as const;
 
 /**
  * The page sequence the state-transition case walks, and the pager control it

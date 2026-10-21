@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
@@ -7,7 +6,6 @@ import { PAYER_EXPORT_COLUMN } from '../../../constants/ElementIds';
 import type { PayerData } from '../../../data/payers/payerTypes';
 import { SCOPE_FILTER } from '../../../data/payers/exportScope.data';
 import {
-  BLOCKED_CASES,
   EXPORT_FILE_NAME,
   FILTERED_SCOPE,
   NO_MATCH_SEARCH,
@@ -276,7 +274,6 @@ test.describe('Export the payer list', () => {
     });
   });
 
-
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
   // environment HOLDS the permission whose absence the case is about. The
@@ -361,10 +358,4 @@ test.describe('Export the payer list', () => {
       await exportMenu.expectAvailable();
     });
   });
-
-  for (const blocked of BLOCKED_CASES) {
-    test(`${azureOrCase('70', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

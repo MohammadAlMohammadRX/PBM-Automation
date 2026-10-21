@@ -46,18 +46,6 @@ export const PRESERVED_FIELDS = [
  */
 export const PRESERVED_HEADER_NAME = true;
 
-/**
- * What the sheet says a reactivation draft must demand before it can be sent.
- *
- * Asserted as the sheet states it; see the file comment for the conflict with
- * sheet 41. If reactivation genuinely needs no reason, this case fails and its
- * message names the other sheet.
- */
-export const REASON_REQUIREMENT = {
-  mandatory: true,
-  conflictsWith: 'sheet 41 TC-566, which expects reactivation to need no reason',
-} as const;
-
 /** What two racing sessions may legitimately produce. */
 export const CONCURRENCY_OUTCOMES = {
   /**

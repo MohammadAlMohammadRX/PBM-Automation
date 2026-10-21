@@ -1,7 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { findPayer } from '../../../utils/PayerFinder';
 import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
@@ -14,7 +13,6 @@ import {
   ACTION,
   ACTION_OPTIONS,
   AUDIT_EDIT,
-  BLOCKED_CASES,
   EMPTY_HISTORY_TEXT,
   ENTRY_ONLY_ACTION,
   MUTATING_CONTROL,
@@ -484,7 +482,6 @@ test.describe('Payer audit history with filters', () => {
     });
   });
 
-
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
   // environment HOLDS the permission whose absence the case is about. The
@@ -625,12 +622,6 @@ test.describe('Payer audit history with filters', () => {
           ).toBe(true);
         }
       });
-    });
-  }
-
-  for (const blocked of BLOCKED_CASES) {
-    test(`${azureOrCase('71', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
     });
   }
 });

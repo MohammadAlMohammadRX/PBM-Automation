@@ -5,6 +5,7 @@ import {
   DELETE_MESSAGES,
   DELETE_TOASTS,
   DELETE_UI,
+  LIVE_PAYER_UNDELETABLE,
 } from '../../../data/payers/deletePayer.data';
 import {
   PENDING_DELETION,
@@ -37,10 +38,9 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
       await payerManagementPage.open();
       await payerManagementPage.search(publishedPayer.nameEn);
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect(
-        await detail.linkedNetworkCount(),
-        'a payer this suite created holds no linked networks',
-      ).toBe(0);
+      // A published payer always holds a network since 2026-09-27, so the
+      // no-dependency precondition cannot be met: BLOCKED, not FAILED.
+      if ((await detail.linkedNetworkCount()) > 0) steps.blocked(LIVE_PAYER_UNDELETABLE);
     });
 
     await steps.critical('The delete action opens a confirmation', async () => {
@@ -91,9 +91,9 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     });
 
     await steps.critical('Its deletion is confirmed', async () => {
-      await payerManagementPage.clickDelete(publishedPayer.nameEn);
-      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
-      await payerManagementPage.expectToastContains(DELETE_MESSAGES.stagedAsDraft);
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
     });
 
     await steps.step('The approval cell moves to a draft while the payer stays listed', async () => {
@@ -130,9 +130,9 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
     await steps.critical('Navigate to the module and stage a deletion', async () => {
       await payerManagementPage.open();
       await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.clickDelete(publishedPayer.nameEn);
-      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
-      await payerManagementPage.expectToastContains(DELETE_MESSAGES.stagedAsDraft);
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
       await payerManagementPage.open();
       await payerManagementPage.sendForApproval(publishedPayer.nameEn);
     });
@@ -199,13 +199,11 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
       // partition the sheet is probing.
       await payerManagementPage.open();
       await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.clickDelete(publishedPayer.nameEn);
-      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
-      expect(
-        await payerManagementPage.wasDeletionBlockedByDependency(),
-        'a clean payer must not inherit the previous refusal',
-      ).toBe(false);
-      await payerManagementPage.expectToastContains(DELETE_MESSAGES.stagedAsDraft);
+      // A refusal here is the payer's OWN network (every published payer holds
+      // one since 2026-09-27), not a leaked refusal - so it is BLOCKED.
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
     });
 
     await steps.step('And each payer ended in the state its own dependencies dictate', async () => {
@@ -223,19 +221,34 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
   });
 
   // Azure test case 15472
+  //
+  // PRECONDITION UPDATED 2026-10-18 (QA lead): "a payer can be deleted if it
+  // has no dependency". The clean half used a freshly PUBLISHED payer, which
+  // can never be deleted - publishing needs a network and a network blocks
+  // the deletion (D-017) - so the step was refused every run. It now uses a
+  // never-published (v0) draft payer: no network, no policy, no plan. Its
+  // deletion is accepted and discarded outright, so nothing waits in the
+  // queue for it either.
   test('15472: should queue a request only for the deletion that was accepted', async ({
     payerManagementPage,
     approvalManagementPage,
-    publishedPayer,
+    draftPayer,
     steps,
   }) => {
     let holder!: string;
+    let queuedBefore = 0;
 
     await steps.critical('Navigate to the module and find a payer with a dependency', async () => {
       await payerManagementPage.open();
       const found = await payerManagementPage.findPayerWithNetworkDependency();
       holder = found.name;
       expect(found.networks).toBeGreaterThan(0);
+      // Counted before the attempt: a suite payer left over by another case
+      // can already have a request of its own waiting, which this deletion
+      // did not create (a run on 2026-10-18 met one).
+      await approvalManagementPage.open();
+      queuedBefore = await approvalManagementPage.countQueuedRequests(holder);
+      await payerManagementPage.open();
     });
 
     await steps.critical('Its deletion is refused', async () => {
@@ -250,23 +263,28 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
       const queued = await approvalManagementPage.countQueuedRequests(holder);
       expect(
         queued,
-        `a refused deletion should queue nothing; the queue holds ${queued} request(s) for `
-          + `"${holder}"`,
-      ).toBe(0);
+        `a refused deletion should queue nothing; "${holder}" had ${queuedBefore} request(s) before the attempt and ${queued} after`,
+      ).toBe(queuedBefore);
     });
 
-    await steps.step('The clean payer\'s deletion is staged and queued', async () => {
+    await steps.step('A payer with no dependency (a v0 draft) can be deleted', async () => {
       await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.clickDelete(publishedPayer.nameEn);
-      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
-      await payerManagementPage.expectToastContains(DELETE_MESSAGES.stagedAsDraft);
+      await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, 'Draft');
+      await payerManagementPage.discardDraft(draftPayer.nameEn);
+      // The acceptance toast first - it is short-lived, and the refusal check
+      // below waits a few seconds when (as expected) no refusal appears.
+      await payerManagementPage.expectToastContains(DELETE_MESSAGES.draftDiscarded);
+      expect(
+        await payerManagementPage.wasDeletionBlockedByDependency(),
+        'a payer holding nothing should not be refused for a dependency',
+      ).toBe(false);
+      await payerManagementPage.expectRowNotVisible(draftPayer.nameEn);
+    });
 
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(publishedPayer.nameEn);
+    await steps.step('The accepted deletion completes without leaving a request in the queue', async () => {
       await approvalManagementPage.open();
-      await approvalManagementPage.expectInQueue(publishedPayer.nameEn);
-      await approvalManagementPage.expectChangeType(publishedPayer.nameEn, DELETE_CHANGE_TYPE);
+      const queued = await approvalManagementPage.countQueuedRequests(draftPayer.nameEn);
+      expect(queued, `the discarded draft "${draftPayer.nameEn}" should leave nothing to approve`).toBe(0);
     });
   });
 
@@ -300,6 +318,7 @@ test.describe('Payer deletion dependencies - Clean deletions', () => {
 
     await steps.step('And the Arabic confirmation says the deletion was saved as a draft', async () => {
       await payerManagementPage.dialog().confirm(DELETE_UI.ar.confirm);
+      if (await payerManagementPage.wasDeletionBlockedByDependency()) steps.blocked(LIVE_PAYER_UNDELETABLE);
       await payerManagementPage.expectToastContains(DELETE_TOASTS.ar.stagedAsDraft);
     });
 

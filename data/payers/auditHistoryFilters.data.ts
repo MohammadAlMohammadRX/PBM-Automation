@@ -1,5 +1,4 @@
 import { nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
-import type { BlockedCase } from './payerTypes';
 
 /**
  * Test data for "Display Payer Audit History with Filters".
@@ -73,12 +72,3 @@ export const AUDIT_ROLE_REQUIREMENT = {
   role: 'a role without View Payer Audit History',
   reason: 'The case proves the tab is withheld from a role without the permission; the shared administrator cannot show the refusal.',
 } as const;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '015',
-    title: 'should behave consistently across filters, sorting and display in an exploratory session',
-    reason: 'An exploratory session over a payer with a rich change history is a manual activity; the deterministic filter, order and drawer checks are the cases here.',
-  },
-];

@@ -58,50 +58,14 @@ const POLICY_HOLDINGS =
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
   {
-    id: '001',
-    title: 'should show every required column when a payer with linked policies opens the tab',
-    reason: 'The table can now be read (payer number 2), but the acceptance criteria do not list '
-      + 'the REQUIRED columns, so there is nothing to compare the rendered headers with. Awaiting '
-      + 'the column list from the BA (clarification needed).',
-  },
-  {
-    id: '002',
-    title: 'should open the policy details view when a linked policy row is clicked',
-    reason: 'Payers now own policies (payer number 2), but what a row click must open - and the '
-      + 'element ids of that details view - have not been confirmed, so the expected outcome '
-      + 'cannot be asserted without guessing it.',
-  },
-  {
-    id: '005',
-    title: 'should not paginate when the policy count equals the default page size',
-    reason: `${POLICY_HOLDINGS} The boundary needs a payer with exactly one page of policies (the tab's default page size).`,
-  },
-  {
     id: '006',
     title: 'should paginate when the policy count is one over the default page size',
     reason: `${POLICY_HOLDINGS} The boundary needs a payer with one policy more than the tab's default page size.`,
-  },
-  {
-    id: '007',
-    title: 'should not paginate when the policy count is one under the default page size',
-    reason: `${POLICY_HOLDINGS} The boundary needs a payer with one policy fewer than the tab's default page size.`,
-  },
-  {
-    id: '008',
-    title: 'should show the correct Status value for each linked policy status',
-    reason: `${POLICY_HOLDINGS} The decision table needs a payer holding a policy in each of `
-      + 'Active, Inactive, Expired and Pending; only Expired is available on a reachable payer.',
   },
   {
     id: '009',
     title: 'should show a Members count sourced from true ownership data',
     reason: `${POLICY_HOLDINGS} The case also needs a known per-policy member count to compare `
       + 'with; member enrolment is the Member Management module, also outside this framework.',
-  },
-  {
-    id: '013',
-    title: 'should sort, filter and scroll correctly across multiple linked policies',
-    reason: `${POLICY_HOLDINGS} The exploratory session needs several policies spanning statuses `
-      + 'and expiry dates on one payer.',
   },
 ];

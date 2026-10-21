@@ -276,28 +276,3 @@ test.describe('Rejected registration stays visible and editable', () => {
     });
   });
 });
-
-/** Access control - who may edit a rejected registration. */
-test.describe('Rejected registration - Edit permission', () => {
-  // Azure test case 15763
-  test('15763: should restrict editing a rejected registration to users with edit permission', async ({
-    steps,
-  }) => {
-    // STILL BLOCKED, but no longer for the reason it was. The ROLE is now
-    // buildable - shapedNonAdmin can take Edit Payer off the shared role - so
-    // what is missing is the RECORD: the case needs a REJECTED registration the
-    // restricted account can see, and that account is scoped to two live payers
-    // (Al Dawaa, NUPCO) which must not be driven through a rejection. A fresh
-    // rejected draft, which TC-003 builds, is outside its scope and invisible to
-    // it. Assign the non-admin account to a disposable payer and this case can
-    // be written exactly like the other shaped-role cases.
-    steps.blocked(
-      'The restricted ROLE can now be built by shapedNonAdmin, so the account is no longer the '
-        + "blocker; the REGISTRATION is. The case needs a rejected registration inside the "
-        + "non-admin account's scope, and that account sees only two shared live payers which "
-        + "must not be rejected. The reachable half - that the administrator CAN edit a rejected "
-        + "registration - is proven by TC-003. Assign the non-admin account to a disposable payer "
-        + 'and re-run.',
-    );
-  });
-});

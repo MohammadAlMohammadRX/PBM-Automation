@@ -84,25 +84,13 @@ const NEEDS_FREE_NETWORK =
 
 /** The sheet's cases this environment cannot exercise, in renumbered order. */
 export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '002',
-    title: 'should not offer a network that another payer\'s pending request names',
-    reason: `${NEEDS_FREE_NETWORK} The case then needs that network staged and submitted on a first payer.`,
-  },
+  // TC-002 (15672), TC-004 (15674) and TC-005 (15673) are
+  // written out in reservation-flows.spec.ts since 2026-10-13; TC-011 (15682)
+  // was removed on 2026-10-18 (QA lead: invalid).
   {
     id: '003',
     title: 'should stop a second maker staging a network a first maker has already staged for another payer',
     reason: `${NEEDS_FREE_NETWORK} It also needs a second maker account (NON_ADMIN_USERNAME).`,
-  },
-  {
-    id: '004',
-    title: 'should release the network back to the pool when a Draft Assignment is discarded',
-    reason: NEEDS_FREE_NETWORK,
-  },
-  {
-    id: '005',
-    title: 'should show a clear error when a network reserved by another payer\'s pending request is selected',
-    reason: NEEDS_FREE_NETWORK,
   },
   {
     id: '007',
@@ -118,10 +106,5 @@ export const BLOCKED_CASES: readonly BlockedCase[] = [
     reason:
       'The exploratory session needs three payers sharing a pool of assignable networks. The pool '
       + 'is empty - see the free-network remedy.',
-  },
-  {
-    id: '011',
-    title: 'should reflect reservations in real time when two payers\' administrators watch the pool',
-    reason: `${NEEDS_FREE_NETWORK} Two concurrent sessions can be driven from here once it exists.`,
   },
 ];

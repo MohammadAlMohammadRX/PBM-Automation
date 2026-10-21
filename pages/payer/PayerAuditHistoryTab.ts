@@ -327,13 +327,32 @@ export class PayerAuditHistoryTab {
       })
       .not.toMatch(LOADING_PATTERN)
       .catch(() => undefined);
+    // AND THE WHO/WHEN LINE ITSELF (2026-10-13). "Not loading" was not enough:
+    // 14602 read the meta line ("20/09/2026 10:54 • CareConnect") as empty for a
+    // Create entry whose drawer shows it a moment later - VERIFIED on payer
+    // number 2. Wait for it to fill; a drawer that never fills it is still left
+    // to the caller's assertion.
+    await expect
+      .poll(async () => (await this.byId(PAYER_AUDIT.detailMeta).innerText().catch(() => '')).trim(), {
+        timeout: Timeouts.default,
+      })
+      .not.toBe('')
+      .catch(() => undefined);
   }
 
   /** Opens an entry's detail drawer and reads everything it says. */
   async openEntryDetails(index: number): Promise<AuditEntryDetails> {
     await this.openEntryDetailsDrawer(index);
-    const text = async (id: string): Promise<string> =>
-      (await this.byId(id).innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    // A MISSING CELL IS EMPTY, AT ONCE (2026-10-13). innerText() on an element
+    // that is not there waits the full action timeout (15 s). A Create entry's
+    // drawer is a Field/Value table - no -before / -after cells - so its ~26
+    // fields cost 26 x 2 x 15 s, about 13 minutes: the hang that timed out 14602
+    // on every run. Count first; read only what exists.
+    const text = async (id: string): Promise<string> => {
+      const el = this.byId(id);
+      if ((await el.count()) === 0) return '';
+      return (await el.first().innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    };
     const keys = await this.page
       .locator(`[id^="${PAYER_AUDIT.detailRowPrefix}"][id$="-field"]`)
       .evaluateAll((elements, prefix) =>
@@ -345,7 +364,8 @@ export class PayerAuditHistoryTab {
         key,
         field: await text(`${PAYER_AUDIT.detailRowPrefix}${key}-field`),
         before: await text(`${PAYER_AUDIT.detailRowPrefix}${key}-before`),
-        after: await text(`${PAYER_AUDIT.detailRowPrefix}${key}-after`),
+        // A Create entry has one "value" per field instead of before/after.
+        after: (await text(`${PAYER_AUDIT.detailRowPrefix}${key}-after`)) || (await text(`${PAYER_AUDIT.detailRowPrefix}${key}-value`)),
       });
     }
     return {

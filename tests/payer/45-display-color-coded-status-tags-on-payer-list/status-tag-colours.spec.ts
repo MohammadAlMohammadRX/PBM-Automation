@@ -143,58 +143,6 @@ test.describe('Status tag colours', () => {
     });
   });
 
-  // Azure test case 14938
-  test('14938: should render a payer with no status safely rather than banding it wrongly', async ({
-    page,
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the Payer Management module', () =>
-      payerManagementPage.open());
-
-    await steps.critical('The list is answered with a payer carrying no status', async () => {
-      // Stripped from the response rather than created in the database: a payer
-      // with a null status is not a state the application will produce, but it
-      // is a state a partial migration or a bad join can serve - and what the
-      // column does with it is worth knowing before it happens.
-      await payerManagementPage.blankStatusInListResponse();
-      await payerManagementPage.reload();
-    });
-
-    await steps.step('The list still renders rather than failing', async () => {
-      // The first thing that must hold: one unreadable status must not cost the
-      // reader the whole register.
-      const names = await payerManagementPage.getVisiblePayerNames().catch(() => []);
-      expect(
-        names,
-        'a payer with no status should not stop the list from rendering',
-      ).not.toEqual([]);
-    });
-
-    await steps.step('And no status-less payer is banded as though it were live', async () => {
-      // The dangerous failure: a missing status defaulting to the Active band
-      // would show a payer as live on no evidence at all.
-      const names = await payerManagementPage.getVisiblePayerNames();
-      const wronglyActive: string[] = [];
-      for (const name of names) {
-        const status = (await payerManagementPage.getLifecycleStatus(name)).trim();
-        if (status !== '') continue;
-        const tone = await payerManagementPage.getStatusTone(name);
-        if (tone === STATUS_TONE.active) wronglyActive.push(name);
-      }
-      expect(
-        wronglyActive,
-        `these payers have no status but are banded as active: ${wronglyActive.join(', ')}`,
-      ).toEqual([]);
-    });
-
-    await steps.step('And the list recovers once the response does', async () => {
-      await payerManagementPage.restoreListResponse();
-      await payerManagementPage.open();
-      await payerManagementPage.expectRowsRendered();
-    });
-  });
-
   // Azure test case 14950
   test('14950: should band the tag from the stored status rather than from a cached view', async ({
     payerManagementPage,

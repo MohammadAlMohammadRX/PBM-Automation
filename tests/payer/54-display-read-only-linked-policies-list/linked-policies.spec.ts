@@ -6,7 +6,7 @@ import { Timeouts } from '../../../constants/Timeouts';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import type { PayerDetailPage } from '../../../pages/payer/PayerDetailPage';
-import { findPayer } from '../../../utils/PayerFinder';
+import { findPayer, findPayers } from '../../../utils/PayerFinder';
 import { REFERENCE_PAYERS } from '../../../data/payers/referencePayers.data';
 import {
   BLOCKED_CASES,
@@ -215,11 +215,53 @@ test.describe('Linked Policies tab', () => {
     });
   });
 
+  // Azure test case 14958
+  //
+  // PRECONDITION UPDATED 2026-10-18 (QA lead): the sheet wants a payer holding
+  // exactly (page size - 1) = 19 policies, which no payer has (the most is 6).
+  // Any payer with at least one policy is under the page size, so the claim -
+  // everything on one page, no pagination controls - is tested on the payer
+  // holding the most, found through GetPayers across all pages.
+  test('14958: should not paginate when the payer holds fewer policies than one page', async ({
+    page,
+    payerManagementPage,
+    steps,
+  }) => {
+    let detail!: PayerDetailPage;
+    let subject = '';
+    let held = 0;
+    let rows: Array<Record<string, string>> = [];
+
+    await steps.critical('Navigate to the module and open a payer with at least one policy', async () => {
+      const holders = await findPayers(page, (p) => Number(p.linkedPoliciesCount) > 0, 'a payer that owns at least one policy');
+      if (holders.length === 0) steps.blocked('no payer in the register owns a policy');
+      const most = [...holders].sort((a, b) => Number(b.linkedPoliciesCount) - Number(a.linkedPoliciesCount))[0];
+      subject = most.payerNameEn;
+      held = Number(most.linkedPoliciesCount);
+      await payerManagementPage.open();
+      await payerManagementPage.search(subject);
+      detail = await payerManagementPage.openDetails(subject);
+    });
+
+    await steps.step('Opening the Linked Policies tab shows every policy on a single page', async () => {
+      rows = await detail.getLinkedPolicyRows();
+      expect(rows.length, `"${subject}" holds ${held} polic${held === 1 ? 'y' : 'ies'}; all should be on the first page`).toBe(held);
+    });
+
+    await steps.step('No pagination controls are rendered', async () => {
+      const paginator = await detail.getLinkedPoliciesPaginator();
+      expect(
+        paginator.visible,
+        `"${subject}" lists ${rows.length} polic${rows.length === 1 ? 'y' : 'ies'} - fewer than one page - yet the tab `
+          + `renders pagination controls reading "${paginator.text}"`,
+      ).toBe(false);
+    });
+  });
+
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
-    //   TC-001 = 14954,  TC-002 = 14967,  TC-005 = 14959
-    //   TC-006 = 14955,  TC-007 = 14958,  TC-008 = 14978
-    //   TC-009 = 14963,  TC-013 = 14974
+    //   TC-006 = 14955
+    //   TC-009 = 14963
     test(`${azureOrCase('54', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });

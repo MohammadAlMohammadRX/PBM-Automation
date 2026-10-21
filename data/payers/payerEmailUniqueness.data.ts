@@ -135,21 +135,3 @@ export const RESTRICTED_ROLE_REQUIREMENT = {
     'Needs an account that can open the payer list but holds neither create nor edit rights, '
     + 'to show the Add and Edit controls are withheld and a direct email change is refused.',
 } as const;
-
-/**
- * Why the combined-violation case cannot be performed.
- *
- * The sheet asks for a single pending change that BOTH re-points an email at
- * another payer's address AND stages a deletion, then for both violations to be
- * reported together. The application stages those as two separate actions -
- * an edit is saved through the wizard, a deletion through the row action - and
- * offers no way to submit them as one change, so there is no combined approval
- * to observe. Recorded here so the BLOCKED reason is precise.
- */
-export const COMBINED_VIOLATION_BLOCKER = {
-  reason:
-    'The application stages an edit and a deletion as two independent changes - the wizard '
-    + 'saves one, the row action the other - with no path to submit both as a single pending '
-    + 'change. So a combined approval carrying an email conflict and a deletion dependency '
-    + 'cannot be constructed, and the rule the case describes was never exercised.',
-} as const;

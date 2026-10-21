@@ -1,5 +1,4 @@
 import { NON_ADMIN_PROFILE, nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
-import type { BlockedCase } from './payerTypes';
 import type { RowAction } from '../../constants/ElementIds';
 import type { PayerPermissionKey } from '../accounts/payerAdminRole.data';
 
@@ -36,22 +35,6 @@ export const GRANTED_CASE_PAYER = {
 
 /** The approvals-hub tab the account without Approval Management · Payer must not see. */
 export const PAYER_APPROVALS_TAB = 'payer';
-
-const MUTATES_SCOPED_PAYER =
-  `The granted half would change one of the ${NON_ADMIN_PROFILE.role}'s two assigned payers (shared, live `
-  + 'records) and the change could only be completed by an approver the account is not. Needs a '
-  + 'disposable payer assigned to a non-admin account.';
-
-const needsOtherAccount = (detail: string): string => `${detail} ${ENFORCEMENT_ROLE_REQUIREMENT.reason}`;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  { id: '001', title: 'should let a user with Inactivate Payer inactivate an active payer', reason: MUTATES_SCOPED_PAYER },
-  { id: '003', title: 'should let a user with Activate Payer reactivate an inactive payer', reason: MUTATES_SCOPED_PAYER },
-  { id: '009', title: 'should let a user with View Dashboard open the payer dashboard', reason: needsOtherAccount('The analytics dashboard turns the configured non-admin account away ("Access Restricted"), so the granted half needs an account holding View Dashboard.') },
-  { id: '011', title: 'should let a user with Manage Network Links change network links', reason: MUTATES_SCOPED_PAYER },
-  { id: '012', title: 'should let a user with Approval Management · Payer act as checker on approval requests', reason: needsOtherAccount('The only checker here is the shared administrator, whose approvals every workflow case already exercises; the case needs a SECOND account holding the permission.') },
-];
 
 /**
  * TC-014's decision table - one row per permission withdrawn from the role.

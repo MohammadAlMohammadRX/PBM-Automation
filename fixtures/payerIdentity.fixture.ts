@@ -7,7 +7,6 @@ import { withoutProtected } from '../constants/ProtectedData';
 import { Logger } from '../utils/Logger';
 import { blockedByPrecondition } from './testStatus.fixture';
 import type { StatusFilterOption } from '../data/payers/filterPayer.data';
-import { SAMPLE_SIZE } from '../data/payers/payerSelection.data';
 
 /**
  * How many high-version payers to examine when hunting for a version status.
@@ -52,6 +51,9 @@ const CANDIDATE_PAGES = 6;
  * reports BLOCKED rather than failing: the rule under test was never exercised,
  * so calling it a failure would assert something never observed.
  */
+
+/** How many payers `payerSample` returns by default - enough to be convincing, cheap to run. */
+const SAMPLE_SIZE = 3;
 
 export interface PayerIdentityFixtures {
   /**

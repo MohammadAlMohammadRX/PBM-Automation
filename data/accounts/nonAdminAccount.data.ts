@@ -152,6 +152,3 @@ export const FORBIDDEN_WORDING = /forbidden|not authori[sz]ed|access denied|no p
 
 /** The status the API answers for a payer outside the session's scope. */
 export const OUT_OF_SCOPE_STATUS = 404;
-
-/** The list renders "no payer" as a dash. */
-export const NO_OWNER_CELL = /^[-—–]$/;

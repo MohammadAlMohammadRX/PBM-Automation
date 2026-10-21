@@ -1,5 +1,4 @@
 import { nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
-import type { BlockedCase } from './payerTypes';
 
 /**
  * Test data for "View Comprehensive Payer Details with Tabs".
@@ -60,17 +59,3 @@ export const ACTION_WITHHELD_FROM_PAYER_ADMIN = 'delete';
 
 /** The tabs every role that can open a payer is expected to see. */
 export const DETAIL_TAB_LABELS = ['Overview', 'Linked Networks', 'Linked Policies', 'Version History', 'Audit History'] as const;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  {
-    id: '003',
-    title: 'should show the required columns with accurate data on the Linked Policies tab',
-    reason: 'This case needs a payer that OWNS policies; none exists here and the Policies module is outside this framework (see folder 54).',
-  },
-  {
-    id: '005',
-    title: 'should paginate the Linked Policies tab correctly at the page-size boundary',
-    reason: 'This case needs a payer with one more policy than the page size (e.g. 21); no payer here owns a policy.',
-  },
-];

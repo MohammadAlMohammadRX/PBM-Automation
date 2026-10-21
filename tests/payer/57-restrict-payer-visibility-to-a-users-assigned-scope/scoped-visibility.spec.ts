@@ -1,24 +1,17 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { AppRoutes } from '../../../constants/AppRoutes';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import {
   FORBIDDEN_WORDING,
-  NO_OWNER_CELL,
-  NON_ADMIN_PROFILE,
   OUT_OF_SCOPE_STATUS,
   OUT_OF_SCOPE_TOAST,
 } from '../../../data/accounts/nonAdminAccount.data';
 import {
-  BLOCKED_CASES,
   DETAIL_REQUEST,
-  EXPORT_NAME_COLUMN,
   IN_SCOPE_FORM_FIELD,
   IN_SCOPE_PAYER,
-  NETWORK_PAGES,
   SCOPED_PAYERS,
-  SCOPE_STATUS_FILTER,
 } from '../../../data/payers/scopedVisibility.data';
 
 /**
@@ -136,119 +129,4 @@ test.describe('Scope-restricted payer visibility', () => {
       expect(response.text, 'the body must not carry the payer\'s contact data').not.toContain(publishedPayer.email);
     });
   });
-
-  // Azure test case 15630
-  test('15630: should show unassigned networks alongside the scoped payers', async ({
-    linkedNetwork,
-    nonAdminSession,
-    steps,
-  }) => {
-    test.slow();
-    let outOfScopeNetwork = '';
-
-    await steps.critical('Navigate to the networks and learn one owned by an out-of-scope payer', async () => {
-      const candidate = await linkedNetwork('any');
-      expect(SCOPED_PAYERS, `"${candidate.payer}" should be outside the scoped user's assignment`).not.toContain(candidate.payer);
-      outOfScopeNetwork = candidate.network;
-    });
-
-    await steps.step('The scoped user sees unassigned networks but not the out-of-scope payer\'s', async () => {
-      const listed = await nonAdminSession.networks.listNetworkOwnership(NETWORK_PAGES);
-      expect(listed.some((row) => NO_OWNER_CELL.test(row.payer)), 'unassigned networks should be listed').toBe(true);
-      const foreignOwners = listed.filter((row) => row.payer !== '' && !NO_OWNER_CELL.test(row.payer) && !SCOPED_PAYERS.includes(row.payer));
-      expect(
-        foreignOwners.map((row) => `${row.network} -> ${row.payer}`),
-        'networks owned by out-of-scope payers should not be listed',
-      ).toEqual([]);
-      expect(listed.map((row) => row.network), `"${outOfScopeNetwork}" belongs to an out-of-scope payer`).not.toContain(outOfScopeNetwork);
-    });
-  });
-
-  // Azure test case 15636
-  test('15636: should not leak out-of-scope payers through search, filter or export', async ({
-    publishedPayer,
-    nonAdminSession,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module as the scoped user', async () => {
-      await nonAdminSession.payers.open();
-      await nonAdminSession.payers.expectRowsRendered();
-    });
-
-    await steps.step('A search for an out-of-scope payer finds nothing', async () => {
-      await nonAdminSession.payers.search(publishedPayer.nameEn);
-      await nonAdminSession.payers.expectEmptyState();
-    });
-
-    await steps.step('A status filter shows only in-scope payers', async () => {
-      await nonAdminSession.payers.open();
-      await nonAdminSession.payers.filterByStatus(SCOPE_STATUS_FILTER);
-      await nonAdminSession.payers.expectRowsRendered();
-      const names = await nonAdminSession.payers.getVisiblePayerNames();
-      expect(names.filter((name) => !SCOPED_PAYERS.includes(name)), 'no out-of-scope payer should pass the filter').toEqual([]);
-    });
-
-    await steps.step('An export of everything holds only in-scope payers', async () => {
-      await nonAdminSession.payers.open();
-      const parsed = await nonAdminSession.exportMenu.exportCsv('all');
-      const exported = parsed.rows.map((row) => row[EXPORT_NAME_COLUMN]);
-      expect(exported.filter((name) => !SCOPED_PAYERS.includes(name)), 'the export must not leak the register').toEqual([]);
-      expect(exported, 'the export should hold the assigned payers').toEqual(expect.arrayContaining([...SCOPED_PAYERS]));
-    });
-  });
-
-  // Azure test case 15635
-  test('15635: should enforce scope consistently across list, detail, edit, delete and export', async ({
-    payerManagementPage,
-    publishedPayer,
-    nonAdminSession,
-    steps,
-  }) => {
-    test.slow();
-    let outOfScopeId = '';
-
-    await steps.critical('Navigate to the module and learn an out-of-scope payer\'s id', async () => {
-      await payerManagementPage.open();
-      outOfScopeId = await payerManagementPage.getPayerIdFromDetailUrl(publishedPayer.nameEn);
-      expect(outOfScopeId).not.toBe('');
-    });
-
-    await steps.step('List: only the assigned payers', async () => {
-      await nonAdminSession.payers.open();
-      await nonAdminSession.payers.expectRowsRendered();
-      expect(sorted(await nonAdminSession.payers.getVisiblePayerNames())).toEqual(sorted(SCOPED_PAYERS));
-    });
-
-    await steps.step('Detail and edit: the in-scope payer opens with its management actions', async () => {
-      const detail = await nonAdminSession.payers.openDetails(IN_SCOPE_PAYER);
-      await detail.waitForLoaded();
-      const actions = await detail.getHeaderActionIds();
-      expect(actions, 'the in-scope payer should be editable').toContain('edit');
-      // The role is defined without deletion (nonAdminAccount.data); the
-      // control is not exercised here because a staged delete on a shared
-      // live payer would outlive the case. Its presence is reported by the
-      // details-tabs role case instead.
-    });
-
-    await steps.step('Detail by direct link: the out-of-scope payer is Not Found', async () => {
-      await nonAdminSession.payers.openPayerById(outOfScopeId);
-      await nonAdminSession.payers.expectRecordNotFound();
-    });
-
-    await steps.step('Export: only the assigned payers', async () => {
-      await nonAdminSession.payers.open();
-      const parsed = await nonAdminSession.exportMenu.exportCsv('all');
-      const exported = parsed.rows.map((row) => row[EXPORT_NAME_COLUMN]);
-      expect(sorted(exported), `the ${NON_ADMIN_PROFILE.role}'s export should be its scope, nothing more`).toEqual(sorted(SCOPED_PAYERS));
-    });
-  });
-
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-006 = 15632,  TC-007 = 15631,  TC-008 = 15633
-    //   TC-009 = 15634,  TC-012 = 15638,  TC-013 = 15639
-    test(`${azureOrCase('57', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

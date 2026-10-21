@@ -29,6 +29,8 @@ export interface OwnedNetwork {
   /** The Facilities cell as rendered on the Network list. */
   facilities: string;
   status: string;
+  /** The Network Code cell (NET-...) - unique, unlike the name. */
+  code?: string;
 }
 
 /**
@@ -196,12 +198,13 @@ export class NetworkManagementPage extends ListPageBase {
    * on ~600 newer seed networks, so a payer's network lies past any page scan.
    * Null when the list does not show it.
    */
-  async findNetworkRow(networkName: string, payerName?: string): Promise<OwnedNetwork | null> {
+  async findNetworkRow(networkName: string, payerName?: string, networkCode?: string): Promise<OwnedNetwork | null> {
     if (payerName !== undefined) await this.openListFor(payerName);
     else await this.openList();
     await this.searchUntilApplied(networkName);
     const rows = await this.readOwnershipOnPage().catch(() => [] as OwnedNetwork[]);
-    return rows.find((row) => row.network.trim() === networkName.trim()) ?? null;
+    // By CODE when known: two networks can share a name (2026-10-12).
+    return rows.find((row) => (networkCode ? row.code?.trim() === networkCode : row.network.trim() === networkName.trim())) ?? null;
   }
 
   /**
@@ -309,6 +312,7 @@ export class NetworkManagementPage extends ListPageBase {
             payer: read(keys.payer),
             facilities: read(keys.facilities),
             status: read(keys.status),
+            code: read(keys.code),
           };
         }),
       {
@@ -316,6 +320,7 @@ export class NetworkManagementPage extends ListPageBase {
         payer: NETWORK_COLUMN.payer,
         facilities: NETWORK_COLUMN.facilities,
         status: NETWORK_COLUMN.status,
+        code: NETWORK_COLUMN.code,
       },
     );
   }

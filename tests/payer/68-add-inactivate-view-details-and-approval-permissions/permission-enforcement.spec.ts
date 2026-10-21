@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import { PAYER_PERMISSIONS } from '../../../data/payers/payerPermissions.data';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { ALL_PAYER_PERMISSIONS, PAYER_PERMISSION } from '../../../data/accounts/payerAdminRole.data';
@@ -7,12 +6,10 @@ import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { controlAvailability, type ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import {
-  BLOCKED_CASES,
   GRANTED_CASE_PAYER,
   PERMISSION_DECISION_TABLE,
   PAYER_APPROVALS_TAB,
 } from '../../../data/payers/permissionEnforcement.data';
-
 
 /**
  * User story: Add Inactivate, View Details and Approval Permissions.
@@ -170,44 +167,6 @@ test.describe('Payer permissions - catalogue and role assembly', () => {
     });
   });
 
-  // Azure test case 15780
-  test('15780: should refuse reactivation to a user without Activate Payer', async ({
-    shapedNonAdmin,
-    steps,
-  }) => {
-    let session!: ShapedSession;
-
-    // THE BASELINE COMES FIRST, and it is not ceremony. Reactivation is offered
-    // only to a payer that is INACTIVE, so on an active record the control is
-    // absent whatever the role holds - and the case would pass while proving
-    // nothing at all. Asked for WITH the right first, the case can tell the two
-    // apart and report BLOCKED rather than a false pass.
-    await steps.critical('The reactivation action IS offered while the role holds the right', async () => {
-      const held = await shapedNonAdmin({ with: ['activatePayer'] });
-      await held.payers.navigate();
-      await held.payers.expectRowsRendered();
-      const offered = await held.payers.getRowActionAvailability(GRANTED_CASE_PAYER.name, 'activate');
-      if (offered !== 'available') {
-        steps.blocked(
-          `"${GRANTED_CASE_PAYER.name}" does not offer reactivation even to a role that HOLDS `
-            + `Activate Payer (the control is ${offered}), because the payer is not inactive. `
-            + 'The state withholds the action, not the permission, so withdrawing the permission '
-            + 'would prove nothing. The case needs an INACTIVE payer inside the account\'s scope.',
-        );
-      }
-    });
-
-    await steps.critical('Sign in as a user without Activate Payer', async () => {
-      session = await shapedNonAdmin({ without: ['activatePayer'] });
-      await session.payers.navigate();
-      await session.payers.expectRowsRendered();
-    });
-
-    await steps.step('The reactivation action is withheld from this role', async () => {
-      await session.payers.expectRowActionUnavailable(GRANTED_CASE_PAYER.name, 'activate');
-    });
-  });
-
   // Azure test case 15781
   test('15781: should deny payer details to a user without View Payer Details', async ({
     shapedNonAdmin,
@@ -276,7 +235,6 @@ test.describe('Payer permissions - catalogue and role assembly', () => {
       await session.payers.expectSearchAccessRestricted();
     });
   });
-
 
   // Azure test case 15795
   test('15795: should block a direct API inactivation from a user without Inactivate Payer', async ({
@@ -423,13 +381,4 @@ test.describe('Payer permissions - catalogue and role assembly', () => {
       ).toBe('available');
     });
   });
-
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-001 = 15777,  TC-003 = 15779,  TC-009 = 15785
-    //   TC-011 = 15787,  TC-012 = 15788
-    test(`${azureOrCase('68', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

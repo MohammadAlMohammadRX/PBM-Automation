@@ -1,4 +1,4 @@
-import { test } from '../../../fixtures';
+import { test, expect } from '../../../fixtures';
 import {
   buildUniquePayer,
   VALIDATION_MESSAGES,
@@ -75,18 +75,6 @@ test.describe('Create New Payer Organization Record - Mandatory field validation
 
 /**
  * User story: Create New Payer Organization Record.
- * Data-format validation on constrained fields.
- *
- * Note: the Phone Number control is digit-masked (non-numeric input never
- * registers), so an invalid phone surfaces as a required error rather than a
- * format error. Email is the representative free-text format rule and is
- * asserted here.
- */
-test.describe('Create New Payer Organization Record - Field format validation', () => {
-});
-
-/**
- * User story: Create New Payer Organization Record.
  * A payer whose identifying details duplicate an already-approved payer must be
  * flagged - never accepted silently.
  *
@@ -129,28 +117,32 @@ test.describe('Create New Payer Organization Record - Duplicate detection', () =
 
     await steps.critical('Return to the payer list', () => payerManagementPage.open());
 
-    // Deliberately NOT critical. If the app does flag the duplicate, it does so
-    // by refusing the save - so this step failing is a possible expected outcome,
-    // and the check below is what tells the two apart. Making it critical would
-    // suppress the only step that answers the question this case asks.
-    await steps.step(
-      'Attempt to create a second payer with identical name, licence and email',
-      () => payerManagementPage.createDraftPayer(duplicate),
-    );
+    // EXPECTED RESULT UPDATED 2026-10-18 (QA lead): the system flags the
+    // duplicate by REFUSING the save with a validation message - that is the
+    // pass. The earlier version required the literal word "duplicate" and a
+    // closed form, so the refusal it actually got was reported as a failure.
+    let messages: string[] = [];
+    await steps.step('Attempt to create a second payer with identical name, licence and email', async () => {
+      const form = await payerManagementPage.openCreateForm();
+      await form.createPayer(duplicate);
+      messages = await form.waitForVisibleMessages();
+      expect(await form.isOpen(), 'the duplicate should not be accepted - the form should stay open').toBe(true);
+      await form.closeAndDiscard();
+    });
 
-    // 3) The system must warn/flag the duplicate rather than accept it silently.
-    await steps.step('The system flags the potential duplicate rather than accepting it', () =>
-      payerManagementPage.expectDuplicateWarning());
+    // 3) The system must flag the duplicate rather than accept it silently.
+    await steps.step('The system flags the duplicate with a validation message', async () => {
+      expect(
+        messages.some((m) => /already|exist|duplicate|taken|unique|used/i.test(m)),
+        `the refusal should say the record already exists; the form showed: ${messages.join(' | ') || '(nothing)'}`,
+      ).toBe(true);
+    });
+
+    await steps.step('And no second payer was created', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(original.nameEn);
+      const names = await payerManagementPage.getVisiblePayerNames();
+      expect(names.filter((n) => n === original.nameEn).length, `exactly one "${original.nameEn}" should exist`).toBe(1);
+    });
   });
-});
-
-/**
- * User story: Create New Payer Organization Record.
- * Graceful handling of a save-time backend failure (fault injection).
- *
- * Playwright aborts the mutating save request to simulate a connectivity/
- * backend error, then the test asserts no partial or duplicate Draft was
- * created - i.e. no PayerCode reserved or orphaned record left behind.
- */
-test.describe('Create New Payer Organization Record - Save failure handling', () => {
 });

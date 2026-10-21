@@ -156,49 +156,6 @@ export const TRANSLATED_CONTROL = {
 export const PERMISSION_SEARCH_TERM = 'Payer';
 
 /**
- * The role-based cases' requirements.
- *
- * Every one of these needs an account that does not exist in this environment,
- * which has a single set of credentials belonging to a full administrator. They
- * are listed so each BLOCKED annotation can name exactly what to provision,
- * rather than reporting a vague "insufficient permissions".
- */
-export const ROLE_REQUIREMENTS = {
-  partial: {
-    label: 'Role A',
-    reason:
-      'Needs an account holding View Payer Details but NOT export, inactivate, dashboard, '
-      + 'audit-log or approve/reject, to prove each permission is independently enforced.',
-  },
-  exporter: {
-    label: 'Role B',
-    reason: 'Needs an account holding View Payer Details and Export Payers, but not inactivate '
-      + 'or approve/reject.',
-  },
-  full: {
-    label: 'Role C',
-    reason: 'Needs an account holding all nine payer permissions.',
-  },
-  none: {
-    label: 'Role Zero',
-    reason: 'Needs an account holding none of the payer permissions, to prove every payer screen '
-      + 'and action is denied.',
-  },
-  reviewerWithoutApproval: {
-    label: 'Reviewer without approve/reject',
-    reason:
-      'Needs an account that can open a pending payer request but does not hold '
-      + 'Approve/Reject Payer Changes.',
-  },
-  secondReviewer: {
-    label: 'Second reviewer',
-    reason:
-      'Needs a reviewer account distinct from the submitter, so an approval can be carried out '
-      + 'by someone other than the person who requested it.',
-  },
-} as const;
-
-/**
  * The top-level group the payer permissions live under, as the tree heads it.
  *
  * Read by scrolling to this section rather than by searching: the term "Payer"

@@ -168,7 +168,6 @@ test.describe('Draft and pending assignment states', () => {
     // Azure test cases - one per generated case:
     //   TC-002 = 15672,  TC-003 = 15675,  TC-004 = 15674
     //   TC-005 = 15673,  TC-007 = 15677,  TC-008 = 15679
-    //   TC-011 = 15682
     test(`${azureOrCase('58', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
     });

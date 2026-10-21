@@ -164,7 +164,7 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     let candidate!: Awaited<ReturnType<typeof payerWithActiveDependents>>;
 
     await steps.critical('Navigate to the module and find a payer with active dependents', async () => {
-      candidate = await payerWithActiveDependents();
+      candidate = await payerWithActiveDependents(undefined, { forChange: true }); // approves a change on the payer
       await payerManagementPage.open();
       await payerManagementPage.search(candidate.payerName);
       await payerManagementPage.expectLifecycleStatus(
@@ -262,7 +262,7 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     let candidate!: Awaited<ReturnType<typeof payerWithActiveDependents>>;
 
     await steps.critical('Navigate to the module and find a payer with active dependents', async () => {
-      candidate = await payerWithActiveDependents();
+      candidate = await payerWithActiveDependents(undefined, { forChange: true }); // approves a change on the payer
       await payerManagementPage.open();
       await payerManagementPage.search(candidate.payerName);
       await payerManagementPage.expectLifecycleStatus(
@@ -347,7 +347,7 @@ test.describe('Inactivation and reactivation effects - Cascade to plans and poli
     let candidate!: Awaited<ReturnType<typeof payerWithActiveDependents>>;
 
     await steps.critical('Navigate to the module and find a payer with active dependents', async () => {
-      candidate = await payerWithActiveDependents();
+      candidate = await payerWithActiveDependents(undefined, { forChange: true }); // approves a change on the payer
       await payerManagementPage.open();
       await payerManagementPage.search(candidate.payerName);
       await payerManagementPage.expectLifecycleStatus(
@@ -442,7 +442,7 @@ test.describe('Inactivation and reactivation effects - plans and policies are le
     let policiesBefore: { name: string; status: string }[] = [];
 
     await steps.critical('Find an Active payer holding active plans and policies', async () => {
-      candidate = await payerWithActiveDependents();
+      candidate = await payerWithActiveDependents(undefined, { forChange: true }); // approves a change on the payer
       plansBefore = await planManagementPage.getPlansOfPayer(candidate.payerName);
       policiesBefore = await policyManagementPage.getPoliciesOfPayer(candidate.payerName);
       expect(

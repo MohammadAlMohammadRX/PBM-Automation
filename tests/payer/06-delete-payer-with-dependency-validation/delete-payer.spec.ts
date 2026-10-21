@@ -4,6 +4,7 @@ import {
   DELETE_TOASTS,
   DELETE_CHANGE_TYPE,
   DELETE_REJECTION_REASON,
+  LIVE_PAYER_UNDELETABLE,
 } from '../../../data/payers/deletePayer.data';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 
@@ -26,8 +27,11 @@ test.describe('Delete Payer with/without Dependency Validation - Core deletion',
   }) => {
     await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-    await steps.critical('Delete the payer and confirm the prompt', () =>
-      payerManagementPage.deleteAndConfirm(publishedPayer.nameEn));
+    await steps.critical('Delete the payer and confirm the prompt', async () => {
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
+    });
 
     // A live payer with no dependencies is staged rather than removed outright,
     // and no dependency error is raised.
@@ -167,8 +171,11 @@ test.describe('Delete Payer with/without Dependency Validation - Deletion approv
   }) => {
     await steps.critical('Open the payer list', () => payerManagementPage.open());
 
-    await steps.critical('Delete the live payer and confirm the prompt', () =>
-      payerManagementPage.deleteAndConfirm(publishedPayer.nameEn));
+    await steps.critical('Delete the live payer and confirm the prompt', async () => {
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
+    });
 
     await steps.critical('Send the staged deletion for approval', () =>
       payerManagementPage.sendForApproval(publishedPayer.nameEn));
@@ -209,8 +216,11 @@ test.describe('Delete Payer with/without Dependency Validation - Deletion approv
       statusBefore = await payerManagementPage.getApprovalState(publishedPayer.nameEn);
     });
 
-    await steps.critical('Delete the payer and confirm the prompt', () =>
-      payerManagementPage.deleteAndConfirm(publishedPayer.nameEn));
+    await steps.critical('Delete the payer and confirm the prompt', async () => {
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
+    });
 
     await steps.critical('Send the staged deletion for approval', () =>
       payerManagementPage.sendForApproval(publishedPayer.nameEn));
@@ -251,7 +261,9 @@ test.describe('Delete Payer with/without Dependency Validation - Deletion approv
 
     // Submit the deletion twice back-to-back (double-submission).
     await steps.critical('Submit the deletion twice back-to-back', async () => {
-      await payerManagementPage.deleteAndConfirm(publishedPayer.nameEn);
+      if (await payerManagementPage.deleteAndDetectDependencyRefusal(publishedPayer.nameEn)) {
+        steps.blocked(LIVE_PAYER_UNDELETABLE);
+      }
       await payerManagementPage.deleteAndConfirm(publishedPayer.nameEn);
     });
 

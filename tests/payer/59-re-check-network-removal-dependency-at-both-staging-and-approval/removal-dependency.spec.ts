@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
@@ -10,7 +9,6 @@ import {
   REMOVAL_REJECTION_REASON,
 } from '../../../data/payers/draftAssignmentStates.data';
 import {
-  BLOCKED_CASES,
   NO_DEPENDENT_POLICIES,
   UNASSIGN_ACTION,
   UNOWNED_MARKER,
@@ -169,7 +167,6 @@ test.describe('Network removal dependency re-check', () => {
     });
   });
 
-
   // ---- the withheld half, on a role shaped for this case -------------------
   // This used to report BLOCKED: the one non-administrator credential in this
   // environment HOLDS the permission whose absence the case is about. The
@@ -212,13 +209,4 @@ test.describe('Network removal dependency re-check', () => {
       ).not.toBe('available');
     });
   });
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-002 = 15808,  TC-003 = 15809,  TC-004 = 15810
-    //   TC-005 = 15811,  TC-007 = 15812,  TC-008 = 15814
-    //   TC-009 = 15815,  TC-010 = 15816,  TC-012 = 15818
-    test(`${azureOrCase('59', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

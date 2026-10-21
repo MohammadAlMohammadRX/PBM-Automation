@@ -1,8 +1,5 @@
 import { test, expect } from '../../../fixtures';
-import { env } from '../../../constants/EnvironmentConfig';
 import { PRE_APPROVAL_STATUS } from '../../../data/payers/initialStatusDerivation.data';
-import { LoginPage } from '../../../pages/auth/LoginPage';
-import { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
 
 /**
  * User story: Create New Payer Organization Record.
@@ -155,75 +152,6 @@ test.describe('Create New Payer Organization Record - Timestamp integrity', () =
         'Created At must survive Send for Approval and Approval unchanged',
       ).toEqual(createdAtInitial);
     });
-  });
-});
-
-/**
- * User story: Create New Payer Organization Record.
- * A saved Draft survives navigating away from and back to the module.
- */
-test.describe('Create New Payer Organization Record - Draft persistence', () => {
-});
-
-/**
- * User story: Create New Payer Organization Record.
- * A private Draft must be visible only to its creator. Admin A (the default
- * session) creates the Draft; Admin B (a second, separate session) must not be
- * able to see it.
- *
- * Requires SECOND_ADMIN_USERNAME / SECOND_ADMIN_PASSWORD in .env.
- */
-test.describe('Create New Payer Organization Record - Draft privacy', () => {
-  // Azure test case 15609
-  test('15609: should hide a Draft payer from a second administrator who is not its creator', async ({
-    payerManagementPage,
-    uniquePayer,
-    cleanup,
-    browser,
-    steps,
-  }) => {
-    // BLOCKED, not FAIL: this case needs a SECOND administrator to act as the
-    // other maker/checker. Without that account the segregation it checks cannot
-    // be observed at all.
-    if (!env.secondAdminUsername || !env.secondAdminPassword) {
-      steps.blocked(
-        'SECOND_ADMIN_USERNAME / SECOND_ADMIN_PASSWORD are not configured in .env, '
-          + 'so a second administrator session cannot be established.',
-      );
-    }
-
-    cleanup.register(() => payerManagementPage.deletePayer(uniquePayer.nameEn));
-
-    // Admin A creates the private Draft.
-    await steps.critical('Admin A opens the payer list', () => payerManagementPage.open());
-
-    await steps.critical('Admin A creates the private Draft', () =>
-      payerManagementPage.createDraftPayer(uniquePayer));
-
-    await steps.step('The Draft is listed for its creator', () =>
-      payerManagementPage.expectApprovalStatusContains(uniquePayer.nameEn, 'Draft'));
-
-    // Admin B, in an isolated session, must not see admin A's Draft. The context
-    // is opened and closed outside the recorded steps so it is always released,
-    // even when a step aborts the remainder of the test.
-    const contextB = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    try {
-      const pageB = await contextB.newPage();
-      const payerManagementB = new PayerManagementPage(pageB);
-
-      await steps.critical('Admin B signs in from an isolated session', async () => {
-        const loginB = new LoginPage(pageB);
-        await loginB.open();
-        await loginB.loginAndWaitForDashboard(env.secondAdminUsername, env.secondAdminPassword);
-      });
-
-      await steps.critical('Admin B opens the payer list', () => payerManagementB.open());
-
-      await steps.step("Admin A's Draft is not visible to admin B", () =>
-        payerManagementB.expectRowNotVisible(uniquePayer.nameEn));
-    } finally {
-      await contextB.close();
-    }
   });
 });
 

@@ -1,10 +1,8 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
 import type { SettingsPage } from '../../../pages/system/SettingsPage';
 import { ACCESS_RESTRICTED, NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import {
   alternativeCron,
-  BLOCKED_CASES,
   INVALID_CRONS,
   SCHEDULE_REFUSAL,
   SETTINGS_AUDIT_ENTITY,
@@ -338,13 +336,4 @@ test.describe('Lifecycle job schedule', () => {
       expect(access.text, 'the refusal should be stated on screen').toMatch(ACCESS_RESTRICTED);
     });
   });
-
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-005 = 15701,  TC-006 = 15702,  TC-007 = 15703
-    //   TC-014 = 15710
-    test(`${azureOrCase('66', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
-    });
-  }
 });

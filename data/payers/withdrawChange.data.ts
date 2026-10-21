@@ -1,4 +1,3 @@
-import type { BlockedCase } from './payerTypes';
 
 /**
  * Test data for "Withdraw a Payer Change Before It Is Reviewed".
@@ -31,9 +30,6 @@ export const RAPID_WITHDRAW_CLICKS = 3;
 /** A version that carries a reviewer decision reads one of these. */
 export const DECIDED_STATUS = /approved|rejected|published/i;
 
-/** What the audit trail is expected to say about a withdrawal, in either wording. */
-export const WITHDRAWAL_AUDIT_HINT = /withdr|draft|return|updat/i;
-
 /** The accounts the role cases need. */
 export const WITHDRAW_ROLE_REQUIREMENT = {
   role: 'a second maker account and a reviewer-only account',
@@ -41,23 +37,3 @@ export const WITHDRAW_ROLE_REQUIREMENT = {
     'These cases prove a maker cannot withdraw another maker\'s request and a reviewer cannot '
     + 'withdraw at all. The single shared administrator is both maker and reviewer here.',
 } as const;
-
-const NEEDS_ACCOUNTS =
-  `The configured non-admin account (a Payer Admin) is a maker for two shared live payers only and holds no review right, so neither a second maker on a disposable payer nor a reviewer can be played by it. ${WITHDRAW_ROLE_REQUIREMENT.reason} Provide ${WITHDRAW_ROLE_REQUIREMENT.role} and re-run.`;
-
-/** The sheet's cases this environment cannot exercise, in renumbered order. */
-export const BLOCKED_CASES: readonly BlockedCase[] = [
-  { id: '006', title: 'should refuse a maker withdrawing a request submitted by another maker', reason: NEEDS_ACCOUNTS },
-  { id: '007', title: 'should refuse a reviewer-only role withdrawing a maker\'s request', reason: NEEDS_ACCOUNTS },
-  { id: '011', title: 'should offer Withdraw only for the right role and request-status combinations', reason: `${NEEDS_ACCOUNTS} The matrix needs each status owned by a distinct maker.` },
-  {
-    id: '015',
-    title: 'should keep the withdrawn status through navigation, refresh and session interruption',
-    reason: 'An exploratory session over navigation, refresh and interrupted sessions is a manual activity; its deterministic core (the request stays withdrawn) is the first case here.',
-  },
-  {
-    id: '016',
-    title: 'should offer no Withdraw for a request whose status field is missing',
-    reason: 'This case needs a change request with a corrupted or null status field, which only a data-layer edit can produce.',
-  },
-];

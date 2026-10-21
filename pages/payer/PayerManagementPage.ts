@@ -1707,6 +1707,24 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
+   * Deletes and confirms, then reports whether the application refused the
+   * deletion for a dependency (true) or accepted it (false).
+   *
+   * For the cases that need a LIVE payer with no dependency: since approval
+   * requires a network (2026-09-27) and a network blocks deletion, such a payer
+   * cannot be made, and those cases report BLOCKED on a refusal instead of
+   * failing on it. The toast is read straight after the confirmation, before it
+   * auto-dismisses.
+   */
+  async deleteAndDetectDependencyRefusal(payerName: string, language: AppLanguage = 'en'): Promise<boolean> {
+    const dialog = await this.clickDelete(payerName, language);
+    await dialog.confirm(DELETE_UI[language].confirm);
+    const refused = await this.wasDeletionBlockedByDependency();
+    await this.waitForPageReady();
+    return refused;
+  }
+
+  /**
    * Reads the toast raised by the last action. Toasts auto-dismiss, so this is
    * captured immediately after the triggering click.
    */

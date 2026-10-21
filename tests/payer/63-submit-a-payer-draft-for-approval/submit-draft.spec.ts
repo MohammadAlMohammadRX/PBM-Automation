@@ -1,12 +1,11 @@
 import { test, expect } from '../../../fixtures';
-import { azureOrCase } from '../../../data/azureTestIds.data';
-import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
-import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
+import { findPayers } from '../../../utils/PayerFinder';
+import { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
+import { DELETE_UI } from '../../../data/payers/deletePayer.data';
 import { APPROVAL_STATE, SUBMISSION_PROMPT } from '../../../data/payers/withdrawApproval.data';
 import {
-  BLOCKED_CASES,
   REJECTED_STATE,
   REQUIRED_FIELD_LABEL,
   SUBMIT_EDIT,
@@ -299,57 +298,104 @@ test.describe('Submit a payer draft for approval', () => {
     });
   });
 
+  // Azure test case 15622
+  //
+  // WRITTEN 2026-10-18 (QA lead: in Approvals, click Review to see the before
+  // and after). The reviewer's Review panel now carries a Field / Before /
+  // After table (verified live), so one edited field is checked end to end on
+  // the suite's own published payer.
+  test('15622: should show every edited field as a before/after change in the reviewer\'s queue entry', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    publishedPayer,
+    steps,
+  }) => {
+    test.slow();
+    const name = publishedPayer.nameEn;
+    const before = publishedPayer.phone;
+    const after = '512345690';
+    let rows: { field: string; before: string; after: string }[] = [];
 
-  // ---- the withheld half, on a role shaped for this case -------------------
-  // This used to report BLOCKED: the one non-administrator credential in this
-  // environment HOLDS the permission whose absence the case is about. The
-  // account is now BUILT - the administrator takes the permission off the
-  // shared "Payer Admin" role, the case signs in as it, and the permission
-  // goes back when the case ends.
-
-  // Azure test case 15620
-  test('15620: should refuse Send for Approval to a user without the System Administrator role', async ({ shapedNonAdmin, steps }) => {
-    let session!: ShapedSession;
-
-    // THE BASELINE COMES FIRST. Send for Approval is offered only to a record
-    // with a staged change to submit, so on a published payer it is absent
-    // whatever the role holds - and the case would pass while proving nothing.
-    // Asked for WITH the right first, a state-withheld control is reported as
-    // BLOCKED rather than as a permission the application honoured.
-    await steps.critical('Send for Approval IS offered while the role holds the right', async () => {
-      const held = await shapedNonAdmin({ with: ['sendForApproval'] });
-      await held.payers.navigate();
-      await held.payers.expectRowsRendered();
-      const offered = await held.payers.getRowActionAvailability(
-        NON_ADMIN_PROFILE.scopedPayers[0],
-        'submit-for-approval',
-      );
-      if (offered !== 'available') {
-        steps.blocked(
-          `"${NON_ADMIN_PROFILE.scopedPayers[0]}" does not offer Send for Approval even to a role `
-            + `that HOLDS the right (the control is ${offered}), because the record has nothing `
-            + 'staged to submit. The state withholds the action, not the permission. The case '
-            + 'needs a payer with a pending draft inside the account\'s scope.',
-        );
-      }
+    await steps.critical('Edit the payer\'s phone number and send the change for approval', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.saveTextFieldEdit(name, 'Phone Number', after);
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(name);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(name);
     });
 
-    await steps.critical('Sign in as a user without Send for Approval', async () => {
-      session = await shapedNonAdmin({ without: ['sendForApproval'] });
-      await session.payers.navigate();
-      await session.payers.expectRowsRendered();
+    await steps.step('The reviewer opens Review and sees the change as before and after', async () => {
+      rows = await approvalManagementPage.openReview(name);
+      const phone = rows.find((r) => /phone/i.test(r.field));
+      expect(phone, `the Review panel should list the Phone Number field; it lists: ${rows.map((r) => r.field).join(', ')}`).toBeDefined();
+      expect(phone!.before, 'the before value should be the published phone number').toContain(before);
+      expect(phone!.after, 'the after value should be the edited phone number').toContain(after);
     });
 
-    await steps.step('Send for Approval is withheld from this role', async () => {
-      await session.payers.expectRowActionUnavailable(NON_ADMIN_PROFILE.scopedPayers[0], 'submit-for-approval');
+    await steps.step('Only the edited field reads as changed', async () => {
+      const changed = rows.filter((r) => r.before !== r.after).map((r) => `${r.field}: "${r.before}" -> "${r.after}"`);
+      expect(changed.length, `exactly the edited field should differ; changed: ${changed.join('; ')}`).toBe(1);
+      await approvalManagementPage.closeReview();
     });
   });
-  for (const blocked of BLOCKED_CASES) {
-    // Azure test cases - one per generated case:
-    //   TC-005 = 15615,  TC-006 = 15616,  TC-009 = 15619
-    //   TC-012 = 15622,  TC-015 = 15625
-    test(`${azureOrCase('63', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
-      steps.blocked(blocked.reason);
+
+  // Azure test case 15616
+  //
+  // WRITTEN 2026-10-18 (QA lead: test it on current data - a payer holding an
+  // ACTIVE plan and an active network; the blocker's message comes on the
+  // delete action, not at approval). The payer is located across the register
+  // (GetPayers + its plans read in the Plans module, payer in scope). Deleting
+  // it is attempted; a payer holding a network is always refused (verified,
+  // D-017), so nothing is ever staged on this real record.
+  test('15616: should catch a deletion blocker introduced after staging when the draft is sent', async ({
+    page,
+    payerManagementPage,
+    planManagementPage,
+    approvalManagementPage,
+    steps,
+  }) => {
+    test.slow();
+    let holder: { name: string; code: string; plan: string } | null = null;
+    let statusBefore = '';
+    let queuedBefore = 0;
+
+    await steps.critical('Find a payer holding an active, published plan and an active network', async () => {
+      const candidates = await findPayers(page, (p) => p.linkedNetworksCount > 0 && p.linkedPoliciesCount > 0, 'payers with networks and policies', []);
+      for (const candidate of candidates) {
+        const active = (await planManagementPage.plansInScopeOf(candidate.payerNameEn))
+          .find((plan) => /published/i.test(plan.approval) && /^active$/i.test(plan.status));
+        if (active) { holder = { name: candidate.payerNameEn, code: candidate.payerCode ?? '', plan: `${active.name} (${active.code})` }; break; }
+      }
+      if (!holder) steps.blocked(`No payer holds an active, published plan with a network (checked: ${candidates.map((c) => c.payerNameEn).join(', ')}).`);
+      statusBefore = await payerManagementPage.getApprovalStatus(holder!.code || holder!.name);
+      await approvalManagementPage.open();
+      queuedBefore = await approvalManagementPage.countQueuedRequests(holder!.name);
+      expect(holder!.plan, 'a payer with an active plan should have been found').not.toBe('');
     });
-  }
+
+    let messages: string[] = [];
+    await steps.step('Deleting the payer is refused on the delete action itself, with a message', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(holder!.code || holder!.name);
+      await payerManagementPage.clickDelete(holder!.code || holder!.name);
+      await payerManagementPage.dialog().confirm(DELETE_UI.en.confirm);
+      expect(
+        await payerManagementPage.wasDeletionBlockedByDependency(),
+        `"${holder!.name}" holds the active plan ${holder!.plan}; its deletion must be refused on the delete action`,
+      ).toBe(true);
+      messages = await new PayerFormDialog(page).getVisibleMessages();
+      expect(messages.join(' | '), 'the refusal should carry a message').not.toBe('');
+    });
+
+    await steps.step('Nothing was staged, so there is nothing to send for approval', async () => {
+      expect(await payerManagementPage.getApprovalStatus(holder!.code || holder!.name), 'the payer\'s approval status should be unchanged')
+        .toBe(statusBefore);
+      await approvalManagementPage.open();
+      expect(
+        await approvalManagementPage.countQueuedRequests(holder!.name),
+        `no request for "${holder!.name}" should have been queued by the refused deletion`,
+      ).toBe(queuedBefore);
+    });
+  });
 });

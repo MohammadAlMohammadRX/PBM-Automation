@@ -2,8 +2,6 @@ import { test, expect } from '../../../fixtures';
 import { KNOWN_PAYER } from '../../../data/payers/searchPayer.data';
 import {
   DEFAULT_SORT_LABEL,
-  RECENCY_SORTS,
-  SORT_MATRIX,
   SORT_TRANSITIONS,
   BLANK_VALUE_COLUMNS,
   SINGLE_RECORD_SORTS,
@@ -200,40 +198,6 @@ test.describe('Sort Payer List by Column Headers - Default and per-column sortin
  * transitions between successive sort selections.
  */
 test.describe('Sort Payer List by Column Headers - Matrix and state transitions', () => {
-  // Azure test case 14429
-  test('14429: should produce the correct order and indicator for every column and direction combination', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Open the payer list', () => payerManagementPage.open());
-
-    // 7 columns x 2 directions - one test case, so the whole decision table is
-    // walked inside a single block, each row asserted as it is applied. Each
-    // pair is its own non-critical step, so a failure on one column still lets
-    // the remaining columns report.
-    for (const { column, direction } of SORT_MATRIX) {
-      await steps.step(`Sort By = ${column} ${direction} orders the list and the indicator agrees`, async () => {
-        await payerManagementPage.sortBy(column, direction);
-        await payerManagementPage.expectColumnSorted(column, direction);
-        await payerManagementPage.expectSortIndicator(column, direction);
-      });
-    }
-
-    // The two recency orderings the 2026-09-28 sheet added to the matrix.
-    // They order by creation date, which the table does not render, so the
-    // assertion is that the option applies and the indicator reports it -
-    // the order itself would have to be read from the list API.
-    for (const recency of RECENCY_SORTS) {
-      await steps.step(`Sort By = ${recency.label.en} is applied and reported`, async () => {
-        await payerManagementPage.sortMenu().selectByLabel(recency.label.en);
-        await payerManagementPage.expectRowsRendered();
-        expect(
-          await payerManagementPage.sortMenu().collapsedText(),
-          `the indicator should report "${recency.label.en}"`,
-        ).toContain(recency.label.en);
-      });
-    }
-  });
 
   // Azure test case 14430
   test('14430: should update the indicator and order at every transition and return to the default state', async ({

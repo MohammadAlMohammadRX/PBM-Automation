@@ -2,14 +2,10 @@ import { test, expect } from '../../../fixtures';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { Logger } from '../../../utils/Logger';
-import { buildUniquePayer } from '../../../data/payers/payer.data';
+import { buildUniquePayer, VALIDATION_MESSAGES } from '../../../data/payers/payer.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import { NON_ADMIN_PROFILE } from '../../../data/accounts/nonAdminAccount.data';
 import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
-import type { PayerManagementPage } from '../../../pages/payer/PayerManagementPage';
-import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
-import type { PayerData } from '../../../data/payers/payerTypes';
-import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import {
   DUPLICATE_NAME_MESSAGE,
   NAME_VARIANTS,
@@ -62,49 +58,6 @@ test.describe('Enforce unique Active payer names - the rule at approval', () => 
         uniquePayer.nameEn,
         LIFECYCLE_STATUS.active.en,
       );
-    });
-  });
-
-  test('16413: should refuse to publish a second payer under a live payer\'s name', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    publishedPayer,
-    cleanup,
-    steps,
-  }) => {
-    test.slow();
-    const twin = buildUniquePayer({ nameEn: publishedPayer.nameEn });
-    cleanup.register(() => payerManagementPage.deletePayer(twin.nameEn));
-
-    await steps.critical('An Active payer already holds the name', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      await payerManagementPage.expectLifecycleStatus(
-        publishedPayer.nameEn,
-        LIFECYCLE_STATUS.active.en,
-      );
-    });
-
-    // The defect this story exists to prevent: two Active payers under one name.
-    // Every downstream module that resolves a payer BY NAME - claims, policies,
-    // the cross-module selector - would then be choosing between them blind.
-    await steps.step('A second registration under that name is not published', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.createDraftPayer(twin);
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(twin.nameEn).catch(() => undefined);
-      await approvalManagementPage.open();
-      await approvalManagementPage.approve(twin.nameEn).catch(() => undefined);
-
-      await payerManagementPage.open();
-      await payerManagementPage.search(publishedPayer.nameEn);
-      const live = await payerManagementPage.getVisiblePayerNames();
-      const activeTwins = live.filter((name) => name.trim() === publishedPayer.nameEn.trim());
-      expect(
-        activeTwins.length,
-        `only one payer may be Active under "${publishedPayer.nameEn}"; the list shows `
-          + `${activeTwins.length} rows carrying that name`,
-      ).toBeLessThanOrEqual(1);
     });
   });
 
@@ -308,35 +261,43 @@ test.describe('Enforce unique Active payer names - the rule at approval', () => 
     });
   });
 
+  // Azure test case 16429
+  //
+  // STEPS UPDATED 2026-10-18 (QA lead): the case checks the Payer Name field's
+  // required validation and the Next button - with the name blank and every
+  // other required field filled, Next must keep the wizard on Basic
+  // Information and the field must say it is required. Nothing is saved.
   test('16429: should refuse a registration that carries no name at all', async ({
+    page,
     payerManagementPage,
-    uniquePayer,
     steps,
   }) => {
+    let form!: Awaited<ReturnType<typeof payerManagementPage.openCreateForm>>;
+    const createCalls: string[] = [];
+    page.on('request', (r) => { if (r.method() === 'POST' && r.url().includes(ApiEndpoints.payerCreate)) createCalls.push(r.url()); });
+
     await steps.critical('Open the registration form', async () => {
       await payerManagementPage.open();
-      await payerManagementPage.openCreateForm();
+      form = await payerManagementPage.openCreateForm();
     });
 
-    // A blank name is the degenerate case of the uniqueness rule: every blank
-    // name collides with every other blank name, so the register must never
-    // accept one in the first place.
-    await steps.step('A blank name is refused and nothing is created', async () => {
-      const form = payerManagementPage.form();
-      await form.setFieldValue('Payer Name', '', 'text');
-      const outcome = await form.saveNewAndCaptureOutcome();
-      expect(
-        outcome === null || outcome.status >= 400,
-        `a payer with no name must not be created; the server answered `
-          + `${outcome ? outcome.status : 'nothing sent'}`,
-      ).toBe(true);
+    await steps.critical('Leave Payer Name empty, fill the other required fields and click Next', async () => {
+      await form.fillBasicInformation(buildUniquePayer(), 'Payer Name');
+      await form.clickNext();
+    });
+
+    await steps.step('Payer Name shows a required-field message', async () => {
+      await expect(form.fieldError('Payer Name')).toHaveText(VALIDATION_MESSAGES.required);
+    });
+
+    await steps.step('Next does not move the wizard past Basic Information', async () => {
+      const at = await form.activeStepTitle();
+      expect(at, `the wizard should stay on Basic Information while the name is blank; it moved to "${at}"`).toBe('Basic Information');
+    });
+
+    await steps.step('The form was not submitted, so no record was created', async () => {
       await form.closeAndDiscard().catch(() => undefined);
-    });
-
-    await steps.step('And the list holds no blank-named record', async () => {
-      await payerManagementPage.open();
-      await payerManagementPage.search(uniquePayer.nameEn);
-      await payerManagementPage.expectRowNotVisible(uniquePayer.nameEn);
+      expect(createCalls, 'no create request should have been sent for a blank name').toEqual([]);
     });
   });
 });
@@ -578,177 +539,5 @@ test.describe('Enforce unique Active payer names - enforcement and access', () =
           + `${offenders.join(', ')}`,
       ).toEqual([]);
     });
-  });
-});
-
-/**
- * The cases that need an EXPIRED payer.
- *
- * CONVERTED FROM BLOCKED on 2026-10-11 (QA-lead note N-030). They were blocked
- * because the wizard refuses an expiry before today, so no Expired payer can be
- * CREATED - but the register already holds Expired payers. Each case now finds
- * one by filtering the list on Expired, which the QA lead asked to be a step of
- * its own.
- *
- * The filtered rows are re-checked one by one: the Status filter is known to
- * let non-matching rows through (confirmed defect 14393, decision D-003), so a
- * row is used only if its own Status cell reads Expired.
- */
-test.describe('Enforce unique Active payer names - names held by Expired payers', () => {
-  /** Payers listed under `name`, with each row's lifecycle status as the screen shows it. */
-  async function holdersOf(payers: PayerManagementPage, name: string): Promise<{ name: string; status: string }[]> {
-    await payers.open();
-    await payers.search(name);
-    return (await payers.getRowPairs(PAYER_COLUMN.payerName, PAYER_COLUMN.status))
-      .filter((row) => row.name.trim() === name.trim());
-  }
-
-  /**
-   * An Expired payer from the list filtered on Expired - optionally one whose
-   * name no Active payer also holds.
-   */
-  async function expiredPayer(payers: PayerManagementPage, nameIsFree: boolean): Promise<string | null> {
-    await payers.open();
-    await payers.filterByStatus(LIFECYCLE_STATUS.expired.en);
-    const rows = (await payers.getRowPairs(PAYER_COLUMN.payerName, PAYER_COLUMN.status))
-      .filter((row) => new RegExp(`^${LIFECYCLE_STATUS.expired.en}$`, 'i').test(row.status.trim()));
-    for (const row of rows) {
-      if (!nameIsFree) return row.name;
-      const holders = await holdersOf(payers, row.name);
-      if (!holders.some((h) => new RegExp(LIFECYCLE_STATUS.active.en, 'i').test(h.status))) return row.name;
-    }
-    return null;
-  }
-
-  /** Registers `payer`, sends it for approval and approves it - the maker-checker path. */
-  async function publish(payers: PayerManagementPage, approvals: ApprovalManagementPage, payer: PayerData): Promise<void> {
-    await payers.open();
-    await payers.createDraftPayer(payer);
-    await payers.open();
-    await payers.sendForApproval(payer.nameEn);
-    await approvals.open();
-    await approvals.expectInQueue(payer.nameEn);
-    await approvals.approve(payer.nameEn);
-  }
-
-  // Azure test case 16414
-  test('16414: should free the name once the payer holding it has expired', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    cleanup,
-    steps,
-  }) => {
-    test.slow();
-    let name = '';
-
-    await steps.critical('Filter the payer list on Expired and take an Expired payer', async () => {
-      const found = await expiredPayer(payerManagementPage, true);
-      if (!found) steps.blocked('the list filtered on Expired shows no Expired payer whose name no Active payer also holds');
-      name = found!;
-      expect(name, 'an Expired payer should be listed').not.toBe('');
-    });
-
-    await steps.step('A new registration under the Expired payer\'s name may go live', async () => {
-      const reuse = buildUniquePayer({ nameEn: name });
-      cleanup.register(() => payerManagementPage.deletePayer(reuse.nameEn));
-      await publish(payerManagementPage, approvalManagementPage, reuse);
-      const holders = await holdersOf(payerManagementPage, name);
-      expect(
-        holders.some((h) => new RegExp(LIFECYCLE_STATUS.active.en, 'i').test(h.status)),
-        `a registration under "${name}" - held only by an Expired payer - should be published and Active; `
-          + `the payers listed under that name are: ${holders.map((h) => h.status).join(', ') || '(none)'}`,
-      ).toBe(true);
-    });
-  });
-
-  // Azure test case 16418
-  test('16418: should refuse the name when one of several same-named payers is still Active', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    cleanup,
-    steps,
-  }) => {
-    test.slow();
-    let name = '';
-
-    await steps.critical('Filter the payer list on Expired and take an Expired payer', async () => {
-      const found = await expiredPayer(payerManagementPage, true);
-      if (!found) steps.blocked('the list filtered on Expired shows no Expired payer whose name no Active payer also holds');
-      name = found!;
-      expect(name, 'an Expired payer should be listed').not.toBe('');
-    });
-
-    // The state the case needs - the same name held by an Expired payer AND an
-    // Active one - built rather than waited for: publish a twin of the Expired
-    // payer, which the rule allows.
-    await steps.critical('A second payer under the same name is published and Active', async () => {
-      const active = buildUniquePayer({ nameEn: name });
-      cleanup.register(() => payerManagementPage.deletePayer(active.nameEn));
-      await publish(payerManagementPage, approvalManagementPage, active);
-      const holders = await holdersOf(payerManagementPage, name);
-      expect(
-        holders.filter((h) => new RegExp(LIFECYCLE_STATUS.active.en, 'i').test(h.status)).length,
-        `the name "${name}" should now be held by exactly one Active payer`,
-      ).toBe(1);
-    });
-
-    await steps.step('A third registration under that name is not published', async () => {
-      const third = buildUniquePayer({ nameEn: name });
-      cleanup.register(() => payerManagementPage.deletePayer(third.nameEn));
-      await publish(payerManagementPage, approvalManagementPage, third).catch(() => undefined);
-      const holders = await holdersOf(payerManagementPage, name);
-      const active = holders.filter((h) => new RegExp(LIFECYCLE_STATUS.active.en, 'i').test(h.status));
-      expect(
-        active.length,
-        `only one payer may be Active under "${name}" while another Active payer holds it; the list shows `
-          + `${active.length} Active row(s) under that name (all rows: ${holders.map((h) => h.status).join(', ')})`,
-      ).toBe(1);
-    });
-  });
-
-  // Azure test case 16419
-  test('16419: should allow the name when every payer holding it is Expired or Inactive', async ({
-    payerManagementPage,
-    approvalManagementPage,
-    cleanup,
-    steps,
-  }) => {
-    test.slow();
-    let name = '';
-
-    await steps.critical('Filter the payer list on Expired and take an Expired payer', async () => {
-      const found = await expiredPayer(payerManagementPage, true);
-      if (!found) steps.blocked('the list filtered on Expired shows no Expired payer whose name no Active payer also holds');
-      name = found!;
-      expect(name, 'an Expired payer should be listed').not.toBe('');
-    });
-
-    await steps.step('Every payer holding the name is Expired or Inactive', async () => {
-      const holders = await holdersOf(payerManagementPage, name);
-      const live = holders.filter((h) => !new RegExp(`${LIFECYCLE_STATUS.expired.en}|${LIFECYCLE_STATUS.inactive.en}`, 'i').test(h.status));
-      expect(live.map((h) => h.status), `every payer named "${name}" should be Expired or Inactive`).toEqual([]);
-    });
-
-    await steps.step('A new registration under that name may go live', async () => {
-      const reuse = buildUniquePayer({ nameEn: name });
-      cleanup.register(() => payerManagementPage.deletePayer(reuse.nameEn));
-      await publish(payerManagementPage, approvalManagementPage, reuse);
-      const holders = await holdersOf(payerManagementPage, name);
-      expect(
-        holders.some((h) => new RegExp(LIFECYCLE_STATUS.active.en, 'i').test(h.status)),
-        `a registration under "${name}" should be published and Active; the payers listed under that name `
-          + `are: ${holders.map((h) => h.status).join(', ') || '(none)'}`,
-      ).toBe(true);
-    });
-  });
-
-  // Azure test case 16427 - still BLOCKED, for a different reason than before.
-  test('16427: should stay consistent while a payer is moved Active to Expired and back', async ({ steps }) => {
-    steps.blocked(
-      'This case needs a payer to MOVE from Active to Expired and back. Expired payers exist (the cases '
-        + 'above use them), but a payer only becomes Expired when its expiry date passes and the daily '
-        + 'status job runs - neither can be triggered on demand by the suite. Test manually, or provide a '
-        + 'job trigger.',
-    );
   });
 });

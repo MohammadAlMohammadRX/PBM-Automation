@@ -641,6 +641,28 @@ export class PayerDetailPage extends BasePage {
   }
 
   /**
+   * Runs the first row action on a linked network whose id suffix matches
+   * `action` (e.g. /discard|cancel|unassign/ for a draft assignment), confirming
+   * a dialog if one is raised, and returns the suffix it used - or '' when the
+   * row offers none that matches (2026-10-13, for the reservation cases).
+   */
+  async runLinkedNetworkAction(networkName: string, action: RegExp): Promise<string> {
+    const offered = await this.getLinkedNetworkActions(networkName);
+    const suffix = offered.find((s) => action.test(s)) ?? '';
+    if (!suffix) return '';
+    const rowId = await this.linkedNetworkRow(networkName).getAttribute('id');
+    Logger.step(`Running "${suffix}" on "${networkName}"`);
+    await this.page.locator(buttonSelector(`${rowId}-${suffix}`)).first().click();
+    const confirmNeeded = await this.byId('pbm-dialog')
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (confirmNeeded) await new ConfirmDialog(this.page).confirm();
+    await this.waitForPageReady();
+    return suffix;
+  }
+
+  /**
    * The Linked Networks section's own controls - everything it carries outside
    * its table rows - as id suffixes after the section prefix.
    *
@@ -733,6 +755,18 @@ export class PayerDetailPage extends BasePage {
           return Object.fromEntries(cells.map((value, i) => [headers[i] || `column ${i + 1}`, value]));
         });
     });
+  }
+
+  /**
+   * The Linked Policies paginator as the user sees it: whether it is rendered
+   * and what it reads (its page buttons and any range text). Call after the
+   * tab is open.
+   */
+  async getLinkedPoliciesPaginator(): Promise<{ visible: boolean; text: string }> {
+    const paginator = this.byId(PAYER_LINKED_POLICIES.paginator);
+    const visible = await paginator.isVisible().catch(() => false);
+    const text = visible ? (await paginator.innerText().catch(() => '')).replace(/\s+/g, ' ').trim() : '';
+    return { visible, text };
   }
 
   async getLinkedPoliciesSection(): Promise<{ ids: string[]; text: string }> {

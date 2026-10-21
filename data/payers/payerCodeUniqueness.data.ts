@@ -44,16 +44,6 @@ export const MANUAL_CODE = 'MANUAL-999';
 /** How many payers to read when checking register-wide uniqueness. */
 export const UNIQUENESS_SAMPLE = 25;
 
-/** What a failed generation must NOT leave behind. */
-export const GENERATION_FAILURE = {
-  /**
-   * The dangerous outcome: a payer that reads as approved while holding no
-   * code, or holding a blank one. Either way a downstream system asking for its
-   * code gets nothing, and the payer looks live.
-   */
-  forbidden: 'an approved payer with no PayerCode',
-} as const;
-
 /** Values that mean "no code" when read from a cell. */
 export const EMPTY_CODE_MARKERS = ['', '-', '—', '–', 'N/A'] as const;
 

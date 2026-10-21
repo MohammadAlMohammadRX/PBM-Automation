@@ -3,7 +3,6 @@ import { PAYER_COLUMN } from '../../../constants/ElementIds';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
 import {
-  COMBINED_VIOLATION_BLOCKER,
   DUPLICATE_EMAIL_RESPONSE,
   DUPLICATE_MESSAGE_PATTERNS,
   UNIQUE_EMAIL_STATUS,
@@ -112,23 +111,6 @@ test.describe('Enforce Payer Email Uniqueness - Edit and approval', () => {
         uniquePayer.email,
       );
     });
-  });
-
-  // Azure test case 15415
-  test('15415: should report both violations when a single change carries a duplicate email and a deletion dependency', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    // BLOCKED rather than approximated. The sheet asks for ONE pending change
-    // carrying both an email conflict and a staged deletion, then for both
-    // violations to be reported together. The application stages those as two
-    // independent actions - the wizard saves an edit, the row action stages a
-    // deletion - with no path to submit them as a single change. So the
-    // combined re-validation the case describes cannot be constructed, and
-    // neither a pass nor a failure would say anything true about it.
-    steps.blocked(COMBINED_VIOLATION_BLOCKER.reason);
-
-    await steps.step('The payer module is reachable', () => payerManagementPage.open());
   });
 
   // Azure test case 15420

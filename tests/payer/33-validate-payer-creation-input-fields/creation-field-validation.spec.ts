@@ -74,8 +74,8 @@ test.describe('Validate Payer Creation Input Fields - Names and email', () => {
 
     await steps.step('Both dates are accepted with no validation error', async () => {
       await form.fillTextField('License Number', payer.licenseNumber);
-      await form.selectDropdownOption('Preferred Language', payer.language);
-      await form.selectDropdownOption('Preferred Contact Method', payer.contactMethod);
+      // Preferred Language and Preferred Contact Method are no longer on the
+      // form (retired from the suite on 2026-10-11); waiting for them timed out.
       await form.clickNext();
       await form.fillEffectivePeriod(payer);
       await form.expectNoFieldError('Effective Date');

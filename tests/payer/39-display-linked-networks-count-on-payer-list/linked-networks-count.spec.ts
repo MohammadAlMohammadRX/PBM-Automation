@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import type { ShapedSession } from '../../../fixtures/shapedNonAdmin.fixture';
 import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { describeCounts } from '../../../fixtures/linkedCountState.fixture';
@@ -436,39 +435,6 @@ test.describe('Display Linked Networks Count - Column and access', () => {
         unreadable,
         `every row should carry a network count or the zero placeholder; blank on: ${unreadable.join(', ')}`,
       ).toHaveLength(0);
-    });
-  });
-
-  // Azure test case 14793
-  test('14793: should withhold the count and its navigation from a role without network-read rights', async ({
-    shapedNonAdmin,
-    steps,
-  }) => {
-    let session!: ShapedSession;
-
-    // BLOCKED since 2026-10-11, before any step: the permission tree no longer
-    // has a right for reading a payer's linked networks - GetPayerNetworks was
-    // removed in this build, and nothing replaced it (the nearest,
-    // ExportPayerNetworks, governs export, not reading). Which right now
-    // governs the networks count is a question for the BA.
-    steps.blocked(
-      'The role tree no longer has a permission for reading a payer\'s linked networks '
-        + '(GetPayerNetworks was removed in this build), so a role "without network-read rights" '
-        + 'cannot be built. Needs the BA to name the permission that now governs it.',
-    );
-    expect(shapedNonAdmin, 'unreachable once blocked').toBeDefined();
-
-    // Two halves of one claim: the number is data, the link is a route to more
-    // of it. A role that may not read the payer's networks should get neither.
-    await steps.step('Neither the count nor a way into it is offered', async () => {
-      const name = (await session.payers.getVisiblePayerNames())[0];
-      const value = await session.payers.getCountValue(name, 'networks');
-      const clickable = await session.payers.isCountClickable(name, 'networks');
-      expect(
-        value === null && !clickable,
-        `a role without the permission should be shown no network count and no link; `
-          + `it was shown "${value}" and the link was ${clickable ? 'clickable' : 'inert'}`,
-      ).toBe(true);
     });
   });
 });

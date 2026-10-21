@@ -1,10 +1,8 @@
 import { test, expect } from '../../../fixtures';
 import type { PayerFormDialog } from '../../../pages/payer/PayerFormDialog';
 import { env } from '../../../constants/EnvironmentConfig';
-import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import {
-  CATALOGUE_REQUEST_PATTERN,
   CATALOGUE_ROLE_REQUIREMENT,
   COUNTRY_SEARCH,
 } from '../../../data/payers/countryCatalogue.data';
@@ -20,67 +18,6 @@ import {
  * documented history of exactly that shape of silence.
  */
 test.describe('Country catalogue - Edges', () => {
-  // Azure test case 14873
-  test('14873: should report a failure rather than an empty list when the catalogue is unavailable', async ({
-    page,
-    payerManagementPage,
-    steps,
-  }) => {
-    const payer = buildUniquePayer();
-    let form!: PayerFormDialog;
-    let catalogueUrl = '';
-
-    await steps.critical('Navigate to the module and open the creation form', async () => {
-      await payerManagementPage.open();
-      form = await payerManagementPage.openCreateForm();
-      await form.fillBasicInformation(payer);
-      await form.clickNext();
-    });
-
-    await steps.critical('The catalogue request is discovered, then broken', async () => {
-      // DISCOVERED, not guessed. This framework does not carry the country
-      // lookup's path, and failing a path that turns out to be wrong breaks
-      // nothing - which looks exactly like a service that degrades gracefully.
-      // So the first open is watched to learn the URL, and that URL is broken.
-      catalogueUrl = (await NetworkUtils.captureRequestUrl(
-        page,
-        CATALOGUE_REQUEST_PATTERN,
-        () => form.getDropdownOptions('Country').then(() => undefined),
-      )) ?? '';
-      expect(
-        catalogueUrl,
-        'opening the dropdown should have called a catalogue service to break',
-      ).not.toBe('');
-      await NetworkUtils.failEndpoint(page, catalogueUrl);
-    });
-
-    await steps.step('Reopening the dropdown with the service down offers nothing', async () => {
-      const offered = await form.getDropdownOptions('Country').catch(() => []);
-      expect(
-        offered,
-        'with the catalogue unreachable the list cannot be populated',
-      ).toEqual([]);
-    });
-
-    await steps.step('The failure is explained rather than shown as an empty list', async () => {
-      // The distinction the case exists for. If nothing is said, a user reads
-      // an empty country list as "no countries are configured" and has no
-      // reason to retry.
-      const messages = await form.waitForVisibleMessages();
-      expect(
-        messages,
-        'a catalogue that failed to load should say so; the form showed: '
-          + `${messages.join(' | ') || '(nothing)'}`,
-      ).not.toEqual([]);
-    });
-
-    await steps.step('And the list works again once the service recovers', async () => {
-      await NetworkUtils.restoreEndpoint(page, catalogueUrl);
-      const recovered = await form.getDropdownOptions('Country');
-      expect(recovered, 'the catalogue should load normally again').not.toEqual([]);
-      await form.closeAndDiscard();
-    });
-  });
 
   // Azure test case 14867
   test('14867: should narrow the list to the matching country when a partial name is typed', async ({

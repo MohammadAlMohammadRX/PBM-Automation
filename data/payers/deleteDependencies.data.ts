@@ -55,26 +55,6 @@ export const PENDING_DELETION = {
 } as const;
 
 /**
- * How a dependency-holding payer is found.
- *
- * The payer list exposes a Networks count column, so a network-blocked payer
- * can be discovered rather than named. Facilities and authorization rules have
- * no such column and no module view keyed by payer, so a payer holding one
- * cannot be identified from the interface at all - which is why those cases
- * report BLOCKED rather than guessing at a record.
- */
-export const DISCOVERY = {
-  networksColumn: 'linkednetworkscount',
-  undiscoverable: ['Facilities', 'Authorization Rules'] as const,
-  undiscoverableReason:
-    'The payer module exposes no Facilities or Authorization Rules count, and neither module '
-    + 'lists its records by payer, so a payer holding one cannot be identified. The refusal '
-    + 'message names all three types in every case, so even a blocked deletion could not be '
-    + 'attributed to a specific type. Seed a payer with a known facility or authorization-rule '
-    + 'link, then re-run these cases.',
-} as const;
-
-/**
  * Why the plan-dependency case is not run against a live record.
  *
  * The only payers holding an active plan in this environment are NUPCO and Al

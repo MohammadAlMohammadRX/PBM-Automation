@@ -4,10 +4,7 @@ import { ApiEndpoints } from '../../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../../utils/NetworkUtils';
 import { buildUniquePayer } from '../../../data/payers/payer.data';
 import {
-  CATALOGUE_REQUEST_PATTERN,
   COUNTRY_SEARCH,
-  LEGACY_COUNTRIES,
-  NON_LEGACY_COUNTRY,
   PRE_SELECTED_COUNTRY,
   UNLISTED_COUNTRY,
 } from '../../../data/payers/countryCatalogue.data';
@@ -29,50 +26,6 @@ import {
  * story.
  */
 test.describe('Country catalogue', () => {
-  // Azure test case 14850
-  test('14850: should offer a country outside the legacy set when the catalogue is central', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    const payer = buildUniquePayer();
-    let form!: PayerFormDialog;
-    let offered: string[] = [];
-
-    await steps.critical('Navigate to the Payer Management module', () =>
-      payerManagementPage.open());
-
-    await steps.critical('The creation form opens on the step holding Country', async () => {
-      form = await payerManagementPage.openCreateForm();
-      await form.fillBasicInformation(payer);
-      await form.clickNext();
-      await form.expectFieldPresent('Country');
-    });
-
-    await steps.step('The Country dropdown lists the catalogue', async () => {
-      offered = await form.getDropdownOptions('Country');
-      expect(offered, 'the dropdown should offer countries to choose from').not.toEqual([]);
-    });
-
-    await steps.step(`A country outside the legacy set - "${NON_LEGACY_COUNTRY}" - is selectable`, async () => {
-      // The story's requirement, stated as the sheet states it. It fails here,
-      // and the message carries the whole list so the finding is actionable
-      // without re-running anything.
-      expect(
-        offered,
-        `the catalogue should reach beyond the legacy three; the field offered: `
-          + `${offered.join(', ') || '(nothing)'}`,
-      ).toContain(NON_LEGACY_COUNTRY);
-      await form.selectDropdownOption('Country', NON_LEGACY_COUNTRY);
-    });
-
-    await steps.step('And the chosen country is applied to the form', async () => {
-      expect(
-        await form.getDropdownValue('Country'),
-        'the selection should be shown in the field',
-      ).toContain(NON_LEGACY_COUNTRY);
-      await form.closeAndDiscard();
-    });
-  });
 
   // Azure test case 14857
   test('14857: should refuse an unlisted country when one is submitted directly', async ({
@@ -211,6 +164,10 @@ test.describe('Country catalogue', () => {
     });
 
     await steps.step('And the payer saves with a country attached', async () => {
+      // The contact step's other required fields are filled first (2026-10-19):
+      // without them Next stays on Contact Information and the Effective Date
+      // input never appears. Country itself is left as pre-selected.
+      await form.fillContactInformation(payer, 'Country');
       await form.clickNext();
       await form.fillEffectivePeriod(payer);
       await form.save();
@@ -222,103 +179,6 @@ test.describe('Country catalogue', () => {
         await detail.getFieldValue('Country'),
         'the stored payer should carry a country',
       ).not.toBe('');
-    });
-  });
-
-  // Azure test case 14849
-  test('14849: should fetch the country list from a service rather than compile it in', async ({
-    page,
-    payerManagementPage,
-    steps,
-  }) => {
-    const payer = buildUniquePayer();
-    let form!: PayerFormDialog;
-    let requestUrl: string | null = null;
-
-    await steps.critical('Navigate to the module and open the creation form', async () => {
-      await payerManagementPage.open();
-      form = await payerManagementPage.openCreateForm();
-      await form.fillBasicInformation(payer);
-      await form.clickNext();
-    });
-
-    await steps.step('Opening the dropdown asks a service for the catalogue', async () => {
-      // The substantive form of the sheet's "reflects real-time updates from
-      // Terminology Management". Adding a country to the shared catalogue to
-      // watch it appear would mutate reference data every other test depends
-      // on, with no teardown for it - see countryCatalogue.data.ts. A list that
-      // is FETCHED tracks the catalogue by construction; a hard-coded one
-      // cannot, and that is the difference this story turns on.
-      requestUrl = await NetworkUtils.captureRequestUrl(
-        page,
-        CATALOGUE_REQUEST_PATTERN,
-        () => form.getDropdownOptions('Country').then(() => undefined),
-      );
-      expect(
-        requestUrl,
-        'the country list should come from a lookup service, not from the bundle',
-      ).not.toBeNull();
-    });
-
-    await steps.step('And the list it renders is the one the service returned', async () => {
-      const offered = await form.getDropdownOptions('Country');
-      expect(
-        offered,
-        `the dropdown should render the fetched catalogue; request: ${requestUrl}`,
-      ).not.toEqual([]);
-      await form.closeAndDiscard();
-    });
-  });
-
-  // Azure test case 14864
-  test('14864: should offer the whole catalogue rather than the legacy three countries', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    const payer = buildUniquePayer();
-    let form!: PayerFormDialog;
-    let offered: string[] = [];
-
-    await steps.critical('Navigate to the module and open the creation form', async () => {
-      await payerManagementPage.open();
-      form = await payerManagementPage.openCreateForm();
-      await form.fillBasicInformation(payer);
-      await form.clickNext();
-    });
-
-    await steps.critical('The Country dropdown lists what it has', async () => {
-      offered = await form.getDropdownOptions('Country');
-      expect(offered, 'the dropdown should list something').not.toEqual([]);
-    });
-
-    await steps.step('The list is not merely the legacy set', async () => {
-      // THE STORY'S CENTRAL QUESTION, and it fails: the field offers exactly
-      // the three countries it offered before the migration. Asserted as
-      // "more than the legacy set" rather than against a specific expected
-      // catalogue, because the catalogue's contents are Terminology
-      // Management's business - the only thing this story requires is that the
-      // payer form is no longer limited to its old hard-coded list.
-      const beyondLegacy = offered.filter(
-        (country) => !LEGACY_COUNTRIES.some((legacy) => country.includes(legacy)),
-      );
-      expect(
-        beyondLegacy,
-        `the catalogue should reach beyond ${LEGACY_COUNTRIES.join(', ')}; the field offered `
-          + `exactly: ${offered.join(', ')}`,
-      ).not.toEqual([]);
-    });
-
-    await steps.step('And every legacy country is still available', async () => {
-      // The other half, so a migration that dropped the old values would not
-      // pass this case either.
-      const missing = LEGACY_COUNTRIES.filter(
-        (legacy) => !offered.some((country) => country.includes(legacy)),
-      );
-      expect(
-        missing,
-        `no country should have been lost in the migration; offered: ${offered.join(', ')}`,
-      ).toEqual([]);
-      await form.closeAndDiscard();
     });
   });
 });

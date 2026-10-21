@@ -88,7 +88,7 @@ export interface StatusSeedRow {
 export const STATUS_SEED_ROWS: readonly StatusSeedRow[] = [
   {
     key: 'inactive-expiry-passed',
-    forCase: 'TC-001',
+    forCase: '44 / 14905, 14907',
     lifecycle: 'inactive',
     expiryInDays: 0,
     lapsesAfterDays: 1,
@@ -100,33 +100,8 @@ export const STATUS_SEED_ROWS: readonly StatusSeedRow[] = [
       + 'contain and the one the story turns on.',
   },
   {
-    key: 'inactive-expiry-today',
-    forCase: 'TC-002',
-    lifecycle: 'inactive',
-    expiryInDays: 0,
-    lapsesAfterDays: 0,
-    expected: 'Inactive',
-    purpose:
-      'Inactive with an expiry of exactly TODAY, checked the SAME day. Probes the boundary: an '
-      + 'expiry date of today has not yet passed, so the row should still read Inactive. Kept '
-      + 'separate from the row above because the two differ only in when they are read, and '
-      + 'conflating them would hide whichever way the boundary is implemented.',
-  },
-  {
-    key: 'inactive-expiry-future',
-    forCase: 'TC-003',
-    lifecycle: 'inactive',
-    expiryInDays: 30,
-    lapsesAfterDays: null,
-    expected: 'Inactive',
-    purpose:
-      'Inactive with an expiry a month out - the control. It must stay Inactive throughout. '
-      + 'Without it, a job that blindly expired every inactive record would satisfy every '
-      + 'other row in this plan.',
-  },
-  {
     key: 'active-expiry-passed',
-    forCase: 'TC-004',
+    forCase: '44 / 14919',
     lifecycle: 'active',
     expiryInDays: 0,
     lapsesAfterDays: 1,
@@ -137,17 +112,28 @@ export const STATUS_SEED_ROWS: readonly StatusSeedRow[] = [
       + 'regardless of the starting status.',
   },
   {
-    key: 'expired-to-edit',
-    forCase: 'TC-005',
+    key: 'expired-extend-activate',
+    forCase: '44 / 14914',
     lifecycle: 'active',
     expiryInDays: 0,
     lapsesAfterDays: 1,
     expected: 'Expired',
     purpose:
-      'A second row lapsing tomorrow, reserved for the recalculation-on-edit cases: they need '
-      + 'an Expired payer whose expiry they can EXTEND, which consumes the record. Sharing one '
-      + 'Expired row between the precedence checks and the edit checks would let an edit in one '
-      + 'test destroy the precondition of another - the tests must stay independent.',
+      'For "Prevent Invalid Status Transitions Manually" 14914 (added 2026-10-18): an Expired '
+      + 'payer that is brought back by EDITING the form and extending its expiry, then approving '
+      + 'the change. The case consumes the record, so it has a row of its own.',
+  },
+  {
+    key: 'expired-extend-recheck',
+    forCase: '44 / 14923',
+    lifecycle: 'active',
+    expiryInDays: 0,
+    lapsesAfterDays: 1,
+    expected: 'Expired',
+    purpose:
+      'For "Prevent Invalid Status Transitions Manually" 14923 (added 2026-10-18): extends an '
+      + 'Expired payer\'s expiry through the edit form and checks the screen and the stored state '
+      + 'agree straight after, and again after refresh and re-opening. Consumes the record.',
   },
 ] as const;
 
@@ -192,7 +178,10 @@ export function buildStatusSeedPayer(row: StatusSeedRow, seedStamp: string): Pay
     city: 'Riyadh',
     language: 'English',
     contactMethod: 'Email',
-    effectiveDate: DateUtils.todayFormatted(),
+    // 00:00 since the 2026-10-12 build: the pickers carry a time, a bare date
+    // is given 23:59, and an expiry of today at 23:59 is then not "after" an
+    // effective date of today at 23:59 - the form refused every row.
+    effectiveDate: `${DateUtils.todayFormatted()} 00:00`,
     expiryDate: DateUtils.futureDate(row.expiryInDays),
   };
 }

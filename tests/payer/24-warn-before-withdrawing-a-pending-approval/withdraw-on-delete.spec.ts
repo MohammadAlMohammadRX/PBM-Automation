@@ -1,5 +1,5 @@
 import { test, expect } from '../../../fixtures';
-import { DELETE_CHANGE_TYPE } from '../../../data/payers/deletePayer.data';
+import { DELETE_CHANGE_TYPE, LIVE_PAYER_UNDELETABLE } from '../../../data/payers/deletePayer.data';
 import {
   ACTIONS_BY_APPROVAL_STATE,
   APPROVAL_STATE,
@@ -231,6 +231,9 @@ test.describe('Withdraw a pending approval - On delete', () => {
         'nothing is pending any more, so nothing should be said about withdrawing one',
       ).not.toContain('withdraw');
       await payerManagementPage.dialog().confirm('Yes');
+      // The payer is published and holds a network, so the deletion is refused
+      // for that dependency (2026-10-19): BLOCKED, not a failure of the orphan check.
+      if (await payerManagementPage.wasDeletionBlockedByDependency()) steps.blocked(LIVE_PAYER_UNDELETABLE);
     });
 
     await steps.step('No request is left behind for this payer - the orphan check', async () => {

@@ -36,6 +36,11 @@
  *   --html <path>          HTML report attached to the run (default: same name, .html)
  *   --run-name <text>      run title (default "Payer module - automated results <date>")
  *   --no-screenshots       do not attach failing-step screenshots
+ *   --bugs <path>          JSON { "<test case id>": <Azure bug id> } of the QA-approved bugs. With it,
+ *                          only Passed results and Failed results that have an approved bug are
+ *                          published (each Failed result linked to its bug); every other Failed and
+ *                          all Blocked results are held back and listed in the preview.
+ *   --exclude <ids>        comma-separated test case ids never to publish (e.g. tagged invalid in Azure)
  *   AZURE_DEVOPS_ORG       default neomatixco
  *   AZURE_DEVOPS_PROJECT   default CareConnect
  */
@@ -65,6 +70,9 @@ const PLAN = option('plan', '');
 const SUITE = option('suite', '');
 const PUBLISH = flag('publish');
 const SCREENSHOTS = !flag('no-screenshots');
+const BUGS_FILE = option('bugs', '');
+const BUGS = BUGS_FILE ? JSON.parse(fs.readFileSync(path.resolve(ROOT, BUGS_FILE), 'utf8')) : null;
+const EXCLUDE = new Set(option('exclude', '').split(',').map((s) => s.trim()).filter(Boolean));
 const STAMP = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
 
 const OUTCOME = { PASS: 'Passed', FAIL: 'Failed', BLOCKED: 'Blocked' };
@@ -195,7 +203,7 @@ function writePreview(model) {
   fs.writeFileSync(`${base}.json`, JSON.stringify(model, null, 2));
   const count = (list, k) => list.filter((r) => r.outcome === k).length;
   const rows = model.toPublish.map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(r.story)}</td><td class="${esc(r.outcome)}">${esc(r.outcome)}</td>`
-    + `<td>${esc(r.points.join(', ') || '-')}</td><td>${esc(r.rows)}</td><td>${esc(r.comment)}</td></tr>`).join('');
+    + `<td>${esc(r.points.join(', ') || '-')}</td><td>${esc(r.bug || '-')}</td><td>${esc(r.rows)}</td><td>${esc(r.comment)}</td></tr>`).join('');
   const list = (title, items, fmt) => `<h2>${esc(title)} (${items.length})</h2>`
     + (items.length ? `<p class="small">${items.map((x) => esc(fmt(x))).join(' · ')}</p>` : '<p class="small">None.</p>');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Azure publish preview</title>
@@ -207,11 +215,12 @@ table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:4p
 <p class="small">${esc(ORG)}/${esc(PROJECT)} · plan ${esc(model.plan || '(not read - no plan or token)')} · report ${esc(path.relative(ROOT, REPORT))} · ${esc(STAMP)}</p>
 <div><span class="tile">To publish: <b>${model.toPublish.length}</b></span><span class="tile Passed">Passed ${count(model.toPublish, 'Passed')}</span>
 <span class="tile Failed">Failed ${count(model.toPublish, 'Failed')}</span><span class="tile Blocked">Blocked ${count(model.toPublish, 'Blocked')}</span></div>
+${list('Held back by the QA filter - NOT published', model.heldBack, (x) => `${x.id} ${x.outcome} (${x.reason})`)}
 ${list('In the report but not in the plan - will NOT be published', model.notInPlan, (x) => `${x.id} (${x.story})`)}
 ${list('In the plan but not in this report - left untouched', model.planOnly, (x) => `${x.testCaseId} ${x.testCaseName}`)}
 ${list('Skipped in the report - not published', model.skipped, (x) => `${x.id} (${x.status})`)}
 ${list('Report rows without an Azure id', model.notAzure, (x) => `${x.id} (${x.story})`)}
-<h2>Results to publish</h2><table><tr><th>Test case</th><th>Story</th><th>Outcome</th><th>Test point(s)</th><th>Rows</th><th>Comment</th></tr>${rows}</table>
+<h2>Results to publish</h2><table><tr><th>Test case</th><th>Story</th><th>Outcome</th><th>Test point(s)</th><th>Bug</th><th>Rows</th><th>Comment</th></tr>${rows}</table>
 </body></html>`;
   fs.writeFileSync(`${base}.html`, html);
   return `${base}.html`;
@@ -255,6 +264,7 @@ async function publish(planId, toPublish, report) {
       comment: r.comment,
       errorMessage: r.errorMessage || undefined,
       durationInMs: r.durationInMs || undefined,
+      associatedBugs: r.bug ? [{ id: String(r.bug) }] : undefined,
     }));
   for (let i = 0; i < updates.length; i += 100) {
     await call('PATCH', `${BASE}/_apis/test/Runs/${run.id}/results?api-version=${API}`, updates.slice(i, i + 100));
@@ -293,7 +303,17 @@ async function publish(planId, toPublish, report) {
 
   if (PUBLISH && (!TOKEN || !PLAN)) fail('--publish needs both --plan <id> and the AZURE_DEVOPS_PAT environment variable.');
 
-  const { report, results, skipped, notAzure } = readResults();
+  const { report, results: read, skipped, notAzure } = readResults();
+  // QA filter: excluded ids never go out; with --bugs, only Passed and bug-approved Failed results do.
+  const heldBack = [];
+  const results = read.filter((r) => {
+    if (EXCLUDE.has(r.id)) { heldBack.push({ id: r.id, story: r.story, outcome: r.outcome, reason: 'excluded (--exclude)' }); return false; }
+    if (!BUGS) return true;
+    if (r.outcome === 'Passed') return true;
+    if (r.outcome === 'Failed' && BUGS[r.id]) { r.bug = BUGS[r.id]; return true; }
+    heldBack.push({ id: r.id, story: r.story, outcome: r.outcome, reason: r.outcome === 'Failed' ? 'failed - no approved bug' : 'blocked' });
+    return false;
+  });
   let planOnly = [];
   let notInPlan = [];
   let toPublish = results.map((r) => ({ ...r, points: [] }));
@@ -319,14 +339,17 @@ async function publish(planId, toPublish, report) {
     project: PROJECT,
     report: path.relative(ROOT, REPORT),
     toPublish: toPublish.map((r) => ({ id: r.id, story: r.story, outcome: r.outcome, points: r.points, rows: r.rows.length,
-      comment: r.comment, errorMessage: r.errorMessage, screenshot: r.screenshot })),
+      bug: r.bug || '', comment: r.comment, errorMessage: r.errorMessage, screenshot: r.screenshot })),
+    heldBack,
     notInPlan,
     planOnly,
     skipped,
     notAzure,
   };
   const preview = writePreview(model);
-  console.log(`Report cases: ${results.length} Azure test case(s) | to publish: ${toPublish.length} | `
+  console.log(`Report cases: ${read.length} Azure test case(s) | held back: ${heldBack.length} | to publish: ${toPublish.length} `
+    + `(Passed ${toPublish.filter((r) => r.outcome === 'Passed').length}, Failed ${toPublish.filter((r) => r.outcome === 'Failed').length}, `
+    + `Blocked ${toPublish.filter((r) => r.outcome === 'Blocked').length}) | `
     + `not in plan: ${notInPlan.length} | plan-only: ${planOnly.length} | skipped: ${skipped.length}`);
   console.log(`Preview: ${path.relative(ROOT, preview)}`);
 

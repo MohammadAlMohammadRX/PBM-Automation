@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
+const { storyOfFolder, storyOfName, workItemUrl } = require('./azureIds');
 
 const ROOT = path.resolve(__dirname, '..');
 const Q = path.join(ROOT, 'reports', 'qa-review');
@@ -26,7 +27,7 @@ const CURRENT = JSON.parse(fs.readFileSync(
   process.env.REVIEW_CURRENT || path.join(Q, 'results-current-2026-10-11.json'), 'utf8'));
 /** Result layers, oldest first - later layers supply the annotations of the cases they re-ran. */
 const LAYERS = (process.env.REVIEW_LAYERS
-  || 'reports/partials,reports/partials-rerun-batch1-20261011,reports/partials-rerun-batch2-20261011,reports/partials-rerun-batch3-20261011,reports/partials-rerun-batch4-20261011,reports/partials-rerun-batch4b-20261011,reports/partials-rerun-batch5-20261011,reports/partials-rerun-batch6-20261011,reports/partials-rerun-batch6b-20261011,reports/partials-rerun-batch7-20261011')
+  || 'reports/partials,reports/partials-rerun-batch1-20261011,reports/partials-rerun-batch2-20261011,reports/partials-rerun-batch3-20261011,reports/partials-rerun-batch4-20261011,reports/partials-rerun-batch4b-20261011,reports/partials-rerun-batch5-20261011,reports/partials-rerun-batch6-20261011,reports/partials-rerun-batch6b-20261011,reports/partials-rerun-batch7-20261011,reports/partials-rerun-batch8-20261012,reports/partials-rerun-batch9-20261012,reports/partials-rerun-batch10-20261012,reports/partials-rerun-batch11-20261013,reports/partials-rerun-batch12-20261013,reports/partials-rerun-batch13-20261013,reports/partials-rerun-batch14-20261013,reports/partials-rerun-batch15-20261013,reports/partials-rerun-batch16-20261013,reports/partials-rerun-batch16b-20261013,reports/partials-rerun-batch17-20261018,reports/partials-rerun-batch17b-20261018,reports/partials-rerun-batch18-20261018,reports/partials-rerun-batch19-20261018,reports/partials-rerun-batch20-20261018,reports/partials-rerun-batch20b-20261018,reports/partials-rerun-batch21-20261018,reports/partials-rerun-batch21b-20261018,reports/partials-rerun-batch22-20261019,reports/partials-rerun-batch23-20261019,reports/partials-rerun-batch24-20261019,reports/partials-rerun-batch25-20261019,reports/partials-rerun-batch25b-20261019,reports/partials-rerun-batch25c-20261019,reports/partials-rerun-batch25d-20261019')
   .split(',').map((d) => path.join(ROOT, d.trim())).filter((d) => fs.existsSync(d));
 const ORIGINAL = JSON.parse(fs.readFileSync(path.join(Q, 'results-fullrun-2026-10-05.json'), 'utf8'));
 const DECISIONS = JSON.parse(fs.readFileSync(path.join(Q, 'review-decisions.json'), 'utf8')).decisions;
@@ -214,6 +215,7 @@ for (const st of CURRENT.stories) {
     const row = {
       folder: meta.folder,
       story: st.name,
+      azureStory: st.azureStoryId || storyOfFolder(meta.folder)?.id || storyOfName(st.name)?.id || '',
       id: String(c.id),
       // Readable form (QA-lead note N-016): the claim as a sentence, then the
       // case's own steps, which state each expected outcome.
@@ -262,6 +264,13 @@ function sheet(name, columns, data, colorKey) {
     const r = ws.addRow(d);
     r.alignment = { wrapText: true, vertical: 'top' };
     if (colorKey && COLOR[d[colorKey]]) r.getCell(colorKey).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR[d[colorKey]] } };
+    // Azure ids open their work item (2026-10-12): a single id becomes a link.
+    for (const key of ['azureStory', 'id']) {
+      if (!columns.some((c) => c.key === key) || !/^\d{5}$/.test(String(d[key] || ''))) continue;
+      if (key === 'id' && !columns.some((c) => c.key === 'azureStory')) continue;
+      r.getCell(key).value = { text: String(d[key]), hyperlink: workItemUrl(d[key]) };
+      r.getCell(key).font = { color: { argb: 'FF0F5F63' }, underline: true };
+    }
   }
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
   return ws;
@@ -270,6 +279,7 @@ function sheet(name, columns, data, colorKey) {
 const caseCols = [
   { header: 'Folder', key: 'folder', width: 7 },
   { header: 'User story', key: 'story', width: 30 },
+  { header: 'Azure User Story', key: 'azureStory', width: 11 },
   { header: 'Case ID', key: 'id', width: 9 },
   { header: 'Result 4-5 Oct (original)', key: 'original', width: 14 },
   { header: 'Run result now', key: 'status', width: 11 },
@@ -323,8 +333,19 @@ const blockedCat = (r) => {
   if (/waitForURL: Timeout|Timeout \d+ms exceeded/i.test(a)) return 'Run-time failure during setup - re-run';
   if (/Clone action|feature has landed|no Withdraw|offers no|does not offer one|no field-level|has not been observed/i.test(a)) return 'Feature not present in the application';
   if (/two accounts|TWO accounts|second account|THREE distinct|role per combination|an account (holding|with|assigned)|administrator|reviewer|checker|integration or service account|two credentials|consuming-module user|reshaped|Full, Partial and No-scope/i.test(a)) return 'Needs additional user accounts or roles';
-  if (/expir|job|schedule|CRON|clock|next day|seeded payers|daily|recalculation/i.test(a)) return 'Needs time to pass or a scheduled-job trigger';
+  // ORDER MATTERS (2026-10-12): "expiry" appears in many reasons, so the old
+  // single expir|job test filed policy-owner and environment-state cases as
+  // "needs time to pass". Exploratory and linked-data needs are read first;
+  // infrastructure (a job that must fire, a restart, server logs) is told apart
+  // from a payer STATE that only time produces - the latter could be seeded.
+  if (/exploratory/i.test(a)) return 'Exploratory - manual by nature';
+  if (/data-layer|host access|server log|restart/i.test(a)) return 'Needs data-layer or host access';
   if (/polic(y|ies)|\bplans?\b|\bmembers?\b|facilit/i.test(a)) return 'Needs linked plans / policies / members / facilities';
+  // Covered by manual testing, or needing the job itself to fire: time-bound.
+  if (/agreed to cover by manual|manual testing|job runs nightly|job to (fire|be running)|fast-forward|recalculation|next day|daily/i.test(a)) return 'Needs time to pass or a scheduled-job trigger';
+  // Only a payer STATE is missing - one that could be seeded.
+  if (/expir|EXPIRED|PENDING|\bPending\b|NO payer is Active/i.test(a)) return 'Needs a payer state only reachable over time (Expired / Pending)';
+  if (/CRON|nightly|cannot be triggered|job|schedule|seeded payers|clock/i.test(a)) return 'Needs time to pass or a scheduled-job trigger';
   if (/blank|mandatory|rejects any|corrupt|null status|data-layer|deleted|collision|in the past|duplicate to ARISE|irreversible/i.test(a)) return 'Needs data the interface cannot create';
   if (/shared, live records|two assigned payers/i.test(a)) return 'Would modify shared live payers (Al Dawaa / NUPCO)';
   if (/exploratory/i.test(a)) return 'Exploratory - manual by nature';
@@ -335,6 +356,7 @@ const blockedCat = (r) => {
 sheet('Blocked cases', [
   { header: 'Folder', key: 'folder', width: 7 },
   { header: 'User story', key: 'story', width: 30 },
+  { header: 'Azure User Story', key: 'azureStory', width: 11 },
   { header: 'Case ID', key: 'id', width: 9 },
   { header: 'Result 4-5 Oct (original)', key: 'original', width: 14 },
   { header: 'Re-run 6 Oct', key: 'rerunText', width: 9 },
@@ -360,7 +382,7 @@ const defects = Object.values(fails.concat(blocked)
   .filter((r) => /defect/i.test(r.conclusion))
   .reduce((m, r) => {
     const g = m[r.group] || { group: r.group, conclusion: r.conclusion, cases: [], stories: new Set(), evidence: '' };
-    g.cases.push(r.id); g.stories.add(r.story);
+    g.cases.push(r.id); g.stories.add(r.azureStory ? `US ${r.azureStory} ${r.story}` : r.story);
     if (r.conclusion === 'Confirmed defect') g.conclusion = 'Confirmed defect';
     if (!g.evidence) g.evidence = r.evidence.split('\n')[0] || '';
     m[r.group] = g; return m;
@@ -384,11 +406,12 @@ const changes = [];
 for (const st of CURRENT.stories) {
   for (const c of st.cases) {
     const was = original.get(`${st.name}|${c.id}|${norm(c.expected)}`) || '(not in full run)';
-    if (was !== c.status) changes.push({ story: st.name, id: String(c.id), was, now: c.status, actual: clean(c.actual).slice(0, 400) });
+    if (was !== c.status) changes.push({ story: st.name, azureStory: st.azureStoryId || storyOfName(st.name)?.id || '', id: String(c.id), was, now: c.status, actual: clean(c.actual).slice(0, 400) });
   }
 }
 sheet('Re-run changes', [
   { header: 'User story', key: 'story', width: 34 },
+  { header: 'Azure User Story', key: 'azureStory', width: 11 },
   { header: 'Case ID', key: 'id', width: 9 },
   { header: '4-5 Oct', key: 'was', width: 12 },
   { header: 'After 6 Oct re-run', key: 'now', width: 14 },

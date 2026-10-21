@@ -99,7 +99,7 @@ test.describe('Manage linked networks from payer details', () => {
 
   for (const blocked of BLOCKED_CASES) {
     // Azure test cases - one per generated case:
-    //   TC-003 = 15068,  TC-004 = 15072,  TC-005 = 15078
+    //   TC-003 = 15068,  TC-004 = 15072
     //   TC-007 = 15071,  TC-009 = 15084
     test(`${azureOrCase('55', 'TC-' + blocked.id)}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
@@ -192,18 +192,15 @@ test.describe('Manage Network Assignments - Availability and access', () => {
     });
   });
 
-  for (const [azureId, what] of [
-    ['15060', 'add a valid network to a payer from the Linked Networks tab'],
-    ['15063', 'remove a linked network with no policy dependency, through approval'],
-    ['15070', 'walk an assignment through Draft, Pending Approval and its decision'],
-    ['15076', 'confirm a network held by another payer\'s pending request is not offered'],
-    ['15080', 'have two administrators reserve the same network at once'],
-    ['15085', 'read the audit entry a network change writes'],
-  ] as const) {
-    test(`${azureId}: should ${what}`, async ({ steps }) => {
-      steps.blocked(NEEDS_FREE_NETWORK);
-    });
-  }
+  // 15060, 15063, 15070, 15076 and 15085 are written out in
+  // network-assignment-flows.spec.ts since 2026-10-13 (the pool is no longer
+  // empty). 15080 still needs a SECOND administrator account.
+  test('15080: should have two administrators reserve the same network at once', async ({ steps }) => {
+    steps.blocked(
+      'This case needs TWO administrator accounts acting at the same moment; only one administrator '
+        + 'account is configured (SECOND_ADMIN_USERNAME / SECOND_ADMIN_PASSWORD are not set).',
+    );
+  });
 
   // Azure test case 15087
   test('15087: should drop an externally deactivated network from the available list', async ({

@@ -817,6 +817,7 @@ export const PAYER_LINKED_NETWORKS = {
 export const PAYER_LINKED_POLICIES = {
   prefix: 'payer-detail-policies',
   table: 'payer-detail-policies-table',
+  paginator: 'payer-detail-policies-paginator',
   searchInput: 'payer-detail-policies-search-input',
   filterButton: 'payer-detail-policies-search-filter-button',
 } as const;

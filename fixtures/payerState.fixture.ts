@@ -180,7 +180,7 @@ export async function purgePayer(
  * cannot be shared between payers, so a run consumes one per provisioning and
  * an exhausted pool surfaces here as "no network was offered".
  */
-async function assignANetwork(payerPage: PayerManagementPage, payerName: string): Promise<void> {
+export async function assignANetwork(payerPage: PayerManagementPage, payerName: string): Promise<void> {
   await payerPage.reopen();
   await payerPage.scopeTo(payerName);
   await payerPage.search(payerName);

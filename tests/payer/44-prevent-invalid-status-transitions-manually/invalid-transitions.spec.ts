@@ -40,6 +40,31 @@ import { PRIMARY_REASON } from '../../../data/payers/inactivationDecisions.data'
  * Both name the remedy, so they begin running the moment a disposable expired
  * payer or a seeded Pending payer exists.
  */
+/** The first `id` found in a lookup response, whatever its envelope - '' when none. */
+function firstId(body: unknown): string {
+  if (Array.isArray(body)) {
+    for (const item of body) { const id = firstId(item); if (id) return id; }
+    return '';
+  }
+  if (body && typeof body === 'object') {
+    const record = body as Record<string, unknown>;
+    if (typeof record.id === 'string' && record.id) return record.id;
+    for (const value of Object.values(record)) { const id = firstId(value); if (id) return id; }
+  }
+  return '';
+}
+
+/**
+ * The calendar day of a date field as YYYY-MM-DD, whichever way it is shown:
+ * the wizard uses DD/MM/YYYY (with a time since the 12 Oct build), the details
+ * page YYYY-MM-DD.
+ */
+const dayOf = (value: string): string => {
+  const dmy = value.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  return (value.match(/\d{4}-\d{2}-\d{2}/) ?? [value.trim()])[0];
+};
+
 test.describe('Prevent invalid status transitions', () => {
   // Azure test case 14913
   test('14913: should carry a payer through Active, Inactive and back with every step persisted', async ({
@@ -112,34 +137,60 @@ test.describe('Prevent invalid status transitions', () => {
   });
 
   // Azure test case 14914
+  //
+  // STEPS UPDATED 2026-10-18 (QA lead): an Expired payer is brought back by
+  // EDITING the form and extending its expiry date - not by the Activate
+  // action, which stays withheld. Runs on its own seeded payer
+  // ("expired-extend-activate", npm run seed:status), which it consumes; until
+  // that payer's expiry has passed the case reports BLOCKED with the date.
   test('14914: should permit a reactivation once a lapsed expiry date is extended', async ({
+    payerManagementPage,
+    approvalManagementPage,
+    statusSeed,
     steps,
   }) => {
-    steps.blocked(
-      'This case needs a payer that is EXPIRED and disposable, and this environment offers '
-      + 'neither. A payer created here can never be expired - the expiry-date story pins expiry '
-      + 'to today or later - and the expired payers that do exist are shared records whose '
-      + 'expiry this case would have to extend, taking their state away from every other case '
-      + 'that samples an Expired payer. Remedy: run "npm run seed:status" and re-run once the '
-      + 'seeded rows have lapsed, or provide one disposable expired payer for this suite to '
-      + 'edit. The refusal itself - that an expired payer cannot be activated, with its '
-      + `message "${EXPIRY_GUARDRAIL_MESSAGE.en}" - is already automated by the `
-      + 'activation-guardrails story; what is missing here is only the unblocking half.',
-    );
-  });
+    test.slow();
+    const key = 'expired-extend-activate';
+    const extended = DateUtils.futureDate(30);
+    let name = '';
 
-  // Azure test case 14911
-  test('14911: should refuse a direct move from Pending to Inactive', async ({ steps }) => {
-    steps.blocked(
-      'This case needs a payer whose status is PENDING, which cannot be produced here. '
-      + 'Reaching Pending requires an approved payer whose effective date has not yet arrived, '
-      + 'and then the scheduled job that moves it to Active - the job this batch agreed to '
-      + 'cover by manual testing (sheets 40 and 42). There is also an unresolved question about '
-      + 'whether the payer list ever renders "Pending" as a lifecycle status at all: '
-      + 'constants/ElementIds.ts records it as never doing so, while the expiry-precedence '
-      + 'rules expect it. Remedy: seed a Pending payer, or settle that question first - the '
-      + 'initial-status-derivation suite will answer it on its next run.',
-    );
+    await steps.critical('Navigate to the module and open the Expired payer', async () => {
+      const blocked = statusSeed.blockedReason(key);
+      if (blocked) steps.blocked(blocked);
+      name = statusSeed.find(key)!.nameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.expired.en);
+    });
+
+    await steps.step('Activate is withheld and says the expiry date must be extended first', async () => {
+      await payerManagementPage.expectRowActionUnavailable(name, 'activate');
+      expect(await payerManagementPage.getRowActionMessage(name, 'activate')).toBe(EXPIRY_GUARDRAIL_MESSAGE.en);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.expired.en);
+    });
+
+    await steps.critical(`Edit the payer, extend the Expiry Date to ${extended}, save and have it approved`, async () => {
+      await payerManagementPage.open();
+      const form = await payerManagementPage.openEditForm(name);
+      await form.goToStep('Effective Period');
+      await form.fillDateField('Expiry Date', extended);
+      await form.save();
+      await form.waitForClosed();
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(name);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(name);
+      await approvalManagementPage.approve(name);
+    });
+
+    await steps.step('The payer is Active again, with the extended expiry date', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.active.en);
+      const detail = await payerManagementPage.openDetails(name);
+      await detail.waitForLoaded();
+      expect(dayOf(await detail.getFieldValue('Expiry Date'))).toBe(dayOf(extended));
+    });
   });
 });
 
@@ -174,9 +225,11 @@ test.describe('Prevent invalid status transitions - the expiry gate', () => {
       await detail.waitForLoaded();
       const expiry = await detail.getFieldValue('Expiry Date');
       expect(
-        Date.parse(DateUtils.toIsoDate(expiry)),
+        // dayOf reads both formats: the details page shows YYYY-MM-DD, the
+        // wizard DD/MM/YYYY (toIsoDate accepted only the latter).
+        Date.parse(dayOf(expiry)),
         `this case only means anything on a payer inside its window; the expiry read "${expiry}"`,
-      ).toBeGreaterThan(Date.parse(DateUtils.toIsoDate(DateUtils.todayFormatted())));
+      ).toBeGreaterThan(Date.parse(dayOf(DateUtils.todayFormatted())));
       await payerManagementPage.open();
     });
 
@@ -277,32 +330,156 @@ test.describe('Prevent invalid status transitions - the expiry gate', () => {
     });
   });
 
-  for (const [azureId, what] of [
-    ['14905', 'block a reactivation once the expiry date has passed'],
-    ['14907', 'block the reactivation one day after the expiry date passes'],
-    ['14915', 'refuse an attempt to set an Expired payer to Inactive'],
-    ['14919', 'refuse to activate an Expired payer without first extending its expiry'],
-    [
-      '14923',
-      'show the reactivation flow and the stored state agreeing immediately after an expiry is extended',
-    ],
+  // STEPS UPDATED 2026-10-18 (QA lead): reactivating a payer whose expiry has
+  // passed is done by EDITING the form and extending the date; the Activate
+  // action itself stays withheld with the expiry message. These four run on
+  // payers seeded by "npm run seed:status" (expiry = the seed day), so they
+  // report BLOCKED with the date to come back on until the expiry has passed.
+  // 14905 and 14907 only read their payer; 14919 only reads; 14923 consumes
+  // its own row.
+
+  // Azure test cases 14905 and 14907
+  for (const [azureId, what, firstDayOnly] of [
+    ['14905', 'block a reactivation once the expiry date has passed', false],
+    ['14907', 'block the reactivation one day after the expiry date passes', true],
   ] as const) {
-    test(`${azureId}: should ${what}`, async ({ steps }) => {
-      steps.blocked(
-        'This case starts from an EXPIRED payer, and this environment can produce none. The '
-        + 'wizard refuses any expiry earlier than today, so a payer created here never expires; '
-        + 'the expired payers that do exist are shared records, and editing one to watch a '
-        + 'transition would take its state away from every other case that samples an Expired '
-        + 'payer - a mistake this suite has made once and will not repeat. Remedy: run '
-        + '"npm run seed:status" and re-run once the seeded rows have lapsed, or provide one '
-        + 'disposable expired payer. The refusal wording itself is already automated by the '
-        + `activation-guardrails story ("${EXPIRY_GUARDRAIL_MESSAGE.en}"); what is missing here `
-        + 'is the starting state, not the assertion.',
-      );
-      // steps.blocked() does not narrow the type for the compiler.
-      return;
+    test(`${azureId}: should ${what}`, async ({ payerManagementPage, statusSeed, steps }) => {
+      const key = 'inactive-expiry-passed';
+      let name = '';
+      let statusBefore = '';
+
+      await steps.critical('Navigate to the module and open the Inactive payer whose expiry has passed', async () => {
+        const blocked = statusSeed.blockedReason(key);
+        if (blocked) steps.blocked(blocked);
+        const row = statusSeed.find(key)!;
+        // The boundary case means "the FIRST day after expiry"; read on a
+        // later day it would be the same check as 14905, so it says so.
+        if (firstDayOnly && DateUtils.todayFormatted() !== row.lapsesOn) {
+          steps.blocked(
+            `"${row.nameEn}" expired on ${row.expiryDate}; this boundary case must run on ${row.lapsesOn}, `
+              + 'the first day after it. Re-seed (npm run seed:status) and run it the next day.',
+          );
+        }
+        name = row.nameEn;
+        await payerManagementPage.open();
+        await payerManagementPage.search(name);
+        statusBefore = await payerManagementPage.getLifecycleStatus(name);
+        expect(statusBefore, `"${name}" was inactivated before its expiry passed`).toMatch(
+          new RegExp(`${LIFECYCLE_STATUS.inactive.en}|${LIFECYCLE_STATUS.expired.en}`, 'i'),
+        );
+      });
+
+      await steps.step('Activate is withheld with a message to extend the expiry date', async () => {
+        await payerManagementPage.expectRowActionUnavailable(name, 'activate');
+        expect(await payerManagementPage.getRowActionMessage(name, 'activate')).toBe(EXPIRY_GUARDRAIL_MESSAGE.en);
+      });
+
+      await steps.step('The status is unchanged', async () => {
+        await payerManagementPage.open();
+        await payerManagementPage.search(name);
+        expect(await payerManagementPage.getLifecycleStatus(name)).toBe(statusBefore);
+      });
     });
   }
+
+  // Azure test case 14919
+  test('14919: should refuse to activate an Expired payer without first extending its expiry', async ({
+    payerManagementPage,
+    statusSeed,
+    steps,
+  }) => {
+    const key = 'active-expiry-passed';
+    let name = '';
+
+    await steps.critical('Navigate to the module and open the Expired payer', async () => {
+      const blocked = statusSeed.blockedReason(key);
+      if (blocked) steps.blocked(blocked);
+      name = statusSeed.find(key)!.nameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.expired.en);
+    });
+
+    await steps.step('Without touching the expiry date, Activate is withheld', async () => {
+      await payerManagementPage.expectRowActionUnavailable(name, 'activate');
+    });
+
+    await steps.step('The message says the expiry date must be extended first', async () => {
+      expect(await payerManagementPage.getRowActionMessage(name, 'activate')).toBe(EXPIRY_GUARDRAIL_MESSAGE.en);
+    });
+
+    await steps.step('The payer is still Expired', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.expired.en);
+    });
+  });
+
+  // Azure test case 14923
+  test('14923: should show the reactivation flow and the stored state agreeing immediately after an expiry is extended', async ({
+    page,
+    payerManagementPage,
+    approvalManagementPage,
+    statusSeed,
+    steps,
+  }) => {
+    test.slow();
+    const key = 'expired-extend-recheck';
+    const extended = DateUtils.futureDate(30);
+    let name = '';
+
+    const expectReactivated = async (where: string) => {
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      const shown = await payerManagementPage.getLifecycleStatus(name);
+      expect(shown, `${where}: the list should read ${LIFECYCLE_STATUS.active.en}`).toContain(LIFECYCLE_STATUS.active.en);
+      const detail = await payerManagementPage.openDetails(name);
+      await detail.waitForLoaded();
+      expect(
+        dayOf(await detail.getFieldValue('Expiry Date')),
+        `${where}: the details page should show the extended expiry`,
+      ).toBe(dayOf(extended));
+    };
+
+    await steps.critical('Navigate to the module and open the Expired payer', async () => {
+      const blocked = statusSeed.blockedReason(key);
+      if (blocked) steps.blocked(blocked);
+      name = statusSeed.find(key)!.nameEn;
+      await payerManagementPage.open();
+      await payerManagementPage.search(name);
+      await payerManagementPage.expectLifecycleStatus(name, LIFECYCLE_STATUS.expired.en);
+    });
+
+    await steps.critical(`Edit the payer, extend the Expiry Date to ${extended} and save`, async () => {
+      const form = await payerManagementPage.openEditForm(name);
+      await form.goToStep('Effective Period');
+      await form.fillDateField('Expiry Date', extended);
+      await form.save();
+      await form.waitForClosed();
+    });
+
+    await steps.critical('Send the change for approval and approve it', async () => {
+      await payerManagementPage.open();
+      await payerManagementPage.sendForApproval(name);
+      await approvalManagementPage.open();
+      await approvalManagementPage.expectInQueue(name);
+      await approvalManagementPage.approve(name);
+    });
+
+    await steps.step('Straight after: the payer reads Active with the extended expiry', () =>
+      expectReactivated('straight after approval'));
+
+    await steps.step('After a page refresh the same state is shown', async () => {
+      await page.reload();
+      await expectReactivated('after a refresh');
+    });
+
+    await steps.step('After going back and forward, and re-opening the record, the same state is shown', async () => {
+      await page.goBack().catch(() => undefined);
+      await page.goForward().catch(() => undefined);
+      await expectReactivated('after back/forward and re-opening');
+    });
+  });
 });
 
 /**

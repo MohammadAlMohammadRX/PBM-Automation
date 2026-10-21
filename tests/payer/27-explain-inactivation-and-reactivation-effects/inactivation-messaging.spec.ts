@@ -1,4 +1,5 @@
 import { test, expect } from '../../../fixtures';
+import { EMPTY_STATE_PATTERN } from '../../../data/payers/linkedPolicies.data';
 import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import { INACTIVATION_REASONS } from '../../../data/payers/lifecycleGuardrails.data';
 import {
@@ -212,11 +213,18 @@ test.describe('Inactivation and reactivation effects - Inactivation messaging', 
       // A payer this suite created, so "zero linked records" is a property of
       // the fixture rather than a hope about the environment. The detail screen
       // states it in its own tab labels.
+      //
+      // CHANGED 2026-10-19: this used to require zero linked NETWORKS, which no
+      // published payer can satisfy since a network is required for approval -
+      // and networks are not what this step is about. It now checks what the
+      // step says: the Linked Policies tab shows its empty state. Plans are made
+      // only in the Plans module, so a payer this suite created holds none.
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
+      const policies = await detail.getLinkedPoliciesSection();
       expect(
-        await detail.linkedNetworkCount(),
-        'a freshly created payer should hold no linked networks',
-      ).toBe(0);
+        EMPTY_STATE_PATTERN.test(policies.text),
+        `a freshly created payer should hold no linked policies; the tab read "${policies.text}"`,
+      ).toBe(true);
     });
 
     await steps.step('The confirmation still explains the cascading effects', async () => {

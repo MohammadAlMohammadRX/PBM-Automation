@@ -208,8 +208,16 @@ export class PayerFormDialog extends EntityWizardDialog {
    * -field check with no request ever sent. Enter commits and closes the panel.
    */
   async fillDateField(label: string, value: string): Promise<void> {
-    Logger.step(`Setting "${label}" to "${value}"`);
     const input = this.field(label);
+    // DATE AND TIME since the 2026-10-12 build. The pickers now read
+    // "DD/MM/YYYY HH:mm"; a bare date is rejected, the field stays empty and
+    // Save is refused with "This field is required." - which blocked every
+    // payer the suite creates (found by 14911, 2026-10-13). A date-only value
+    // gets 23:59, which keeps "today" from reading as earlier than now and
+    // leaves past and future dates on the same day.
+    const placeholder = (await input.getAttribute('placeholder').catch(() => '')) ?? '';
+    if (/HH:mm/i.test(placeholder) && /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim())) value = `${value.trim()} 23:59`;
+    Logger.step(`Setting "${label}" to "${value}"`);
     await input.click();
     await input.press('ControlOrMeta+a');
     await input.pressSequentially(value);

@@ -1,5 +1,4 @@
 import { test, expect } from '../../../fixtures';
-import { ROLE_REQUIREMENTS } from '../../../data/payers/payerPermissions.data';
 
 /**
  * User story: Define Bilingual Names for All Payer Module Permissions.
@@ -73,32 +72,5 @@ test.describe('Define Bilingual Names for All Payer Module Permissions - Enforce
         'Pending Approval',
       );
     });
-  });
-
-  // Azure test case 15394
-  test('15394: should reject the request with an authorization error when a submitter approves their own change outside the interface', async ({
-    payerManagementPage,
-    steps,
-  }) => {
-    // BLOCKED rather than attempted. This case asks for the UI to be bypassed -
-    // "a saved link, replayed request, or exposed endpoint" - to prove the
-    // backend enforces the rule independently.
-    //
-    // Two reasons it is not attempted here. It needs the SUBMITTER to be denied
-    // while a different account is allowed, and this environment has one
-    // credential, so a rejection could not be distinguished from the endpoint
-    // simply not working. And forging an approval call against a shared
-    // environment risks pushing a real payer version live if the guard is
-    // missing - which is precisely the outcome under test. That is a
-    // deliberately-authorized security check, not something to run
-    // opportunistically inside a functional suite.
-    steps.blocked(
-      `bypassing the interface to test backend enforcement needs a second account and explicit `
-        + `authorization to make direct approval calls against this environment. `
-        + `${ROLE_REQUIREMENTS.secondReviewer.reason} Until then TC-014 covers the rule as `
-        + 'far as the interface enforces it.',
-    );
-
-    await steps.step('The payer module is reachable', () => payerManagementPage.open());
   });
 });
