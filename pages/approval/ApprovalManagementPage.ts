@@ -12,6 +12,9 @@ import {
   type ApprovalsRowAction,
 } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
+import { NetworkUtils } from '../../utils/NetworkUtils';
+import { pendingRequestId } from '../../utils/NetworkProvisioning';
+import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import type { RejectionReason } from '../../data/payers/payerTypes';
 
 /**
@@ -191,7 +194,9 @@ export class ApprovalManagementPage extends BasePage {
    * panel lists every field, changed or not; the caller decides which changed.
    */
   async openReview(payerName: string): Promise<{ field: string; before: string; after: string }[]> {
-    const prefix = 'approvals-payer-review-drawer';
+    // The scope's own namespace (2026-10-21): `approvals-payer-review-drawer`
+    // for payers, `approvals-network-review-drawer` for networks.
+    const prefix = `${this.screen}-review-drawer`;
     await this.search(payerName);
     await this.expectInQueue(payerName);
     await (await this.rowAction(payerName, 'review')).click();
@@ -218,8 +223,8 @@ export class ApprovalManagementPage extends BasePage {
 
   /** Closes the Review panel. */
   async closeReview(): Promise<void> {
-    await this.page.locator(buttonSelector('approvals-payer-review-drawer-close')).first().click();
-    await expect(this.page.locator('#approvals-payer-review-drawer-title')).toBeHidden({ timeout: Timeouts.default });
+    await this.page.locator(buttonSelector(`${this.screen}-review-drawer-close`)).first().click();
+    await expect(this.page.locator(`#${this.screen}-review-drawer-title`)).toBeHidden({ timeout: Timeouts.default });
   }
 
   /**
@@ -332,7 +337,7 @@ export class ApprovalManagementPage extends BasePage {
   async expectApprovalActionsDenied(): Promise<void> {
     for (const action of ['approve', 'reject'] as const) {
       await expect(
-        this.page.locator(`[id^="${SCREEN.approvalsPayer}-"][id$="-${action}"]`),
+        this.page.locator(`[id^="${this.screen}-"][id$="-${action}"]`),
         `A user without the approval permission should be offered no ${action} control`,
       ).toHaveCount(0, { timeout: Timeouts.default });
     }
@@ -497,6 +502,35 @@ export class ApprovalManagementPage extends BasePage {
       .toBe(0);
   }
 
+  // ---- story 24 additions (network go-live prerequisites) ----
+
+  /**
+   * Approves a queued request and reports what the server answered, WITHOUT
+   * insisting that the request leaves the queue - for the cases whose subject
+   * is an approval the server refuses (a network with no facility, an inactive
+   * owning payer). `approve()` treats a refusal as a failure and is the right
+   * call everywhere else.
+   */
+  async attemptApprove(entityName: string): Promise<{ answer: string; stillQueued: boolean }> {
+    Logger.step(`Attempting to approve "${entityName}"`);
+    await this.expectInQueue(entityName);
+    await (await this.rowAction(entityName, 'approve')).click();
+    const answer = this.watchDecisionAnswer();
+    await new ConfirmDialog(this.page).confirm('Approve');
+    this.lastDecisionAnswer = await answer;
+    await this.page.waitForLoadState('domcontentloaded');
+    // An ACCEPTED approval is given time to leave the queue (2026-10-24). One
+    // search straight after the 200 still returned the request - the queue
+    // re-queries only on a new search - and 18033 failed with "approval
+    // accepted ... answered 200" and stillQueued true at once. A refused one
+    // stays, so a single read answers that.
+    const accepted = /answered 2\d\d/.test(this.lastDecisionAnswer);
+    const stillQueued = accepted
+      ? await this.waitForDecisionProcessed(entityName).then(() => false, () => true)
+      : await this.isInQueue(entityName);
+    return { answer: this.lastDecisionAnswer, stillQueued };
+  }
+
   /** Applies an Approve/Reject decision - keeps the branch out of the spec. */
   async applyDecision(payerName: string, decision: 'Approve' | 'Reject'): Promise<void> {
     if (decision === 'Approve') {
@@ -504,5 +538,246 @@ export class ApprovalManagementPage extends BasePage {
     } else {
       await this.reject(payerName);
     }
+  }
+
+  // ---- story 34 / 35 / 41 additions (network change review) ----
+
+  /**
+   * The Change Type tag of a queued request ("Create", "Update", "Delete", ...).
+   * Read from the row's `-change-type-tag` (verified on the Network tab,
+   * 2026-10-21), falling back to the change-type cell the payer queue uses.
+   */
+  async getChangeType(entityName: string): Promise<string> {
+    await this.expectInQueue(entityName);
+    const id = await this.rowId(entityName);
+    const tag = this.byId(`${id}-change-type-tag`).or(this.byId(`${id}-cell-${APPROVALS_COLUMN.changeType}`)).first();
+    return (await tag.innerText()).trim();
+  }
+
+  /** The change types of EVERY queued request for an entity - proves what is pending, and that nothing is duplicated. */
+  async getQueuedChangeTypes(entityName: string): Promise<string[]> {
+    await this.search(entityName);
+    await this.waitForPageReady();
+    const ids = await this.rows()
+      .filter({ hasText: entityName })
+      .evaluateAll((rows) => rows.map((row) => (row as HTMLElement).id));
+    const types: string[] = [];
+    for (const id of ids) {
+      types.push((await this.byId(`${id}-change-type-tag`).innerText().catch(() => '')).trim());
+    }
+    return types;
+  }
+
+  /** A queued request's cells (name, change type, status, requested by/on), keyed by column. */
+  async readQueuedRow(entityName: string): Promise<Record<string, string>> {
+    await this.expectInQueue(entityName);
+    const id = await this.rowId(entityName);
+    return this.byId(id).evaluate((row) => {
+      const out: Record<string, string> = {};
+      row.querySelectorAll('[id*="-cell-"]').forEach((cell) => {
+        out[cell.id.split('-cell-').pop() ?? ''] = (cell as HTMLElement).innerText.trim();
+      });
+      out.text = (row as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+      return out;
+    });
+  }
+
+  /** Opens the Approve confirmation for a queued request and leaves it open. */
+  async openApproveDialog(entityName: string): Promise<ConfirmDialog> {
+    await this.expectInQueue(entityName);
+    await (await this.rowAction(entityName, 'approve')).click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    return dialog;
+  }
+
+  /** absent / disabled / available for one action on a queued request. */
+  async getRowActionAvailability(entityName: string, action: ApprovalsRowAction): Promise<'absent' | 'disabled' | 'available'> {
+    await this.expectInQueue(entityName);
+    const button = await this.rowAction(entityName, action);
+    if ((await button.count()) === 0) return 'absent';
+    return (await button.isEnabled()) ? 'available' : 'disabled';
+  }
+
+  /**
+   * Decides the row ALREADY ON SCREEN, without re-searching - for the cases
+   * where the queue was loaded before something changed (another reviewer
+   * decided it, the network was edited). Reports the server's answer and
+   * whether the request is still queued afterwards; a refused decision leaves
+   * the dialog open, so it is dismissed here.
+   */
+  async attemptDecisionOnLoadedRow(
+    entityName: string,
+    decision: 'approve' | 'reject',
+    reason: RejectionReason = 'Other',
+  ): Promise<{ answer: string; dialogStayedOpen: boolean; messages: string }> {
+    const button = await this.rowAction(entityName, decision);
+    await button.click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    if (decision === 'reject') await dialog.selectReasonIfPresent(reason);
+    await dialog.acknowledgeIfPresent();
+    const answer = this.watchDecisionAnswer();
+    await dialog.clickAction('confirm');
+    this.lastDecisionAnswer = await answer;
+    const messages = await this.getToastMessage(Timeouts.short).catch(() => '');
+    const dialogStayedOpen = await dialog.isVisible();
+    if (dialogStayedOpen) await dialog.cancel().catch(() => undefined);
+    return { answer: this.lastDecisionAnswer, dialogStayedOpen, messages };
+  }
+
+  /** The pending request's id for an entity (the approval request, not the network). */
+  async getPendingRequestId(entityName: string): Promise<string> {
+    const id = await pendingRequestId(this.page, entityName);
+    expect(id, `"${entityName}" should have a pending approval request`).not.toBe('');
+    return id;
+  }
+
+  /**
+   * Approves a request by id DIRECTLY - the sheet's "direct API approve" and
+   * "stale reference" cases. Sent as the signed-in user of this page.
+   */
+  async approveRequestViaApi(requestId: string): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    return NetworkUtils.postAsSession(this.page, ApiEndpoints.approvalApprove, { id: requestId });
+  }
+
+  /** Rejects a request by id DIRECTLY, with a free-text reason. */
+  async rejectRequestViaApi(requestId: string, reason: string): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    return NetworkUtils.postAsSession(this.page, ApiEndpoints.approvalReject, { id: requestId, reason });
+  }
+
+  /**
+   * Approves while the approval call is FORCED to fail (a 500 on
+   * ApproveRequest), then restores it - the "publish service outage" case.
+   * Reports what the user was shown and whether the request is still queued.
+   */
+  async approveWithFailingService(entityName: string): Promise<{ messages: string; stillQueued: boolean }> {
+    await this.expectInQueue(entityName);
+    await NetworkUtils.failEndpoint(this.page, ApiEndpoints.approvalApprove, 500);
+    let messages = '';
+    try {
+      await (await this.rowAction(entityName, 'approve')).click();
+      const dialog = new ConfirmDialog(this.page);
+      await dialog.waitForVisible();
+      await dialog.acknowledgeIfPresent();
+      await dialog.clickAction('confirm');
+      messages = await this.getToastMessage(Timeouts.toast).catch(() => '');
+      if (await dialog.isVisible()) await dialog.cancel().catch(() => undefined);
+    } finally {
+      await NetworkUtils.restoreEndpoint(this.page, ApiEndpoints.approvalApprove);
+    }
+    return { messages, stillQueued: await this.isInQueue(entityName) };
+  }
+
+  /**
+   * The queue's change-type filter ("All Change Types"), by its own id -
+   * `approvals-<tab>-filter-change-type-multiselect`, read live 2026-10-25. The
+   * old "first combobox in the toolbar" resolved to the search input (18275).
+   */
+  private changeTypeFilter(): Locator {
+    return this.byId(`${this.screen}-filter-change-type-multiselect`);
+  }
+
+  /** The change types the filter offers. */
+  async getChangeTypeOptions(): Promise<string[]> {
+    await this.changeTypeFilter().click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const texts = (await options.allInnerTexts()).map((t) => t.trim()).filter((t) => t !== '');
+    await this.changeTypeFilter().click();
+    return texts;
+  }
+
+  /** Filters the queue to one change type and waits for it to settle. */
+  async filterByChangeType(option: string): Promise<void> {
+    Logger.step(`Filtering the ${this.approvalScope} queue to change type "${option}"`);
+    await this.changeTypeFilter().click();
+    await this.page.getByRole('option', { name: option, exact: true }).filter({ visible: true }).first().click();
+    await expect(this.changeTypeFilter()).toContainText(option, { timeout: Timeouts.short });
+    await this.waitForPageReady();
+  }
+
+  /** The change-type tags of every row on the current page. */
+  async readVisibleChangeTypes(): Promise<string[]> {
+    return (await this.page.locator(`[id^="${this.screen}-table-row-"][id$="-change-type-tag"]`).allInnerTexts()).map((t) =>
+      t.trim(),
+    );
+  }
+
+  /** Sorts the queue by the Sort By menu's first option, returning its label. */
+  async sortByFirstOption(): Promise<string> {
+    await this.btn(`${this.screen}-sort-trigger`).click();
+    const option = this.page.locator(`[id^="${this.screen}-sort-option-"]`).first();
+    await expect(option).toBeVisible({ timeout: Timeouts.default });
+    const label = (await option.innerText()).trim();
+    await option.click();
+    await this.waitForPageReady();
+    return label;
+  }
+
+  /** How many requests the current page of the queue shows. */
+  async countVisibleRows(): Promise<number> {
+    return this.rows().count();
+  }
+
+  /** Opens the Approve dialog and navigates away (to the dashboard) WITHOUT confirming - the exploratory case. */
+  async abandonApproval(entityName: string): Promise<void> {
+    await this.openApproveDialog(entityName);
+    await this.goto(AppRoutes.dashboard);
+  }
+
+  /**
+   * The signed-in user's latest notifications, each as one line of text - for
+   * "the requester is notified". Read from GetMyNotifications (the bell's own
+   * feed).
+   */
+  async readMyNotifications(): Promise<string[]> {
+    const res = await NetworkUtils.postAsSession(this.page, ApiEndpoints.myNotifications, {
+      pageNumber: 1,
+      rowsPerPage: 30,
+      unreadOnly: false,
+    });
+    expect(res.status, 'the notification feed should answer').toBe(200);
+    const items = (JSON.parse(res.text) as { payload?: { notifications?: { items?: unknown[] } } }).payload?.notifications?.items ?? [];
+    return items.map((item) => JSON.stringify(item));
+  }
+
+  // ---- story 14 additions (facility proposals) ----
+
+  /**
+   * Opens a queued request's Review panel and returns its WHOLE text, for the
+   * cases asking whether the reviewer sees the proposed facility membership.
+   * The panel is located by the scope's own namespace
+   * (`{screen}-review-drawer`, the pattern the payer panel follows); its
+   * facility section has no ids of its own to read field by field.
+   */
+  async readReviewText(entityName: string): Promise<string> {
+    const prefix = `${this.screen}-review-drawer`;
+    await this.search(entityName);
+    await this.expectInQueue(entityName);
+    await (await this.rowAction(entityName, 'review')).click();
+    const title = this.page.locator(`#${prefix}-title`);
+    await expect(title, 'the Review panel should open').toBeVisible({ timeout: Timeouts.default });
+    const panel = title.locator('xpath=ancestor::*[contains(@class,"drawer")][1]');
+    const text = (await panel.innerText().catch(async () => this.page.locator(`[id^="${prefix}"]`).allInnerTexts().then((t) => t.join('\n')))).trim();
+    await this.page.locator(buttonSelector(`${prefix}-close`)).first().click().catch(() => undefined);
+    return text;
+  }
+
+  // ---- story 18 additions (network deletion approval) ----
+
+  /**
+   * What this session is offered for an entity's request: whether the request
+   * is in its queue at all, and whether Approve / Reject are usable on it.
+   * Never throws - "not in my queue" is an answer here, not a failure.
+   */
+  async getDecisionAvailability(entityName: string): Promise<{ inQueue: boolean; approve: boolean; reject: boolean }> {
+    const inQueue = await this.isInQueue(entityName);
+    if (!inQueue) return { inQueue, approve: false, reject: false };
+    const usable = async (action: ApprovalsRowAction): Promise<boolean> => {
+      const button = await this.rowAction(entityName, action);
+      return (await button.count()) > 0 && (await button.isEnabled());
+    };
+    return { inQueue, approve: await usable('approve'), reject: await usable('reject') };
   }
 }

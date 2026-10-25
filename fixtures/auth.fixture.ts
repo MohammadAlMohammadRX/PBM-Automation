@@ -8,6 +8,7 @@ import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage
 import { LookupManagementPage } from '../pages/settings/LookupManagementPage';
 import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
+import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
 import { PolicyManagementPage } from '../pages/policy/PolicyManagementPage';
 import { NetworkInactivateDialog } from '../pages/network/NetworkInactivateDialog';
 import { LanguageSwitcher } from '../pages/components/LanguageSwitcher';
@@ -60,6 +61,8 @@ export interface PageObjectFixtures {
   networkApprovalsPage: ApprovalManagementPage;
   /** The Inactivate Network drawer - see NetworkInactivateDialog. */
   networkInactivateDialog: NetworkInactivateDialog;
+  /** A network's detail screen and its tabs - see NetworkDetailPage. */
+  networkDetailPage: NetworkDetailPage;
 
   /**
    * The bilingual UI toggle. Already used by the payer pages internally; it is
@@ -147,6 +150,9 @@ export const test = base.extend<PageObjectFixtures>({
 
   networkManagementPage: async ({ page }, use) => {
     await use(new NetworkManagementPage(page));
+  },
+  networkDetailPage: async ({ page }, use) => {
+    await use(new NetworkDetailPage(page));
   },
   languageSwitcher: async ({ page }, use) => {
     await use(new LanguageSwitcher(page));

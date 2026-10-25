@@ -16,6 +16,32 @@ import type { PayerData } from './payerTypes';
  *  versioning release; keeping it here means one edit updates every caller.) */
 export const PAYER_NAME_AR_LABEL = 'اسم جهة التغطية';
 
+/**
+ * The Payer Code column's formats.
+ *
+ * PROVISIONAL CODES SINCE 2026-10-21. An unapproved payer (Draft, Pending
+ * Approval, Rejected) used to show an empty code cell; it now shows a
+ * provisional `PAY-D-nnnn` (the network module does the same with `NET-D-`).
+ * The rule the stories test is unchanged - the ISSUED code (`PAY-nnnnnn`) is
+ * generated only on approval - so "no PayerCode" now means "no issued code":
+ * a blank cell or a provisional one. Verified on the pre-change code the same
+ * day: 15600 (Reject), 15602, 15599 and 14444 failed identically, so this is
+ * an application change, not a suite regression.
+ */
+export const PAYER_CODE_FORMAT = {
+  /** The permanent code issued on approval, e.g. PAY-001315. */
+  issued: /^\s*PAY-\d+\s*$/,
+  /** The provisional code an unapproved record carries, e.g. PAY-D-0334. */
+  provisional: /^\s*PAY-D-\d+\s*$/,
+  /** What an unapproved record's cell may read: blank, a dash, or a provisional code. */
+  notIssued: /^\s*(—|-|PAY-D-\d+)?\s*$/,
+  /** Either form, for checks over a list that mixes drafts and published payers. */
+  issuedOrProvisional: /^\s*PAY-(D-)?\d+\s*$/,
+} as const;
+// The \s* padding is deliberate: toHaveText(RegExp) tests the cell's raw text
+// content, which carries the template's surrounding whitespace - an anchored
+// pattern without it rejected a cell reading exactly "PAY-003545".
+
 /** Arabic letters used to build unique, Arabic-only names. */
 const ARABIC_LETTERS = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
 

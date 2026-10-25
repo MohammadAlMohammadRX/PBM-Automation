@@ -4,7 +4,7 @@ import { env } from '../constants/EnvironmentConfig';
 import { Timeouts } from '../constants/Timeouts';
 import { Logger } from '../utils/Logger';
 import { WaitUtils } from '../utils/WaitUtils';
-import { GLOBAL, LOGIN, TOAST, buttonSelector } from '../constants/ElementIds';
+import { GLOBAL, LOGIN, PAYER_SCOPE_DIALOG, TOAST, buttonSelector } from '../constants/ElementIds';
 import { AppRoutes } from '../constants/AppRoutes';
 import { AUTH_STORAGE_STATE_PATH } from '../constants/Paths';
 import * as fs from 'fs';
@@ -110,8 +110,18 @@ export abstract class BasePage {
     // navigation burnt its full budget waiting for a list on the login screen.
     // Wait for whichever renders first - the authenticated header or the login
     // form - and only then decide.
+    //
+    // THE PAYER GATE COUNTS AS SIGNED IN (2026-10-24). While "Select a Payer" is
+    // up the app does not render its header at all, so on every gated screen
+    // (networks, plans, policies...) this race used to wait out the whole
+    // navigation timeout - 45 s per page - before the gate was answered. In the
+    // 2026-10-24 network run that made each list load take ~50 s, longer than
+    // the 30 s the list-request captures allow, and failed every case that
+    // reads the list's own request. The gate only ever shows to a signed-in
+    // session, so seeing it settles the question.
     const landed = await Promise.race([
       this.byId(GLOBAL.headerTitle).waitFor({ state: 'attached', timeout: Timeouts.navigation }).then(() => 'app'),
+      this.byId(PAYER_SCOPE_DIALOG.select).waitFor({ state: 'visible', timeout: Timeouts.navigation }).then(() => 'app'),
       this.byId(LOGIN.email).waitFor({ state: 'visible', timeout: Timeouts.navigation }).then(() => 'login'),
     ]).catch(() => 'unknown');
     if (landed !== 'login' && !/\/login\b/.test(this.page.url())) return;

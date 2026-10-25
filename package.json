@@ -31,6 +31,7 @@
     "lint:steps": "node scripts/checkStepCoverage.js",
     "test:smoke": "cross-env WORKERS=1 playwright test --project=setup && cross-env WORKERS=1 playwright test --project=chromium --grep \"(14444|14446|15602|15599|15600|14913|14615|14638|14469):\"",
     "test:payer": "node scripts/run-payer-module.js",
+    "test:network": "cross-env MODULE=network node scripts/run-payer-module.js",
     "seed:networks": "cross-env SEED_NETWORKS=1 playwright test tests/seed/seed-networks.spec.ts --project=chromium",
     "azure:plans": "node scripts/publishToAzure.js --list-plans",
     "azure:preview": "node scripts/publishToAzure.js",

@@ -21,6 +21,13 @@ export interface EnvironmentConfigShape {
   /** A non-admin (e.g. Standard User / Reviewer) account, used for RBAC (TC-012). */
   nonAdminUsername: string;
   nonAdminPassword: string;
+  /**
+   * The payer the "Select a Payer" gate is answered with when a case names none
+   * (SCOPE_PAYER). It must be ACTIVE: networks a case builds under the scope
+   * payer only go live under an active payer, and the old default - the first
+   * payer offered, "AAA" - expired on 2026-09-25. Empty = the first offered.
+   */
+  scopePayer: string;
   browser: string;
   headless: boolean;
   slowMo: number;
@@ -64,6 +71,7 @@ export const env: EnvironmentConfigShape = {
   secondAdminPassword: process.env.SECOND_ADMIN_PASSWORD ?? '',
   nonAdminUsername: process.env.NON_ADMIN_USERNAME ?? '',
   nonAdminPassword: process.env.NON_ADMIN_PASSWORD ?? '',
+  scopePayer: (process.env.SCOPE_PAYER ?? '').trim(),
   browser: (process.env.BROWSER ?? 'chromium').toLowerCase(),
   headless: toBool(process.env.HEADLESS, true),
   slowMo: toInt(process.env.SLOW_MO, 0),

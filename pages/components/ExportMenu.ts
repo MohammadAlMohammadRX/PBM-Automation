@@ -2,9 +2,19 @@ import type { Download, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PAYER_EXPORT, buttonSelector } from '../../constants/ElementIds';
+
+/** The ids an Export control is built from - PAYER_EXPORT and NETWORK_EXPORT both fit. */
+export interface ExportMenuIds {
+  root: string;
+  trigger: string;
+  menu: string;
+  selected: string;
+  all: string;
+}
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 import { parseCsv, type ParsedCsv } from '../../utils/CsvUtils';
+import { parseXlsx, type ParsedXlsx } from '../../utils/XlsxUtils';
 
 /** Which rows an export covers. */
 export type ExportScope = 'all' | 'selected';
@@ -34,20 +44,24 @@ export class ExportMenu {
   private readonly page: Page;
   private readonly dialog: ConfirmDialog;
 
-  constructor(page: Page) {
+  /**
+   * `ids` defaults to the payer list. The Network list passes NETWORK_EXPORT:
+   * the component is shared, so only the namespace differs (2026-10-21).
+   */
+  constructor(page: Page, private readonly ids: ExportMenuIds = PAYER_EXPORT) {
     this.page = page;
     this.dialog = new ConfirmDialog(page);
   }
 
   private trigger() {
-    return this.page.locator(buttonSelector(PAYER_EXPORT.trigger)).first();
+    return this.page.locator(buttonSelector(this.ids.trigger)).first();
   }
 
   /** Opens the export menu and asserts it offered both scopes. */
   async open(): Promise<void> {
     Logger.step('Opening the export menu');
     await this.trigger().click();
-    await expect(this.page.locator(`#${PAYER_EXPORT.all}`)).toBeVisible({
+    await expect(this.page.locator(`#${this.ids.all}`)).toBeVisible({
       timeout: Timeouts.default,
     });
   }
@@ -105,9 +119,9 @@ export class ExportMenu {
    * wrong thing.
    */
   async getOfferedScopes(): Promise<string[]> {
-    const prefix = `${PAYER_EXPORT.root}-`;
+    const prefix = `${this.ids.root}-`;
     const ids = await this.page
-      .locator(`#${PAYER_EXPORT.menu} [id^="${prefix}"]`)
+      .locator(`#${this.ids.menu} [id^="${prefix}"]`)
       .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).id));
     return ids
       .map((id) => id.slice(prefix.length))
@@ -116,7 +130,7 @@ export class ExportMenu {
 
   /** The labels the menu shows for its scope options. */
   async getScopeLabels(): Promise<string[]> {
-    return (await this.page.locator(`#${PAYER_EXPORT.menu}`).allInnerTexts())
+    return (await this.page.locator(`#${this.ids.menu}`).allInnerTexts())
       .join(String.fromCharCode(10))
       .split(String.fromCharCode(10))
       .map((label) => label.trim())
@@ -133,7 +147,7 @@ export class ExportMenu {
    */
   async cancelMenu(): Promise<void> {
     await this.page.keyboard.press('Escape');
-    await expect(this.page.locator(`#${PAYER_EXPORT.all}`)).toBeHidden({
+    await expect(this.page.locator(`#${this.ids.all}`)).toBeHidden({
       timeout: Timeouts.short,
     });
   }
@@ -156,7 +170,7 @@ export class ExportMenu {
 
   /** Chooses a scope, which raises the format dialog. */
   async chooseScope(scope: ExportScope): Promise<void> {
-    const id = scope === 'all' ? PAYER_EXPORT.all : PAYER_EXPORT.selected;
+    const id = scope === 'all' ? this.ids.all : this.ids.selected;
     Logger.step(`Choosing export scope "${scope}"`);
     await this.page.locator(`#${id}`).click();
     await this.dialog.waitForVisible();
@@ -247,5 +261,67 @@ export class ExportMenu {
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
     return parseCsv(Buffer.concat(chunks).toString('utf8'));
+  }
+
+  // ---- story 04 / 26 additions (network export) ------------------------------
+
+  /**
+   * Exports and returns the file PARSED, whichever the format - the network
+   * export stories assert on rows, headers and Arabic text in both CSV and
+   * Excel, so both come back in the same `{ headers, rows }` shape.
+   */
+  async exportAndParse(
+    scope: ExportScope,
+    format: 'csv' | 'excel',
+  ): Promise<{ filename: string; bytes: Buffer; parsed: ParsedXlsx }> {
+    const { filename, bytes } = await this.exportAndReadBytes(scope, format);
+    const parsed: ParsedXlsx = format === 'csv'
+      ? { ...parseCsv(bytes.toString('utf8')), rightToLeft: false }
+      : parseXlsx(bytes);
+    return { filename, bytes, parsed };
+  }
+
+  /**
+   * Clicks the trigger `times` times without waiting between clicks, then
+   * reports how many scope menus are on screen - the rapid-click case. The
+   * clicks are fired unawaited so the menu has no chance to settle between
+   * them (the same argument ConfirmDialog.confirmRepeatedly makes).
+   */
+  async clickTriggerRepeatedly(times: number): Promise<number> {
+    Logger.step(`Clicking Export ${times} times in rapid succession`);
+    const trigger = this.trigger();
+    await Promise.all(Array.from({ length: times }, () => trigger.click({ noWaitAfter: true }).catch(() => undefined)));
+    return this.page.locator(`#${this.ids.menu}`).filter({ visible: true }).count();
+  }
+
+  /**
+   * With the format dialog already open, picks a format and returns the
+   * downloaded file - for the cases that step through the prompts one by one.
+   * The download listener is armed before the click (see exportAndDownload).
+   */
+  async chooseFormatAndRead(format: 'csv' | 'excel'): Promise<{ filename: string; bytes: Buffer }> {
+    const [download] = await Promise.all([
+      this.page.waitForEvent('download', { timeout: Timeouts.queuePropagation }),
+      this.dialog.clickAction(format),
+    ]);
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    return { filename: download.suggestedFilename(), bytes: Buffer.concat(chunks) };
+  }
+
+  /** Whether the scope menu is open now. */
+  async isMenuOpen(): Promise<boolean> {
+    return this.page.locator(`#${this.ids.all}`).isVisible();
+  }
+
+  /** Whether the format dialog is on screen. */
+  async isFormatDialogOpen(): Promise<boolean> {
+    return this.dialog.isVisible();
+  }
+
+  /** The format dialog's title and message, as one read. */
+  async getFormatDialogText(): Promise<{ title: string; message: string }> {
+    return { title: await this.dialog.getTitle(), message: await this.dialog.getMessage() };
   }
 }

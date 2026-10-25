@@ -7,6 +7,9 @@ import { ROLE_FORM, ROLE_LIST, ROLE_ROW_FIELD, TOAST, buttonSelector } from '../
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 import { ROLE_SAVED } from '../../data/accounts/payerAdminRole.data';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ApiEndpoints } from '../../constants/ApiEndpoints';
+import { NetworkUtils } from '../../utils/NetworkUtils';
 
 /**
  * Role Administration - the screen that owns the permission catalogue.
@@ -240,5 +243,101 @@ export class RoleAdministrationPage extends BasePage {
     await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeHidden({
       timeout: Timeouts.default,
     });
+  }
+
+  // ---- story 21 / 36 / 43 additions (network module, 2026-10-21) -------------
+
+  /**
+   * Opens Role Administration and reports whether this session was admitted,
+   * without asserting - the access-denied case needs the answer, not a
+   * failure. A refused session is redirected to the dashboard ("Access
+   * Restricted", verified for the Payer Admin 2026-09-12).
+   *
+   * locator-exception: the refusal banner carries no id, so the landing
+   * screen's text is read whole for the caller to match the wording.
+   */
+  async openAndReportAccess(): Promise<{ reachable: boolean; url: string; text: string }> {
+    Logger.step('Opening Role Administration to see whether this session is admitted');
+    await this.goto(AppRoutes.roleAdministration);
+    const reachable = await this.page
+      .locator(`#${ROLE_LIST.root}`)
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    const text = (await this.page.locator('main').first().innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    return { reachable, url: this.page.url(), text };
+  }
+
+  /** Closes the role drawer, discarding unsaved changes when the guard asks. */
+  async closeDrawerDiscarding(): Promise<void> {
+    await this.page.locator(`#${ROLE_FORM.close}`).click();
+    const guard = new ConfirmDialog(this.page);
+    if (await guard.isDiscardPromptVisible()) await guard.discardChanges();
+    await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeHidden({ timeout: Timeouts.default });
+  }
+
+  /** Whether the open role drawer's "Has Assigned Payers" switch is on. */
+  async readHasAssignedPayers(): Promise<boolean> {
+    const checkbox = this.page.locator(`#${ROLE_FORM.hasAssignedPayers}`);
+    await expect(checkbox).toBeAttached({ timeout: Timeouts.default });
+    return checkbox.isChecked();
+  }
+
+  /** Clicks the "Has Assigned Payers" switch `times` times without pausing. */
+  async toggleHasAssignedPayers(times = 1): Promise<void> {
+    const checkbox = this.page.locator(`#${ROLE_FORM.hasAssignedPayers}`);
+    for (let i = 0; i < times; i += 1) await checkbox.click({ force: true });
+  }
+
+  /** Sets the "Has Assigned Payers" switch on the open drawer. */
+  async setHasAssignedPayers(on: boolean): Promise<void> {
+    if ((await this.readHasAssignedPayers()) !== on) await this.toggleHasAssignedPayers(1);
+    await expect.poll(() => this.readHasAssignedPayers(), { timeout: Timeouts.short }).toBe(on);
+  }
+
+  /**
+   * Creates a disposable role through the Add drawer and asserts it is listed.
+   *
+   * Used only by cases that must SAVE a role's configuration: a role the case
+   * owns can be changed and deleted afterwards, where a shared role cannot.
+   * One harmless read permission is ticked because a role with no privileges
+   * may not be savable - the case is about the role's flags, not its rights.
+   */
+  async createDisposableRole(nameEn: string, nameAr: string, hasAssignedPayers: boolean, permission: string): Promise<void> {
+    Logger.step(`Creating disposable role "${nameEn}"`);
+    await this.open();
+    await this.page.locator(buttonSelector(ROLE_LIST.addButton)).first().click();
+    await expect(this.page.locator(`#${ROLE_FORM.title}`)).toBeVisible({ timeout: Timeouts.default });
+    await this.page.locator(`#${ROLE_FORM.englishName}`).fill(nameEn);
+    await this.page.locator(`#${ROLE_FORM.arabicName}`).fill(nameAr);
+    await this.setHasAssignedPayers(hasAssignedPayers);
+    await this.page.locator(buttonSelector(ROLE_FORM.nextButton)).click();
+    const privileges = new RolePermissionsStep(this.page);
+    await privileges.waitForLoaded();
+    await privileges.togglePermission(permission);
+    await this.page.locator(`#${ROLE_FORM.root}`).getByRole('button', { name: 'Save', exact: true }).click(); // locator-exception: the drawer's Save button has no id; scoped to the drawer.
+    await expect(this.page.locator(`#${ROLE_FORM.title}`), 'the new role should save and close its drawer').toBeHidden({
+      timeout: Timeouts.default,
+    });
+    await this.open();
+    await expect.poll(async () => (await this.getRoleNames()).includes(nameEn), { timeout: Timeouts.default }).toBe(true);
+  }
+
+  /** Deletes a role by name, confirming the prompt, and asserts it left the list. */
+  async deleteRole(roleName: string): Promise<void> {
+    Logger.step(`Deleting role "${roleName}"`);
+    await this.open();
+    const id = await this.roleIdOf(roleName);
+    await this.page.locator(buttonSelector(`${ROLE_LIST.rowPrefix}${id}-${ROLE_ROW_FIELD.delete}`)).click();
+    await new ConfirmDialog(this.page).confirm();
+    await expect.poll(async () => (await this.getRoleNames()).includes(roleName), { timeout: Timeouts.default }).toBe(false);
+  }
+
+  /**
+   * Sends a role update straight to the server as this session, for the case
+   * proving a non-administrator is refused server-side and not only on screen.
+   */
+  async attemptRoleUpdateViaApi(body: Record<string, unknown>): Promise<{ status: number; text: string }> {
+    return NetworkUtils.requestAsSession(this.page, 'PUT', ApiEndpoints.roleUpdate, body);
   }
 }

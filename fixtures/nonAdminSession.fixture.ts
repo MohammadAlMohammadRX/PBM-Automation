@@ -4,8 +4,12 @@ import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { PayerMetricsPanel } from '../pages/payer/PayerMetricsPanel';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
+import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
 import { SettingsPage } from '../pages/system/SettingsPage';
+import { AuditLogsPage } from '../pages/system/AuditLogsPage';
+import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 import { ExportMenu } from '../pages/components/ExportMenu';
+import { LanguageSwitcher } from '../pages/components/LanguageSwitcher';
 import { PayerScopeDialog } from '../pages/components/PayerScopeDialog';
 import { DEFAULT_VIEWPORT } from '../constants/BrowserConfig';
 import { env } from '../constants/EnvironmentConfig';
@@ -28,8 +32,17 @@ export interface NonAdminSession {
   payerMetrics: PayerMetricsPanel;
   approvals: ApprovalManagementPage;
   networks: NetworkManagementPage;
+  /** Added 2026-10-21 for the network module's access cases. */
+  networkDetail: NetworkDetailPage;
+  networkApprovals: ApprovalManagementPage;
   settings: SettingsPage;
+  /** System Settings > Audit Logs - added 2026-10-21 for story 23 (18029). */
+  auditLogs: AuditLogsPage;
   exportMenu: ExportMenu;
+  /** The header language toggle in this session - added 2026-10-21 for story 22 (18019). */
+  language: LanguageSwitcher;
+  /** Role Administration in this session - added 2026-10-21 for story 43. */
+  roles: RoleAdministrationPage;
 }
 
 export interface NonAdminSessionFixtures {
@@ -89,8 +102,13 @@ export const test = base.extend<NonAdminSessionFixtures>({
       payerMetrics: new PayerMetricsPanel(page),
       approvals: new ApprovalManagementPage(page),
       networks: new NetworkManagementPage(page),
+      networkDetail: new NetworkDetailPage(page),
+      networkApprovals: new ApprovalManagementPage(page, 'network'),
       settings: new SettingsPage(page),
+      auditLogs: new AuditLogsPage(page),
       exportMenu: new ExportMenu(page),
+      language: new LanguageSwitcher(page),
+      roles: new RoleAdministrationPage(page),
     });
 
     await context.close();

@@ -26,6 +26,8 @@ const fs = require('fs');
 const path = require('path');
 
 const TEST_ROOT = path.join('tests', 'payer');
+// The network module (2026-10-21) is enforced in full from its first file.
+const NETWORK_ROOT = path.join('tests', 'network');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -187,15 +189,17 @@ const ENFORCED = [
 ];
 
 const files = [];
-(function walk(dir) {
+function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full);
     else if (entry.name.endsWith('.spec.ts')) files.push(full);
   }
-})(TEST_ROOT);
+}
+walk(TEST_ROOT);
+if (fs.existsSync(NETWORK_ROOT)) walk(NETWORK_ROOT);
 
-const isEnforced = (file) => ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

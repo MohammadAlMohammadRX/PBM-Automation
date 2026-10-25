@@ -96,11 +96,11 @@ test.describe('View Paginated Payer List with Metrics - Table shape and formats'
         'a masked phone number',
       ));
 
-    await steps.step('Every Payer Code is an issued alphanumeric code', () =>
+    await steps.step('Every Payer Code is an issued or provisional alphanumeric code', () =>
       payerManagementPage.expectColumnMatches(
         PAYER_COLUMN.code,
         PAYER_CODE_PATTERN,
-        'an issued payer code',
+        'an issued (PAY-nnnnnn) or provisional (PAY-D-nnnn) payer code',
       ));
 
     await steps.step('Payer Codes are unique across the page', () =>

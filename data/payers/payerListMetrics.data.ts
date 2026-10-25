@@ -1,4 +1,5 @@
 import type { StatusFilterOption } from './filterPayer.data';
+import { PAYER_CODE_FORMAT } from './payer.data';
 
 /**
  * Test data for the user story: View Paginated Payer List with Metrics.
@@ -97,8 +98,13 @@ export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export const PHONE_PATTERN = /^\+\d{1,4}\s?\d{6,15}$/;
 
-/** Payer Code: the issued, unique alphanumeric key (e.g. "PAY-001315"). */
-export const PAYER_CODE_PATTERN = /^[A-Z]+-\d+$/;
+/**
+ * Payer Code as the list renders it: the issued key ("PAY-001315") or, for an
+ * unapproved record, the provisional one ("PAY-D-0334") the application shows
+ * since 2026-10-21. The list mixes drafts and published payers, so both are
+ * well-formed here - see PAYER_CODE_FORMAT in payer.data.ts.
+ */
+export const PAYER_CODE_PATTERN = PAYER_CODE_FORMAT.issuedOrProvisional;
 
 // ---- Status colour coding --------------------------------------------------
 

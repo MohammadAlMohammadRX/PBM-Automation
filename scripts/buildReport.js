@@ -25,6 +25,10 @@ const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Resul
  */
 const PARTIALS_DIR = process.argv[4] || '';
 
+/** The module the report is about - MODULE, as set by run-payer-module.js (default payer). */
+const MODULE_NAME = (process.env.MODULE || 'payer').replace(/[^a-z]/g, '') || 'payer';
+const MODULE_TITLE = `${MODULE_NAME.charAt(0).toUpperCase()}${MODULE_NAME.slice(1)}`;
+
 const ANSI = /\[[0-9;]*m/g;
 const clean = (t) => (t || '').replace(ANSI, '').trim();
 
@@ -276,6 +280,48 @@ const STORIES = [
   ['03-search-payers-by-name-or-code', 'Search Payers by Name or Code'],
   ['02-filter-payer-list-by-type-and-status', 'Filter Payer List by Type and Status'],
   ['05-sort-payer-list-by-column-headers', 'Sort Payer List by Column Headers'],
+  // Network module (Feature 14116), added 2026-10-24. Folder names reuse the
+  // two-digit numbering but never a payer folder name, so the modules cannot
+  // collide. Stories 09, 13, 30, 32 and 44 are Manual and have no folder.
+  ['01-apply-advanced-search-criteria-to-networks', 'US 14117 Apply advanced search criteria to networks'],
+  ['02-filter-networks-by-type-and-status', 'US 14118 Filter networks by type and status'],
+  ['03-view-network-directory-with-kpi-dashboard', 'US 14120 View network directory with KPI dashboard'],
+  ['04-export-network-list-to-csv-or-excel', 'US 14121 Export network list to CSV or Excel'],
+  ['05-register-a-new-network-with-bilingual-information', 'US 14122 Register a new network with bilingual information'],
+  ['06-sort-network-directory-by-columns', 'US 14123 Sort network directory by columns'],
+  ['07-deactivate-network-with-a-documented-reason', 'US 14127 Deactivate network with a documented reason'],
+  ['08-activate-network-manually-from-inactive-status', 'US 14128 Activate network manually from Inactive status'],
+  ['10-specify-network-type-and-effective-period', 'US 14124 Specify network type and effective period'],
+  ['11-edit-existing-network-details', 'US 14125 Edit existing network details'],
+  ['12-view-network-overview-and-details', 'US 14126 View network overview and details'],
+  ['14-propose-pharmacy-facility-assignments-for-approval', 'US 14131 Propose pharmacy facility assignments for approval'],
+  ['15-remove-pharmacy-facility-from-network', 'US 14132 Remove pharmacy facility from network'],
+  ['16-view-assigned-facilities-for-a-network', 'US 14133 View assigned facilities for a network'],
+  ['17-view-linked-policies-for-a-network', 'US 14136 View linked policies for a network'],
+  ['18-delete-a-network-subject-to-approval-when-live', 'US 14137 Delete a network, subject to approval when live'],
+  ['19-prevent-concurrent-edits-with-optimistic-locking', 'US 14138 Prevent concurrent edits with optimistic locking'],
+  ['20-view-network-audit-history', 'US 14139 View network audit history'],
+  ['21-control-access-with-role-based-permissions', 'US 14140 Control access with role-based permissions'],
+  ['22-display-bilingual-labels-and-validation-messages', 'US 14141 Display bilingual labels and validation messages'],
+  ['23-retain-network-codes-permanently-without-reuse', 'US 14142 Retain network codes permanently without reuse'],
+  ['24-require-pharmacy-coverage-and-an-active-payer-before-going-live', 'US 14301 Require pharmacy coverage and an active payer before a network can go live'],
+  ['25-show-owning-payer-on-the-network-directory-and-expand-advanced-search', 'US 14302 Show owning payer on the network directory and expand advanced search'],
+  ['26-include-arabic-details-and-owning-payer-when-exporting', 'US 14303 Include Arabic details and owning payer when exporting the network list'],
+  ['27-prevent-removing-a-network-s-last-pharmacy-while-it-is-active', 'US 14304 Prevent removing a network\'s last pharmacy while it is active'],
+  ['28-search-and-filter-the-assigned-facilities-list', 'US 14306 Search and filter the assigned facilities list'],
+  ['29-track-the-approval-state-of-pending-pharmacy-assignment-changes', 'US 14307 Track the approval state of pending pharmacy assignment changes'],
+  ['31-reactivate-an-expired-network-when-its-expiry-date-is-extended', 'US 14309 Reactivate an expired network when its expiry date is extended'],
+  ['33-warn-users-when-saving-a-network-that-changed-since-it-was-opened', 'US 14312 Warn users when saving a network that changed since it was opened'],
+  ['34-submit-network-changes-for-approval-before-they-go-live', 'US 14313 Submit network changes for approval before they go live'],
+  ['35-approve-or-reject-a-submitted-network-change', 'US 14314 Approve or reject a submitted network change'],
+  ['36-grant-permissions-individually-for-each-network-action', 'US 14315 Grant permissions individually for each network action (User & Role)'],
+  ['37-validate-network-naming-and-arabic-description-on-create-and-edit', 'US 14316 Validate network naming and Arabic description on create and edit'],
+  ['38-prevent-effective-and-expiry-dates-in-the-past', 'US 14317 Prevent effective and expiry dates in the past'],
+  ['39-enforce-status-prerequisites-for-activation-and-inactivation-actions', 'US 14318 Enforce status prerequisites for activation and inactivation actions'],
+  ['40-require-a-reason-when-inactivating-a-network', 'US 14319 Require a reason when inactivating a network'],
+  ['41-review-and-approve-or-reject-pending-network-changes', 'US 14320 Review and approve or reject pending network changes'],
+  ['42-view-network-version-history-and-revert-to-a-previous-version', 'US 14321 View network version history and revert to a previous version'],
+  ['43-restrict-role-payer-assignments-to-a-defined-scope', 'US 14322 Restrict role payer assignments to a defined scope'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
@@ -496,7 +542,11 @@ function splitTitle(title) {
   const m = title.match(/^\s*((?:TC|AC|ST)-\d+|\d{4,})\s*:\s*(.*)$/);
   if (!m) return { id: '-', expected: title.trim() };
   const text = m[2].trim();
-  return { id: m[1], expected: text.charAt(0).toUpperCase() + text.slice(1) };
+  // The network module titles its cases `TC-<Azure id>` (2026-10-21), so a
+  // TC- prefix on a 4+ digit number IS the Azure id - strip it, so the Azure
+  // publisher (which wants a bare id) maps it like the payer titles.
+  const id = m[1].replace(/^TC-(\d{4,})$/, '$1');
+  return { id, expected: text.charAt(0).toUpperCase() + text.slice(1) };
 }
 
 /**
@@ -882,7 +932,7 @@ const summaryRows = grouped
   })
   .join('');
 
-const html = `<title>Payer Module Test Results</title>
+const html = `<title>${MODULE_TITLE} Module Test Results</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
@@ -1015,9 +1065,9 @@ const html = `<title>Payer Module Test Results</title>
 <div class="wrap">
 <header>
   <p class="eyebrow">NeoRx PBM &middot; Automated regression</p>
-  <h1>Payer Module Test Results</h1>
+  <h1>${MODULE_TITLE} Module Test Results</h1>
   <p class="lede">Every one of the ${CASE_COUNT} automated test cases across the
-  ${grouped.length} automated payer user stories, with the expected result, what the application
+  ${grouped.length} automated ${MODULE_NAME} user stories, with the expected result, what the application
   actually did, and the step at which it diverged.</p>
 </header>
 

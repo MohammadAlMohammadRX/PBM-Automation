@@ -24,6 +24,7 @@ import {
   type TypeFilterOption,
 } from '../../data/payers/filterPayer.data';
 import { NO_RESULTS_TEXT, SEARCH_UI } from '../../data/payers/searchPayer.data';
+import { PAYER_CODE_FORMAT } from '../../data/payers/payer.data';
 import type { LicenceRule } from '../../data/payers/licenceNumber.data';
 import {
   NAME_ACCEPTED_STATUS,
@@ -1572,18 +1573,25 @@ export class PayerManagementPage extends ListPageBase {
     await expect(this.rowByText(payerName)).toContainText(expected, { timeout: Timeouts.default });
   }
 
+  /**
+   * No ISSUED code yet: the cell is blank or carries the provisional
+   * `PAY-D-nnnn` unapproved records show since 2026-10-21 - see
+   * PAYER_CODE_FORMAT.
+   */
   async expectNoPayerCode(payerName: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(await this.codeCell(payerName)).toHaveText(/^(—|-|\s*)$/, {
-      timeout: Timeouts.default,
-    });
+    await expect(await this.codeCell(payerName), 'an unapproved payer must not hold an issued PayerCode').toHaveText(
+      PAYER_CODE_FORMAT.notIssued,
+      { timeout: Timeouts.default },
+    );
   }
 
+  /** An ISSUED code (PAY-nnnnnn) - a provisional PAY-D- code does not count. */
   async expectPayerCodeAssigned(payerName: string): Promise<void> {
     await this.search(payerName);
     await this.waitForRowVisible(payerName);
-    await expect(await this.codeCell(payerName)).toHaveText(/PAY-\d+/, {
+    await expect(await this.codeCell(payerName)).toHaveText(PAYER_CODE_FORMAT.issued, {
       timeout: Timeouts.default,
     });
   }
@@ -1603,9 +1611,12 @@ export class PayerManagementPage extends ListPageBase {
     await expect(row).toContainText(approvalStatus, { timeout: Timeouts.default });
     const code = await this.codeCell(payerName);
     if (expectPayerCode) {
-      await expect(code).toHaveText(/PAY-\d+/, { timeout: Timeouts.default });
+      await expect(code).toHaveText(PAYER_CODE_FORMAT.issued, { timeout: Timeouts.default });
     } else {
-      await expect(code).toHaveText(/^(—|-|\s*)$/, { timeout: Timeouts.default });
+      await expect(code, 'a rejected payer must not hold an issued PayerCode').toHaveText(
+        PAYER_CODE_FORMAT.notIssued,
+        { timeout: Timeouts.default },
+      );
     }
   }
 
@@ -1614,7 +1625,7 @@ export class PayerManagementPage extends ListPageBase {
   async expectPublishedWithStatus(payerName: string, lifecycleStatus: string): Promise<void> {
     await this.search(payerName);
     await expect(this.rowByText(payerName)).toBeVisible({ timeout: Timeouts.default });
-    await expect(await this.codeCell(payerName)).toHaveText(/PAY-\d+/, {
+    await expect(await this.codeCell(payerName)).toHaveText(PAYER_CODE_FORMAT.issued, {
       timeout: Timeouts.default,
     });
     await expect(await this.lifecycleStatusCell(payerName)).toHaveText(lifecycleStatus, {

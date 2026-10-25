@@ -3,6 +3,7 @@ import { expect } from '@playwright/test';
 import { PAYER_SCOPE_DIALOG } from '../../constants/ElementIds';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
+import { env } from '../../constants/EnvironmentConfig';
 
 /**
  * The "Select a Payer" gate.
@@ -85,6 +86,7 @@ export class PayerScopeDialog {
     // account is offered no such entry and still gets the first payer it may
     // use.
     const wanted = payerName
+      ?? (await this.findConfiguredScopePayer(offered))
       ?? offered.find((label) => /^All\s|^كل\s|^جميع\s/i.test(label))
       ?? offered[0];
     Logger.step(`Selecting "${wanted}" in the payer scope gate`);
@@ -94,10 +96,41 @@ export class PayerScopeDialog {
       .first()
       .click();
     // locator-exception: the gate's Continue button carries no id; addressed by role and name.
-    await this.page.getByRole('button', { name: 'Continue', exact: true }).click();
+    // In either language (2026-10-25): the Arabic gate reads "متابعة", and a
+    // case that starts in Arabic never got past it (18017, 18018).
+    await this.page.getByRole('button', { name: /^\s*(Continue|متابعة)\s*$/ }).click();
     await expect(this.select(), 'the payer gate should close once a payer is confirmed')
       .toBeHidden({ timeout: Timeouts.default });
     return wanted;
+  }
+
+  /**
+   * SCOPE_PAYER, when it is set and this session may choose it - else null, and
+   * the gate falls back to its old default (2026-10-25: "AAA", the first payer
+   * offered, had expired). The gate lists ten payers a page and searches on the
+   * server, so a payer that is not on screen is typed into the overlay's own
+   * search box. A scoped account that is not given the payer simply falls back.
+   *
+   * locator-exception: the overlay's search box has no id; scoped to the open
+   * overlay, as BasePage.scopeTo does.
+   */
+  private async findConfiguredScopePayer(offered: readonly string[]): Promise<string | null> {
+    const wanted = env.scopePayer;
+    if (!wanted) return null;
+    if (offered.includes(wanted)) return wanted;
+    const overlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true }).first();
+    const filter = overlay.getByRole('searchbox'); // locator-exception: PrimeNG's overlay filter has no id; scoped to the open overlay
+    if ((await filter.count()) === 0) return null;
+    await filter.fill(wanted);
+    const found = await this.page
+      .getByRole('option', { name: wanted, exact: true })
+      .filter({ visible: true })
+      .first()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!found) await filter.fill('');
+    return found ? wanted : null;
   }
 
   /**

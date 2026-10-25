@@ -64,13 +64,16 @@ export const GET_NETWORKS_ENDPOINT = '/api/Networks/GetNetworks';
 export const HMO_NETWORK_TYPE_ID = '9a2b7c30-4e6f-4c1d-be3a-1a2b3c4d7102';
 
 /**
- * The only facility this environment offers - FCL-000007 "QA Expiry Test".
+ * The facility every seeded network shares (see the note on the id below).
  *
  * One facility may serve many networks, confirmed with the QA lead, so the
  * whole pool shares it. If the environment ever gains more, nothing here has
  * to change: the seeder only needs one.
  */
-export const SHARED_FACILITY_ID = 'e338443e-f36b-1410-8e09-00abe6b0babb';
+// FCL-000025 "QA Automation Pharmacy A" since 2026-10-24: FCL-000007's licence
+// lapsed on 2026-10-22, and a network holding an expired pharmacy can be neither
+// approved (409) nor made Active.
+export const SHARED_FACILITY_ID = '1ccb483e-f36b-1410-8e0a-00abe6b0babb';
 
 /**
  * How many networks to seed by default.

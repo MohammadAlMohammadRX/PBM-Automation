@@ -76,4 +76,24 @@ export class LanguageSwitcher {
       timeout: Timeouts.default,
     });
   }
+
+  // ---- story 22 additions (network bilingual labels) ----
+
+  /** Whether the language toggle is offered to this session at all. */
+  async isOffered(): Promise<boolean> {
+    return this.toggleButton()
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /** The label the toggle shows - the language it switches TO ("عربي" / "EN"). */
+  async getToggleLabel(): Promise<string> {
+    return (await this.toggleButton().innerText()).trim();
+  }
+
+  /** The document's layout direction - "rtl" or "ltr". */
+  async getDirection(): Promise<string> {
+    return ((await this.page.locator('html').getAttribute('dir')) ?? 'ltr').trim();
+  }
 }

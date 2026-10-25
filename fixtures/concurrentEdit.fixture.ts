@@ -5,6 +5,8 @@ import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { PayerFormDialog } from '../pages/payer/PayerFormDialog';
 import { PayerInactivateDialog } from '../pages/payer/PayerInactivateDialog';
+import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
+import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
 import { DEFAULT_VIEWPORT } from '../constants/BrowserConfig';
 import { env } from '../constants/EnvironmentConfig';
 import { Logger } from '../utils/Logger';
@@ -67,6 +69,14 @@ export interface StaleSession {
    * stale, which is the precondition every case in this story needs.
    */
   openEditForm(payerName: string): Promise<PayerFormDialog>;
+  /**
+   * The Network list, detail screen and approvals tab in the second window -
+   * added 2026-10-21 for the network concurrency, self-approval and
+   * concurrent-decision stories, which need the same administrator twice.
+   */
+  networks: NetworkManagementPage;
+  networkDetail: NetworkDetailPage;
+  networkApprovals: ApprovalManagementPage;
 }
 
 export interface ConcurrentEditFixtures {
@@ -103,6 +113,9 @@ export const test = base.extend<ConcurrentEditFixtures>({
       payerPage,
       approvalPage: new ApprovalManagementPage(page),
       inactivateDialog: new PayerInactivateDialog(page),
+      networks: new NetworkManagementPage(page),
+      networkDetail: new NetworkDetailPage(page),
+      networkApprovals: new ApprovalManagementPage(page, 'network'),
       async openEditForm(payerName: string): Promise<PayerFormDialog> {
         Logger.step(`[fixture] Second session opening "${payerName}" for edit`);
 

@@ -408,4 +408,24 @@ export class ConfirmDialog {
       .then(() => true)
       .catch(() => false);
   }
+
+  // ---- story 35 / 41 additions (typed rejection reasons) ----
+
+  /**
+   * Types a reason into the dialog's free-text field and returns what the
+   * field ended up holding - '' when the dialog offers nowhere to type (the
+   * payer module's Reject dialog has only a managed dropdown; see
+   * `hasFreeTextInput`). Real keystrokes are not needed for a length check, so
+   * `fill` is used; a maxlength still truncates it.
+   *
+   * locator-exception: same as hasFreeTextInput - any typable control inside
+   * the dialog root.
+   */
+  async typeReasonText(text: string): Promise<string> {
+    const typable = this.root().locator('textarea, input[type="text"]:not([role="combobox"])').first();
+    if ((await typable.count()) === 0) return '';
+    await typable.fill(text);
+    await typable.blur();
+    return typable.inputValue();
+  }
 }

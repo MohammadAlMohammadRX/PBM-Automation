@@ -139,4 +139,138 @@ export class NetworkInactivateDialog {
     await this.fillDetails(details);
     await this.confirm();
   }
+
+  // ---- Added 2026-10-21 for the network module's reason and status stories ----
+
+  private reasonSelect(): Locator {
+    return this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.reasonSelect}`);
+  }
+
+  private detailsInput(): Locator {
+    return this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.detailsInput}`);
+  }
+
+  private saveButton(): Locator {
+    return this.page.locator(buttonSelector(NETWORK_INACTIVATE_DIALOG.save)).first();
+  }
+
+  /** The reasons the lookup offers, in order, without choosing one. */
+  async getReasonOptions(): Promise<string[]> {
+    await this.waitForOpen();
+    await this.reasonSelect().click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const texts = await options.allInnerTexts();
+    await this.page.keyboard.press('Escape');
+    return texts.map((text) => text.trim()).filter((text) => text !== '');
+  }
+
+  /** Picks a reason by its visible label. */
+  async selectReason(reason: string): Promise<void> {
+    Logger.step(`Choosing inactivation reason "${reason}"`);
+    await this.reasonSelect().click();
+    await this.page.getByRole('option', { name: reason, exact: true }).filter({ visible: true }).first().click();
+    await expect(this.reasonSelect()).toContainText(reason, { timeout: Timeouts.short });
+  }
+
+  /** The reason currently chosen - the select's placeholder ("Select") when none is. */
+  async getSelectedReason(): Promise<string> {
+    return (await this.reasonSelect().innerText()).trim();
+  }
+
+  /**
+   * Types details with real key presses (a programmatic fill can bypass a
+   * maxlength), and returns what the field ended up holding.
+   */
+  async typeDetails(text: string): Promise<string> {
+    const input = this.detailsInput();
+    await input.click();
+    await input.press('ControlOrMeta+a');
+    await input.press('Delete');
+    await input.fill(text);
+    await input.blur();
+    return input.inputValue();
+  }
+
+  /** The details field's declared `maxlength`, or null when it declares none. */
+  async getDetailsMaxLength(): Promise<number | null> {
+    const value = await this.detailsInput().getAttribute('maxlength');
+    return value === null ? null : Number(value);
+  }
+
+  /** Whether the affirmative "Inactivate" button can be clicked. */
+  async isSaveEnabled(): Promise<boolean> {
+    return this.saveButton().isEnabled({ timeout: Timeouts.short }).catch(() => false);
+  }
+
+  /** The "Needs approval ..." notice the drawer shows. */
+  async getApprovalNotice(): Promise<string> {
+    const notice = this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.approvalNotice}`);
+    await expect(notice).toBeVisible({ timeout: Timeouts.default });
+    return (await notice.innerText()).trim();
+  }
+
+  /** Inline errors under the reason and details fields, '' when there are none. */
+  async getFieldErrors(): Promise<{ reason: string; details: string }> {
+    const read = async (id: string) =>
+      this.page.locator(`#${id}`).innerText({ timeout: Timeouts.short }).then((t) => t.trim()).catch(() => '');
+    return {
+      reason: await read(NETWORK_INACTIVATE_DIALOG.reasonError),
+      details: await read(NETWORK_INACTIVATE_DIALOG.detailsError),
+    };
+  }
+
+  /**
+   * Clicks Inactivate and reports whether the drawer CLOSED (the change was
+   * staged) or stayed open (it was refused), with the toast it showed. For the
+   * cases whose subject is the refusal - `confirm()` throws on it instead.
+   */
+  async attemptConfirm(): Promise<{ closed: boolean; toast: string }> {
+    await this.saveButton().click({ timeout: Timeouts.short }).catch(() => undefined);
+    const closed = await this.title()
+      .waitFor({ state: 'hidden', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+    const toast = await this.page
+      .locator(`#${TOAST.summary}`)
+      .innerText({ timeout: Timeouts.short })
+      .then((text) => text.trim())
+      .catch(() => '');
+    return { closed, toast };
+  }
+
+  // ---- story 07 / 39 / 40 additions ----
+
+  /**
+   * Clicks Inactivate several times without waiting between clicks - the
+   * double-submission cases. Awaiting between clicks is exactly the pause that
+   * lets the application disable the button, so the clicks are fired together
+   * (the same argument ConfirmDialog.confirmRepeatedly makes).
+   */
+  async confirmRepeatedly(times: number): Promise<void> {
+    Logger.step(`Clicking Inactivate ${times} times in rapid succession`);
+    const button = this.saveButton();
+    await Promise.all(Array.from({ length: times }, () => button.click({ force: true, noWaitAfter: true }).catch(() => undefined)));
+    await this.title().waitFor({ state: 'hidden', timeout: Timeouts.default }).catch(() => undefined);
+  }
+
+  /** The details field's current value. */
+  async getDetailsValue(): Promise<string> {
+    return this.detailsInput().inputValue();
+  }
+
+  /**
+   * The drawer's character counter for Details ("12/500"), or '' when it
+   * shows none. Read from the drawer text, because no counter id exists.
+   */
+  async getDetailsCounter(): Promise<string> {
+    const text = await this.getExplanation();
+    return text.match(/\d+\s*\/\s*\d+/)?.[0]?.replace(/\s+/g, '') ?? '';
+  }
+
+  /** Whether the Reason field is marked mandatory (an asterisk on its label). */
+  async isReasonMarkedRequired(): Promise<boolean> {
+    const text = await this.getExplanation();
+    return /Reason[^\n]*\*/i.test(text);
+  }
 }

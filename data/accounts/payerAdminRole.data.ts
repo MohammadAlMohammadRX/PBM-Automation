@@ -72,6 +72,30 @@ export type PayerPermissionKey = keyof typeof PAYER_PERMISSION;
 export const NETWORK_PERMISSION = {
   inactivateNetwork: 'InactivateNetwork',
   activateNetwork: 'SetNetworkActive',
+  // The rest of the Networks group, verified in the catalogue 2026-10-21.
+  createNetwork: 'CreateNetwork',
+  // NOT IN THE CATALOGUE since the 2026-10-24 build (297 rows, no UpdateNetwork):
+  // editing cannot be withheld from a role. 18004 fails on it; the cases that
+  // need a role without it report BLOCKED with that reason.
+  editNetwork: 'UpdateNetwork',
+  deleteNetwork: 'DeleteNetwork',
+  cloneNetwork: 'CloneNetwork',
+  exportNetworks: 'ExportNetworks',
+  viewNetworkDetails: 'GetNetwork',
+  viewNetworksDashboard: 'GetNetworksDashboard',
+  viewNetworksDropdown: 'GetNetworksDropdown',
+  viewNetworkVersions: 'GetNetworkVersions',
+  revertNetworkVersion: 'RevertNetworkVersion',
+  viewNetworkAuditTrail: 'GetNetworkAuditTrail',
+  // NOT IN THE CATALOGUE since the 2026-10-24 build - see editNetwork.
+  viewNetworkFacilities: 'GetNetworkFacilities',
+  exportNetworkFacilities: 'ExportNetworkFacilities',
+  viewNetworkPolicies: 'GetNetworkPolicies',
+  viewAssignableFacilities: 'GetAssignableFacilities',
+  assignFacilities: 'AssignFacilitiesToNetwork',
+  unassignFacility: 'UnassignFacilityFromNetwork',
+  submitNetwork: 'SubmitNetworkForApproval',
+  importNetworks: 'Import networks and facilities',
 } as const;
 
 export type NetworkPermissionKey = keyof typeof NETWORK_PERMISSION;

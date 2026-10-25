@@ -1,8 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { Timeouts } from '../../constants/Timeouts';
-import { buttonSelector, type WizardField } from '../../constants/ElementIds';
+import { TOAST, buttonSelector, type WizardField } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
+import { ConfirmDialog } from './ConfirmDialog';
+import { WaitUtils } from '../../utils/WaitUtils';
 
 /**
  * Generic base for the multi-step "Add/Edit <Entity>" side-panel wizards used
@@ -150,6 +152,445 @@ export abstract class EntityWizardDialog {
     if ((await checkbox.isChecked()) !== checked) {
       await checkbox.click();
     }
+  }
+
+
+  // ---- Lifecycle shared by every wizard (lifted from PayerFormDialog 2026-10-21,
+  // when the Network wizard became the second user) --------------------------
+
+  /**
+   * The drawer host stays mounted and zero-size while closed, so it never
+   * reports as visible - the title is what actually appears when it opens.
+   */
+  async waitForOpen(): Promise<void> {
+    await expect(this.title()).toBeVisible({ timeout: Timeouts.default });
+  }
+
+  async waitForClosed(): Promise<void> {
+    await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Types a DD/MM/YYYY value into a PrimeNG datepicker using real keystrokes.
+   * A programmatic value set (locator.fill) updates only what is displayed - the
+   * datepicker's own model stays empty, so Save is then blocked by the required
+   * -field check with no request ever sent. Enter commits and closes the panel.
+   */
+  async fillDateField(label: string, value: string): Promise<void> {
+    const input = this.field(label);
+    // DATE AND TIME since the 2026-10-12 build. The pickers now read
+    // "DD/MM/YYYY HH:mm"; a bare date is rejected, the field stays empty and
+    // Save is refused with "This field is required." - which blocked every
+    // payer the suite creates (found by 14911, 2026-10-13). A date-only value
+    // gets 23:59, which keeps "today" from reading as earlier than now and
+    // leaves past and future dates on the same day.
+    const placeholder = (await input.getAttribute('placeholder').catch(() => '')) ?? '';
+    if (/HH:mm/i.test(placeholder) && /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim())) value = `${value.trim()} 23:59`;
+    Logger.step(`Setting "${label}" to "${value}"`);
+    await input.click();
+    await input.press('ControlOrMeta+a');
+    await input.pressSequentially(value);
+    await input.press('Enter');
+  }
+
+  /**
+   * Clears a field's value using real key presses. The app ignores programmatic
+   * value changes, so a cleared field must be emptied with select-all + Delete
+   * for the form to register it as empty.
+   */
+  async clearField(label: string): Promise<void> {
+    Logger.step(`Clearing "${label}"`);
+    const input = this.field(label);
+    await input.waitFor({ state: 'visible', timeout: Timeouts.default });
+    await input.click();
+    await input.press('ControlOrMeta+a');
+    await input.press('Delete');
+    await input.blur();
+  }
+
+  /**
+   * Closes the wizard, discarding any unsaved changes.
+   *
+   * The guard only appears when the form is dirty, so a clean form (e.g. a
+   * read-only inspection) closes directly. The guard is the app's shared dialog
+   * with a `discard` action key - not a separate unsaved-changes dialog.
+   */
+  async closeAndDiscard(): Promise<void> {
+    // WAITS FOR THE DRAWER TO SETTLE FIRST, and the direction of that wait is
+    // the whole point. Several cases attempt a save whose outcome is the thing
+    // under test: it may go through and close the drawer, or be withheld and
+    // leave it open. Tidying up afterwards then raced the closing animation -
+    // "is it open?" answered yes while the panel was still sliding away, the
+    // click found the button mid-flight and then gone, and the step failed on a
+    // click timeout in place of the result the case had already established.
+    //
+    // Waiting for HIDDEN settles that race in the only order that is safe: a
+    // drawer on its way out resolves within the window and there is nothing to
+    // do, while one that is genuinely staying open never resolves and is closed
+    // properly below.
+    const closedItself = await this.title()
+      .waitFor({ state: 'hidden', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (closedItself) return;
+    if ((await this.closeButton().count()) === 0) return;
+    await this.clickClose();
+    const guard = new ConfirmDialog(this.page);
+    if (await guard.isDiscardPromptVisible()) {
+      await guard.discardChanges();
+    }
+    await this.waitForClosed();
+  }
+
+  // ---- Field reading and validation (lifted from PayerFormDialog 2026-10-21) ----
+
+  /**
+   * Navigates the wizard until the given field is on screen, by the step its
+   * field map assigns it - the stepper bullet for that step number. Retried,
+   * because a bullet on a sliding panel does not always take the first click.
+   * PayerFormDialog overrides this with its step-title navigation.
+   */
+  async goToStepContaining(label: string): Promise<void> {
+    const target = this.field(label);
+    if (await target.isVisible().catch(() => false)) return;
+    const step = this.fieldSpec(label).step;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.clickThroughAnimation(this.stepBullet(step), `the stepper bullet for step ${step}`);
+      const shown = await target
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      if (shown) return;
+    }
+    await expect(target).toBeVisible({ timeout: Timeouts.default });
+  }
+
+  async expectFieldRequired(label: string, message: string): Promise<void> {
+    await this.expectFieldError(label, message);
+  }
+
+  /**
+   * Asserts a specific inline validation message under a field. Saving happens
+   * from the last step, but each error renders on the step that owns the field,
+   * so the wizard is moved back to that step before asserting.
+   */
+  async expectFieldError(label: string, message: string): Promise<void> {
+    await this.goToStepContaining(label);
+    await expect(this.fieldError(label)).toHaveText(message, { timeout: Timeouts.default });
+  }
+
+  /**
+   * Asserts a field shows NO inline error.
+   *
+   * The positive counterpart of `expectFieldError`, and not the same as "the
+   * error text does not match": a field that has never been touched has no
+   * error element at all, so this asserts absence rather than emptiness. That
+   * is what "accepts the input without an inline error" means for the
+   * length-boundary cases.
+   */
+  async expectNoFieldError(label: string): Promise<void> {
+    await this.goToStepContaining(label);
+    await expect(this.fieldError(label)).toHaveCount(0, { timeout: Timeouts.short });
+  }
+
+  /**
+   * Types a value into a field and asserts whether the field REFUSES it.
+   *
+   * Branch kept out of the spec, as the framework does elsewhere. The
+   * character-set story has cases going both ways - Arabic letters in the
+   * English field are refused, a '#' or an emoji is not - and a conditional in
+   * the test body is how one of those ends up asserting nothing at all.
+   *
+   * On the accepting path the VALUE is asserted too, not just the absence of an
+   * error: a field that silently stripped characters would satisfy "no error"
+   * while having quietly changed what the user typed.
+   */
+  async expectCharacterSetOutcome(
+    label: string,
+    value: string,
+    expectRejected: boolean,
+    message: string,
+  ): Promise<void> {
+    await this.goToStepContaining(label);
+    await this.fillTextField(label, value);
+    await this.field(label).blur();
+
+    if (expectRejected) {
+      await expect(this.fieldError(label)).toHaveText(message, { timeout: Timeouts.default });
+      return;
+    }
+    await expect(this.fieldError(label)).toHaveCount(0, { timeout: Timeouts.short });
+    await expect(this.field(label)).toHaveValue(value, { timeout: Timeouts.default });
+  }
+
+  /**
+   * Asserts the wizard offers a control for this label ON THE CURRENT STEP.
+   *
+   * Deliberately does NOT navigate to the field's step, unlike the assertions
+   * below. Navigating means clicking Next, which the wizard refuses while the
+   * current step is incomplete - so on a freshly opened form this would time out
+   * waiting for a field it had never managed to reach, and report a missing
+   * control on a wizard that has one. Callers reach the step by filling it,
+   * which is what a user does, and then assert.
+   */
+  async expectFieldPresent(label: string): Promise<void> {
+    await expect(this.field(label)).toBeVisible({ timeout: Timeouts.default });
+  }
+
+  /** Asserts a text field currently holds exactly `expected`. */
+  async expectFieldValue(label: string, expected: string): Promise<void> {
+    await this.goToStepContaining(label);
+    await expect(this.field(label)).toHaveValue(expected, { timeout: Timeouts.default });
+  }
+
+  /**
+   * Asserts how many characters a field is holding.
+   *
+   * Length rather than the value itself, for the over-limit case: the point
+   * there is that the field truncated a longer input, and comparing against a
+   * 100-character expected string would report a mismatch without saying which
+   * end was wrong.
+   */
+  async expectFieldValueLength(label: string, expected: number): Promise<void> {
+    await this.goToStepContaining(label);
+    await expect
+      .poll(async () => (await this.getFieldValue(label)).length, {
+        timeout: Timeouts.default,
+        message: `"${label}" should be holding exactly ${expected} character(s).`,
+      })
+      .toBe(expected);
+  }
+
+  /**
+   * Asserts the field declares a `maxlength`.
+   *
+   * This is the application's own statement of the limit, and asserting it
+   * alongside the observed truncation separates two different reasons the field
+   * might hold 100 characters: a declared cap, or a coincidence of the value
+   * used. Only the first is the behaviour the story requires.
+   */
+  async expectFieldMaxLength(label: string, expected: number): Promise<void> {
+    await this.goToStepContaining(label);
+    await expect(this.field(label)).toHaveAttribute('maxlength', String(expected), {
+      timeout: Timeouts.default,
+    });
+  }
+
+  // ---- Edit-mode helpers ----------------------------------------------------
+
+  /** Current value of a text field (used to prove edits persisted). */
+  async getFieldValue(label: string): Promise<string> {
+    return this.field(label).inputValue();
+  }
+
+  /**
+   * Whether a field can be typed into: present, enabled and not read-only.
+   * A field that is missing altogether also counts as not editable - a form
+   * that hides the control has refused the edit as surely as one that locks it.
+   */
+  async isFieldEditable(label: string): Promise<boolean> {
+    const field = this.field(label);
+    if ((await field.count()) === 0) return false;
+    return field.isEditable({ timeout: Timeouts.short }).catch(() => false);
+  }
+
+  /** Current selection shown by a dropdown field. */
+  async getDropdownValue(label: string): Promise<string> {
+    return (await this.field(label).innerText()).trim();
+  }
+
+  /**
+   * The options a dropdown currently OFFERS, without selecting any.
+   *
+   * Needed by the country/city cascade cases, and it is the only way to state
+   * their real guarantee. The sheet asks to "force a city belonging to another
+   * country onto the form"; there is no such path - City is a closed dropdown
+   * whose options are re-fetched per country, so a mismatched value is
+   * unselectable rather than rejected. Proving the list EXCLUDES it is the same
+   * assurance, reachable through the interface that exists.
+   *
+   * The panel is closed again afterwards, so a caller can chain further reads
+   * without an open overlay swallowing the next click.
+   */
+  async getDropdownOptions(label: string): Promise<string[]> {
+    await this.goToStepContaining(label);
+    await this.field(label).click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
+    const values = await options.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLElement).innerText.trim()).filter((text) => text !== ''),
+    );
+    await this.page.keyboard.press('Escape');
+    return [...new Set(values)];
+  }
+
+  /**
+   * Types into a dropdown's filter box and returns what survives.
+   *
+   * Returns an EMPTY LIST when the overlay carries no filter input, so a case
+   * can report "this control offers no search" instead of timing out against a
+   * box that was never rendered. PrimeNG renders the filter only when the
+   * component asks for it, and a three-entry catalogue may well not.
+   *
+   * locator-exception: the filter input is a PrimeNG internal with no id.
+   * Scoped to the open overlay, which is reached from the field's own id.
+   */
+  async filterDropdownOptions(label: string, query: string): Promise<string[]> {
+    await this.goToStepContaining(label);
+    await this.field(label).click();
+    const filter = this.page.locator('.p-select-filter, .p-dropdown-filter').first();
+    const hasFilter = await filter
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasFilter) {
+      await this.page.keyboard.press('Escape');
+      Logger.warn(`The "${label}" dropdown offers no filter box - returning no matches`);
+      return [];
+    }
+    await filter.fill(query);
+    const options = this.page.getByRole('option').filter({ visible: true });
+    const values = await options
+      .evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).innerText.trim()))
+      .catch(() => []);
+    await this.page.keyboard.press('Escape');
+    return values.filter((text) => text !== '');
+  }
+
+  /**
+   * True when the wizard exposes an editable control for the given label.
+   *
+   * A label this wizard has no mapping for means the form does not offer that
+   * field at all, so the answer is a plain `false` - NOT an error. The
+   * system-generated identifiers the edit tests check ("Payer ID", "Payer
+   * Code") are exactly that case: they are deliberately absent from the form,
+   * which is the very thing `expectFieldNotEditable` asserts.
+   */
+  async hasEditableField(label: string): Promise<boolean> {
+    const spec = this.optionalFieldSpec(label);
+    if (!spec) return false;
+
+    const control = this.field(label);
+    if ((await control.count()) === 0) return false;
+    if (spec.kind === 'select') {
+      return (await control.getAttribute('aria-disabled')) !== 'true';
+    }
+    const readonly = await control.getAttribute('readonly');
+    const disabled = await control.isDisabled().catch(() => false);
+    return readonly === null && !disabled;
+  }
+
+  /**
+   * Asserts a system-generated field cannot be edited: it is either absent from
+   * the form entirely, or rendered read-only/disabled.
+   */
+  async expectFieldNotEditable(label: string): Promise<void> {
+    expect(
+      await this.hasEditableField(label),
+      `Field "${label}" must not be editable in this form.`,
+    ).toBe(false);
+  }
+
+  /**
+   * Navigates to the step holding a field, then sets its value.
+   *
+   * Edit mode needs REAL keystrokes: the app compares the edited form against
+   * the loaded record to decide whether anything changed, and a programmatic
+   * value set (locator.fill) leaves that comparison seeing "no changes made".
+   * Selecting the existing text and typing over it fires the full key event
+   * sequence, so the change is registered and the draft is created.
+   */
+  async setFieldValue(label: string, value: string, kind: 'text' | 'dropdown'): Promise<void> {
+    await this.goToStepContaining(label);
+    if (kind === 'dropdown') {
+      await this.selectDropdownOption(label, value);
+      return;
+    }
+    Logger.step(`Typing "${value}" into "${label}"`);
+    const input = this.field(label);
+    await input.click();
+    await input.press('ControlOrMeta+a');
+    await input.pressSequentially(value);
+    await input.blur();
+  }
+
+  /**
+   * Whether the drawer is still open - it stays open after a rejected save.
+   *
+   * Waits, because the option `isVisible()` takes is ignored: it is a single
+   * instantaneous read. This is asked in the moment right after a save attempt,
+   * while the drawer is either closing or being kept open, so an instant read
+   * answers a question the application has not finished answering.
+   */
+  async isOpen(): Promise<boolean> {
+    return this.title()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  /**
+   * Every message the application shows within a fair window, waiting for one.
+   *
+   * This is what a case asserting "the user was told something" - or, more
+   * often here, "the user was told NOTHING" - should call. See
+   * BasePage.settleMessages: the snapshot below is instantaneous, and a claim
+   * of silence made from a single instantaneous read is a claim about timing
+   * rather than about the application.
+   */
+  async waitForVisibleMessages(timeout: number = Timeouts.short): Promise<string[]> {
+    return WaitUtils.settleMessages(() => this.getVisibleMessages(), timeout);
+  }
+
+  /**
+   * Every message the application is currently showing, from any of the places
+   * it could put one.
+   *
+   * Collected from toasts, inline field errors and the shared dialog together,
+   * because the assertion is "the user was told SOMETHING, somewhere". Checking
+   * only the toast host would let a conflict reported as an inline error read as
+   * a failure, and vice versa - and this story's finding is that none of them
+   * carries anything at all, which is a claim worth making carefully.
+   */
+  async getVisibleMessages(): Promise<string[]> {
+    // THE APPLICATION'S OWN TOAST IDS COME FIRST, and their absence here was a
+    // long-running false negative. This list used to name PrimeNG's
+    // `.p-toast-summary`, which the application does not render: it wraps the
+    // toast in its own markup and puts the text in `#pbm-toast-summary`. The
+    // two read almost identically, so a duplicate-email save that DID show
+    // "Email 'dd@dd.dd' is already taken." was reported as showing nothing at
+    // all. PayerDetailPage has always read the right id; only this copy drifted.
+    //
+    // `offsetParent` is no longer the visibility test either. It is null for
+    // any position:fixed element, and a toast is exactly that - so even the
+    // right selector would have been discarded. A laid-out box is the honest
+    // check.
+    const selectors = [
+      `#${TOAST.summary}`,
+      `#${TOAST.detail}`,
+      '.p-toast-summary',
+      '.p-toast-detail',
+      '[id$="-error"]',
+      '.p-error',
+      '#pbm-dialog-message',
+      '#pbm-dialog-alert',
+    ];
+    return this.page.evaluate((queries) => {
+      const seen = new Set<string>();
+      queries.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((node) => {
+          const element = node as HTMLElement;
+          const text = (element.innerText || '').trim().replace(/\s+/g, ' ');
+          if (text === '') return;
+          const style = window.getComputedStyle(element);
+          const laidOut = element.getBoundingClientRect().height > 0;
+          if (laidOut && style.visibility !== 'hidden' && style.display !== 'none') {
+            seen.add(text);
+          }
+        });
+      });
+      return [...seen];
+    }, selectors);
   }
 
   // ---- Footer actions -------------------------------------------------------

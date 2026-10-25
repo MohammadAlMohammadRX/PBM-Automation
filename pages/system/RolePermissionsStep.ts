@@ -281,7 +281,11 @@ export class RolePermissionsStep {
     );
     if (index < 0) {
       throw new Error(
-        `[RolePermissionsStep] No permission row is labelled exactly "${label}". `
+        // Worded for the BLOCKED report (2026-10-24): a missing row means the
+        // right is not separately grantable in this build, so a role without it
+        // cannot be built - not that the shaping step broke.
+        `[RolePermissionsStep] This build's permission catalogue has no "${label}" permission, so a role `
+          + `without it cannot be built - the right is not separately grantable. `
           + `Labels present: ${JSON.stringify(await this.getPermissionLabels())}`,
       );
     }

@@ -250,7 +250,9 @@ export type RowAction =
   | 'delete'
   | 'submit-for-approval'
   | 'inactivate'
-  | 'activate';
+  | 'activate'
+  /** The Network list offers Clone on every row (verified 2026-10-21). */
+  | 'clone';
 
 // ---------------------------------------------------------------------------
 // Add / Edit Payer wizard
@@ -900,7 +902,11 @@ export const NETWORK_INACTIVATE_DIALOG = {
   title: 'network-inactivate-dialog-title',
   close: 'network-inactivate-dialog-close',
   reasonSelect: 'network-inactivate-dialog-reason-id-select',
+  reasonError: 'network-inactivate-dialog-reason-id-error',
   detailsInput: 'network-inactivate-dialog-details-input',
+  detailsError: 'network-inactivate-dialog-details-error',
+  /** "Needs approval. Switching this saves a draft ..." - verified 2026-10-21. */
+  approvalNotice: 'network-inactivate-dialog-approval-notice-text',
   cancel: 'network-inactivate-dialog-cancel-button',
   save: 'network-inactivate-dialog-save-button',
 } as const;
@@ -1135,3 +1141,268 @@ export const PERMISSION_GROUP = {
  * quietly worked around.
  */
 export const PERMISSION_ROW_CLASS = 'p-treenode';
+
+// ---------------------------------------------------------------------------
+// Network module (/network-management) - mapped 2026-10-21 from the live DOM
+// ---------------------------------------------------------------------------
+
+/**
+ * The Network list's toolbar, KPI band and filters.
+ *
+ * Every id below was read off the live screen by a DOM probe, not inferred
+ * from the payer list. The two lists share a component, so the SHAPE matches
+ * (`{screen}-kpi-{key}-value`, `{screen}-sort-option-{field}-{dir}`), but the
+ * keys do not - the network KPIs are total/active/pending/inactive/expired and
+ * the sort fields are the network model's own property names.
+ */
+export const NETWORK_LIST = {
+  screen: 'network-list',
+  kpiBand: 'network-list-kpis',
+  /** `${kpi}-label` and `${kpi}-value` hang off each of these. */
+  kpi: {
+    total: 'network-list-kpi-total',
+    active: 'network-list-kpi-active',
+    pending: 'network-list-kpi-pending',
+    inactive: 'network-list-kpi-inactive',
+    expired: 'network-list-kpi-expired',
+  },
+  typeFilter: 'network-list-filter-type-select',
+  statusFilter: 'network-list-filter-status-select',
+  advancedSearchButton: 'network-list-search-filter-button',
+  advancedSearch: 'network-list-advanced-search',
+  /** Filter chips rendered once advanced-search criteria are applied. */
+  chips: 'network-list-filter-chips',
+  sortTrigger: 'network-list-sort-trigger',
+  sortMenu: 'network-list-sort-menu',
+  sortOptionPrefix: 'network-list-sort-option-',
+  addButton: 'network-list-add-button',
+  importTrigger: 'network-list-import-trigger',
+  tableBody: 'network-list-table-body',
+} as const;
+
+export type NetworkKpiKey = keyof typeof NETWORK_LIST.kpi;
+
+/** The Network list's Export menu - same two-step flow as the payer list's. */
+export const NETWORK_EXPORT = {
+  root: 'network-list-export',
+  trigger: 'network-list-export-trigger',
+  menu: 'network-list-export-menu',
+  /** VERIFIED 2026-10-21: writes the CURRENT PAGE only (10 rows of 603). */
+  selected: 'network-list-export-selected',
+  /** VERIFIED 2026-10-21: writes the whole register (603 rows). */
+  all: 'network-list-export-all',
+  template: 'network-list-export-template',
+} as const;
+
+/** The sort expressions behind each Sort By option (`{field}-{asc|desc}`). */
+export const NETWORK_SORT_FIELD = {
+  name: 'networknameen',
+  code: 'networkcode',
+  type: 'networktypeid',
+  status: 'statusid',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  createdOn: 'createdon',
+  modifiedOn: 'modifiedon',
+} as const;
+
+export type NetworkSortColumn = keyof typeof NETWORK_SORT_FIELD;
+
+/**
+ * Advanced Search criteria keys under `network-list-advanced-search-field-`.
+ * Live 2026-10-21: searchtext, networktypeid, statusid, approvalstatus. There
+ * is NO payer criterion - `payer` is listed because story 14302 asks for one,
+ * and the drawer reports it absent rather than the spec guessing.
+ */
+export const NETWORK_ADVANCED_SEARCH_FIELD = {
+  nameOrCode: 'searchtext',
+  networkType: 'networktypeid',
+  status: 'statusid',
+  approvalStatus: 'approvalstatus',
+  payer: 'payerid',
+} as const;
+
+export type NetworkSearchField = keyof typeof NETWORK_ADVANCED_SEARCH_FIELD;
+
+/** The Add / Edit / Clone Network wizard. */
+export const NETWORK_FORM_PREFIX = 'network-form-drawer';
+
+export const NETWORK_FORM_FIELD: Record<string, WizardField> = {
+  'Network Name': { key: 'network-name-en', kind: 'text', step: 1 },
+  /** The Arabic name's label is Arabic in both UI languages. */
+  'الشبكة الطبية': { key: 'network-name-ar', kind: 'text', step: 1 },
+  'Network Type': { key: 'network-type-id', kind: 'select', step: 1 },
+  Description: { key: 'description-en', kind: 'text', step: 1 },
+  'Description (Arabic)': { key: 'description-ar', kind: 'text', step: 1 },
+  'Effective Date': { key: 'effective-date', kind: 'date', step: 2 },
+  'Expiry Date': { key: 'expiry-date', kind: 'date', step: 2 },
+};
+
+export const NETWORK_FORM = {
+  /** The owning payer, shown read-only as a tag (the top-bar scope payer). */
+  payerTag: 'network-form-drawer-payer-id-tag',
+  /** Step 2's "Important: Initial status will be set to Pending ..." notice. */
+  importantNotice: 'network-form-drawer-important-title-message-text',
+} as const;
+
+/** The network detail screen (`/network-management/{id}`). */
+export const NETWORK_DETAIL = {
+  root: 'network-detail',
+  headerCard: 'network-detail-header-card',
+  name: 'network-detail-name',
+  statusBadge: 'network-detail-status-badge',
+  versionBadge: 'network-detail-version-badge',
+  tabs: 'network-detail-tabs',
+  tab: {
+    overview: 'network-detail-tab-overview',
+    facilities: 'network-detail-tab-facilities',
+    policies: 'network-detail-tab-policies',
+    versions: 'network-detail-tab-versions',
+    audit: 'network-detail-tab-audit',
+  },
+  /** Header actions, `network-detail-{action}-button`; offered by state. */
+  action: {
+    edit: 'network-detail-edit-button',
+    clone: 'network-detail-clone-button',
+    delete: 'network-detail-delete-button',
+    inactivate: 'network-detail-inactivate-button',
+    activate: 'network-detail-activate-button',
+    submit: 'network-detail-submit-for-approval-button',
+  },
+  /** Overview fields, `network-detail-overview-{key}`. */
+  overview: {
+    code: 'network-detail-overview-network-code',
+    nameAr: 'network-detail-overview-network-name-ar',
+    type: 'network-detail-overview-network-type',
+    descriptionEn: 'network-detail-overview-description-en',
+    descriptionAr: 'network-detail-overview-description-ar',
+    effectiveDate: 'network-detail-overview-effective-date',
+    expiryDate: 'network-detail-overview-expiry-date',
+    status: 'network-detail-status-badge-2',
+  },
+} as const;
+
+export type NetworkDetailTab = keyof typeof NETWORK_DETAIL.tab;
+export type NetworkDetailAction = keyof typeof NETWORK_DETAIL.action;
+export type NetworkOverviewField = keyof typeof NETWORK_DETAIL.overview;
+
+/**
+ * The Facility Assignment tab.
+ *
+ * locator-exception: the application reuses the ids of an unrelated
+ * "inactivation-details" component here - the search box is
+ * `network-detail-inactivation-details-search-2`, every status badge in the
+ * table is `-badge-4` and every assignment badge `-badge-3`, and every Remove
+ * button shares `network-detail-remove-facility-button`. Rows carry NO id, so
+ * a row is addressed by its facility name or code inside the tab's table.
+ */
+/**
+ * The id FAMILY of the reused "inactivation-details" search box (2026-10-25).
+ * The app numbers it by render order - the Facilities tab's box was
+ * `...-search-2-input` in one session and `...-search-input` in another - so a
+ * fixed id failed five facility cases with the box plainly on screen. Matched
+ * by prefix/suffix and narrowed to the VISIBLE one: only the open tab's box is.
+ */
+export const DETAIL_TAB_SEARCH = {
+  inputSelector: '[id^="network-detail-inactivation-details-search"][id$="-input"]',
+  filterButtonSelector: 'button[id^="network-detail-inactivation-details-search"][id$="-filter-button"], [id^="network-detail-inactivation-details-search"][id$="-filter-button"] > button',
+} as const;
+
+export const NETWORK_FACILITIES = {
+  searchInput: 'network-detail-inactivation-details-search-2-input',
+  advancedSearchButton: 'network-detail-inactivation-details-search-2-filter-button',
+  advancedSearch: 'network-detail-facilities-advanced-search',
+  chips: 'network-detail-inactivation-details-chips-2',
+  exportTrigger: 'network-detail-facilities-export-trigger',
+  importTrigger: 'network-detail-facilities-import-trigger',
+  assignButton: 'network-detail-assign-fac-open-button',
+  removeButton: 'network-detail-remove-facility-button',
+  statusBadge: 'network-detail-inactivation-details-badge-4',
+  assignmentBadge: 'network-detail-inactivation-details-badge-3',
+  paginator: 'network-detail-inactivation-details-paginator',
+  assignDrawer: {
+    root: 'network-detail-drawer-2',
+    title: 'network-detail-drawer-2-title',
+    close: 'network-detail-drawer-2-close',
+    multiselect: 'network-detail-selected-fac-ids-multiselect',
+    cancel: 'network-detail-cancel-button',
+    confirm: 'network-detail-assign-fac-confirm-button',
+  },
+} as const;
+
+/** The Linked Policies tab (read-only). */
+export const NETWORK_POLICIES = {
+  searchInput: 'network-detail-inactivation-details-search-input',
+  advancedSearch: 'network-detail-policies-advanced-search',
+  table: 'network-detail-policies-table',
+  tableBody: 'network-detail-policies-table-body',
+  empty: 'network-detail-policies-table-empty',
+} as const;
+
+/** The Version History tab and its "Version Details" drawer. */
+export const NETWORK_VERSIONS = {
+  searchInput: 'network-detail-versions-search-input',
+  table: 'network-detail-versions-table',
+  rowPrefix: 'network-detail-versions-table-row-',
+  headerPrefix: 'network-detail-versions-table-th-',
+  viewButton: 'network-detail-view-version-button',
+  drawer: {
+    title: 'network-detail-drawer-1-title',
+    close: 'network-detail-close-button',
+    /** `network-detail-drawer-1-{key}` - see NETWORK_VERSION_FIELD. */
+    fieldPrefix: 'network-detail-drawer-1-',
+  },
+} as const;
+
+/** Version Details drawer field keys (`network-detail-drawer-1-{key}`). */
+export const NETWORK_VERSION_FIELD = {
+  approvalStatus: 'versions-approval-status',
+  businessStatus: 'versions-business-status',
+  nameEn: 'network-name-en',
+  nameAr: 'network-name-ar',
+  type: 'network-type',
+  effectiveDate: 'effective-date',
+  expiryDate: 'expiry-date',
+  descriptionEn: 'description-en',
+  descriptionAr: 'description-ar',
+  requestedBy: 'versions-col-requested-by',
+  requestedOn: 'versions-col-requested-on',
+  reviewedBy: 'versions-col-reviewed-by',
+  reviewedOn: 'versions-col-reviewed-on',
+  reason: 'versions-col-reason',
+} as const;
+
+export type NetworkVersionField = keyof typeof NETWORK_VERSION_FIELD;
+
+/** The Audit History tab and the shared "Audit Entry" drawer it opens. */
+export const NETWORK_AUDIT = {
+  searchInput: 'network-detail-audit-search-input',
+  advancedSearchButton: 'network-detail-audit-search-filter-button',
+  advancedSearch: 'network-detail-audit-advanced-search',
+  chips: 'network-detail-audit-filter-chips',
+  /** locator-exception: every entry's button shares this id; entries have none. */
+  viewButton: 'network-detail-view-audit-button',
+  pager: 'network-detail-audit-pager',
+  drawer: {
+    title: 'audit-log-detail-drawer-title',
+    action: 'audit-log-detail-drawer-action-chip',
+    entityType: 'audit-log-detail-drawer-entity-type',
+    entityId: 'audit-log-detail-drawer-entity-id',
+    meta: 'audit-log-detail-drawer-meta',
+    diffTable: 'audit-log-detail-drawer-diff-table',
+    rowPrefix: 'audit-log-detail-drawer-row-',
+    close: 'audit-log-detail-drawer-close-button',
+  },
+} as const;
+
+/**
+ * The Network list's Cards view (story 03, 2026-10-21). INFERRED from the
+ * payer cards (`payer-list-cards`, `payer-card-{id}-title`) - not yet
+ * confirmed on the network list; the cards cases fail on these ids first if
+ * the network cards differ.
+ */
+export const NETWORK_CARDS = {
+  container: 'network-list-cards',
+  cardPrefix: 'network-card-',
+  titleSuffix: 'title',
+} as const;

@@ -68,4 +68,37 @@ export class AuditLogsPage extends ListPageBase {
     await this.openList();
     return (await this.getRows()).filter((row) => pattern.test(row.entityType));
   }
+
+  // ---- story 23 additions (network code retention) --------------------------
+
+  /**
+   * Opens the log and reports whether this session reached it - a restricted
+   * account is bounced to the dashboard ("Access Restricted", verified
+   * 2026-09-12 for the Payer Admin account). Never throws.
+   */
+  async openAndReportAccess(): Promise<{ reachable: boolean; url: string; text: string }> {
+    await this.open();
+    const reachable = await this.tableFor(this.screen)
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+    const text = (await this.page.locator('main, #app-layout').first().innerText().catch(() => '')).trim();
+    return { reachable, url: this.page.url(), text };
+  }
+
+  /**
+   * Rows on the first `maxPages` pages whose Entity ID cell mentions `text`
+   * (a network code or id). The log's own search box searches ACTORS only
+   * ("Search by actor…"), so a record is found by reading, newest first.
+   */
+  async findRowsMentioning(text: string, maxPages = 5): Promise<AuditLogRow[]> {
+    await this.openList();
+    const found: AuditLogRow[] = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      found.push(...(await this.getRows()).filter((row) => row.entityId.includes(text)));
+      if (found.length > 0 || !(await this.hasNextPage())) break;
+      await this.goToNextPage();
+    }
+    return found;
+  }
 }

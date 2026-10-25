@@ -20,6 +20,13 @@
  *
  * A partial is written after every folder, so a run that is stopped keeps what
  * it had and the resume picks up where it left off.
+ *
+ * MODULE picks the module under tests/ (default "payer"). The network module
+ * (2026-10-24) runs the same way, with its own partials and report:
+ *
+ *   npm run test:network          all network folders
+ *   npm run test:network 21       resume from folder 21
+ *   npm run test:network 03,07    exactly those folders, in that order
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
@@ -33,9 +40,14 @@ const ROOT = path.resolve(__dirname, '..');
 // report, and never touches reports/partials. Without a label, behaviour is as
 // before.
 const LABEL = (process.env.RUN_LABEL || '').replace(/[^A-Za-z0-9_-]/g, '');
-const PARTIALS = path.join(ROOT, 'reports', LABEL ? `partials-${LABEL}` : 'partials');
+// MODULE keeps each module's partials and report apart: the payer module keeps
+// its original paths, any other module gets "partials-<module>" and its own report.
+const MODULE = (process.env.MODULE || 'payer').replace(/[^a-z]/g, '');
+const IS_PAYER = MODULE === 'payer';
+const TITLE = `${MODULE.charAt(0).toUpperCase()}${MODULE.slice(1)}`;
+const PARTIALS = path.join(ROOT, 'reports', LABEL ? `partials-${LABEL}` : IS_PAYER ? 'partials' : `partials-${MODULE}`);
 const RESULTS = path.join(ROOT, 'reports', 'results.json');
-const BASE = LABEL ? `PBM-Payer-Module-${LABEL}` : 'PBM-Payer-Module-Full-Run';
+const BASE = LABEL ? `PBM-${TITLE}-Module-${LABEL}` : `PBM-${TITLE}-Module-Full-Run`;
 // ".merged.json", not ".json": buildReport writes its own data file next to the
 // HTML under the HTML's name, which used to be this exact path - so the merged
 // input was overwritten by the report data on every run.
@@ -50,7 +62,7 @@ const clock = () => new Date().toISOString().slice(11, 19);
 fs.mkdirSync(PARTIALS, { recursive: true });
 
 const all = fs
-  .readdirSync(path.join(ROOT, 'tests', 'payer'), { withFileTypes: true })
+  .readdirSync(path.join(ROOT, 'tests', MODULE), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort();
@@ -60,9 +72,25 @@ const all = fs
 // that hold them are found from the spec files, so no folder list is needed:
 //   cross-env RUN_LABEL=rerun-x CASES=15584,15595 npm run test:payer
 const CASES = (process.env.CASES || '').split(',').map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
-const holds = (folder, id) => fs.readdirSync(path.join(ROOT, 'tests', 'payer', folder))
-  .filter((f) => f.endsWith('.ts'))
-  .some((f) => new RegExp(`['\`]${id}:|'${id}'`).test(fs.readFileSync(path.join(ROOT, 'tests', 'payer', folder, f), 'utf8')));
+// The payer specs spell their ids in the titles. The network titles take them
+// from data files (`TC-${...azureId}`), so for other modules the folders are
+// found by asking Playwright which listed tests match.
+const listedFolders = () => {
+  const out = spawnSync('npx', ['playwright', 'test', `tests/${MODULE}`, '--list', '--grep', JSON.stringify(`(${CASES.join('|')}):`)], {
+    cwd: ROOT, shell: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  const found = new Set();
+  // The listing prints paths relative to testDir: "› network\01-...\x.spec.ts".
+  // Matched on the whitespace before the module, not on the "›" separator.
+  for (const m of `${out.stdout || ''}`.matchAll(new RegExp(`\\s${MODULE}[\\\\/]([^\\\\/\\s]+)[\\\\/]`, 'g'))) found.add(m[1]);
+  return found;
+};
+const listed = CASES.length && !IS_PAYER ? listedFolders() : new Set();
+const holds = (folder, id) => (IS_PAYER
+  ? fs.readdirSync(path.join(ROOT, 'tests', 'payer', folder))
+    .filter((f) => f.endsWith('.ts'))
+    .some((f) => new RegExp(`['\`]${id}:|'${id}'`).test(fs.readFileSync(path.join(ROOT, 'tests', 'payer', folder, f), 'utf8')))
+  : listed.has(folder));
 
 // A comma-separated list runs exactly those folders, IN THE ORDER GIVEN - which
 // is how a time-boxed run puts the folders that matter first. A single value is
@@ -75,7 +103,7 @@ const folders = CASES.length && !process.argv[2]
       .filter((name) => Boolean(name))
   : all.filter((name) => name.split('-')[0] >= arg.padStart(2, '0'));
 
-console.log(`=== payer module: ${folders.length} folder(s) [${arg}], ${clock()} UTC`);
+console.log(`=== ${MODULE} module: ${folders.length} folder(s) [${arg}], ${clock()} UTC`);
 
 const run = (args, logFile) => {
   const out = spawnSync('npx', args, {
@@ -118,7 +146,7 @@ for (const name of folders) {
   // Titles start "<id>: ", so anchoring on the colon stops 1558 matching 15584.
   const grep = CASES.length ? ['--grep', JSON.stringify(`(${CASES.join('|')}):`)] : [];
   const { status, text } = run(
-    ['playwright', 'test', `tests/payer/${name}`, '--project=chromium', ...grep],
+    ['playwright', 'test', `tests/${MODULE}/${name}`, '--project=chromium', ...grep],
     logFile,
   );
   console.log(`    exit ${status}`);

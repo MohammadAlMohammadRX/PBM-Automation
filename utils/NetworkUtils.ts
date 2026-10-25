@@ -478,13 +478,14 @@ export class NetworkUtils {
    */
   static async countRequestsDuring(
     page: Page,
-    urlFragment: string,
+    urlFragment: string | RegExp,
     action: () => Promise<void>,
     settleMs = 3_000,
   ): Promise<number> {
     let count = 0;
     const listener = (request: { url(): string; method(): string }): void => {
-      if (request.url().includes(urlFragment) && request.method() !== 'GET') count += 1;
+      const hit = typeof urlFragment === 'string' ? request.url().includes(urlFragment) : urlFragment.test(request.url());
+      if (hit && request.method() !== 'GET') count += 1;
     };
     page.on('request', listener);
     try {
@@ -553,6 +554,21 @@ export class NetworkUtils {
     path: string,
     data: unknown,
   ): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    return NetworkUtils.requestAsSession(page, 'POST', path, data);
+  }
+
+  /**
+   * `postAsSession` for any verb. The network module saves with PUT
+   * (UpdateNetwork) and deletes with DELETE (DeleteNetwork/{id},
+   * UnassignFacilityFromNetwork/{network}/{facility}) - verified in its own
+   * traffic on 2026-10-21 - so the direct-request cases need those too.
+   */
+  static async requestAsSession(
+    page: Page,
+    method: 'POST' | 'PUT' | 'DELETE' | 'GET',
+    path: string,
+    data?: unknown,
+  ): Promise<{ status: number; text: string; validationErrors: string[] }> {
     const token = await page.evaluate(
       (key) => window.localStorage.getItem(key),
       ACCESS_TOKEN_KEY,
@@ -563,13 +579,14 @@ export class NetworkUtils {
         + '401 would be indistinguishable from the rejection under test',
     ).not.toBeNull();
 
-    const response = await page.request.post(`${env.baseUrl}${path}`, {
+    const response = await page.request.fetch(`${env.baseUrl}${path}`, {
+      method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      data: data as Record<string, unknown>,
+      ...(data === undefined ? {} : { data: data as Record<string, unknown> }),
       failOnStatusCode: false,
     });
     const text = await response.text();
-    Logger.step(`POST ${path} returned ${response.status()}`);
+    Logger.step(`${method} ${path} returned ${response.status()}`);
 
     // Field-level problems come back in `ValidationErrors`, each a
     // { Name, Reason } pair. Flattened to the reasons, which is what a case

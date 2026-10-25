@@ -7,6 +7,9 @@ import { test as discardSeedTest } from './discardSeed.fixture';
 import { test as statusSeedTest } from './statusSeed.fixture';
 import { test as concurrentEditTest } from './concurrentEdit.fixture';
 import { test as networkStateTest } from './networkState.fixture';
+import { test as networkModuleTest } from './networkModule.fixture';
+import { test as networkHistoryTest } from './networkHistory.fixture';
+import { test as facilityDirectoryTest } from './facilityDirectory.fixture';
 import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
 import { test as networkAssignmentTest } from './networkAssignment.fixture';
 import { test as versionHistoryStateTest } from './versionHistoryState.fixture';
@@ -39,6 +42,9 @@ export const test = mergeTests(
   statusSeedTest,
   concurrentEditTest,
   networkStateTest,
+  networkModuleTest,
+  networkHistoryTest,
+  facilityDirectoryTest,
   cascadeDependentsTest,
   networkAssignmentTest,
   versionHistoryStateTest,

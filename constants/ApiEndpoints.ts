@@ -160,6 +160,54 @@ export const ApiEndpoints = {
    * sent for approval, although the prompt says it "will submit" the version.
    */
   payerRevert: '/api/Payers/RevertPayer',
+
+  // ---- Network module (observed in the live traffic, 2026-10-21) ----------
+
+  /** The list (POST) `{pageNumber, rowsPerPage, sortBy, searchText?, ...}`; envelope `payload.networks`. */
+  networkList: '/api/Networks/GetNetworks',
+  /** The KPI band (POST `{}`) -> `{ total, active, pending, inactive, expired }`. */
+  networkDashboard: '/api/Networks/GetNetworksDashboard',
+  /** One network (POST `{ id }`) - carries `concurrencyStamp`, `versionStatusCode`, `hasDraft`. */
+  networkGet: '/api/Networks/GetNetwork',
+  networkCreate: '/api/Networks/CreateNetwork',
+  /**
+   * Saving an edit (PUT). The payload carries `concurrencyStamp` and
+   * `confirmRevertToDraft`; an unchanged save answers 200 with
+   * `payload.noChanges: true` and the toast "No changes to submit".
+   */
+  networkUpdate: '/api/Networks/UpdateNetwork',
+  /** DELETE `/{id}` - a never-approved draft answers "The draft network has been discarded." */
+  networkDelete: '/api/Networks/DeleteNetwork',
+  networkSubmit: '/api/Networks/SubmitNetworkForApproval',
+  networkAssignFacilities: '/api/Networks/AssignFacilitiesToNetwork',
+  /** DELETE `/{networkId}/{facilityId}` - stages a removal as a draft. */
+  networkUnassignFacility: '/api/Networks/UnassignFacilityFromNetwork',
+  /** The Assign Facilities drawer's pool (POST `{ networkId }`). */
+  networkAssignableFacilities: '/api/Networks/GetAssignableFacilities',
+  networkFacilities: '/api/Networks/GetNetworkFacilities',
+  networkPolicies: '/api/Networks/GetNetworkPolicies',
+  networkVersions: '/api/Networks/GetNetworkVersions',
+  networkRevert: '/api/Networks/RevertNetworkVersion',
+  /** POST `{ networkId, actionType, pageNumber, rowsPerPage }`. */
+  networkAuditTrail: '/api/Networks/GetNetworkAuditTrail',
+  /** The network status lookup - resolves status codes to ids at run time. */
+  networkStatusLookup: '/api/Lookups/Items/networkStatus',
+  networkTypeLookup: '/api/Lookups/Items/networkType',
+  networkInactivationReasonLookup: '/api/Lookups/Items/networkInactivationReason',
+  /** Rejecting an approval request (POST). */
+  approvalReject: '/api/Approvals/RejectRequest',
+  approvalApprove: '/api/Approvals/ApproveRequest',
+  approvalList: '/api/Approvals/GetApprovals',
+  /** The signed-in user's notification inbox (POST `{pageNumber, rowsPerPage, unreadOnly}`). */
+  myNotifications: '/api/Notifications/GetMyNotifications',
+
+  // ---- story 43 additions ----
+  /**
+   * Saving a role (PUT). NOT observed in traffic - named after the catalogue's
+   * own "UpdateRole" permission (Roles group). Only the access-denied case
+   * sends it, to prove a non-administrator is refused server-side.
+   */
+  roleUpdate: '/api/Roles/UpdateRole',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

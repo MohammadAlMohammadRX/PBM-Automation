@@ -5,6 +5,7 @@ import { PayerManagementPage } from '../pages/payer/PayerManagementPage';
 import { PayerMetricsPanel } from '../pages/payer/PayerMetricsPanel';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
+import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 import { ExportMenu } from '../pages/components/ExportMenu';
 import { PayerScopeDialog } from '../pages/components/PayerScopeDialog';
@@ -36,6 +37,9 @@ export interface ShapedSession {
   payerMetrics: PayerMetricsPanel;
   approvals: ApprovalManagementPage;
   networks: NetworkManagementPage;
+  /** Added 2026-10-21 for the network module's permission stories. */
+  networkDetail: NetworkDetailPage;
+  networkApprovals: ApprovalManagementPage;
   exportMenu: ExportMenu;
   /** What was actually changed, so a case can say so in its message. */
   removed: string[];
@@ -70,6 +74,14 @@ export async function controlAvailability(
 
 export interface ShapedNonAdminFixtures {
   shapedNonAdmin: (shape: PermissionShape) => Promise<ShapedSession>;
+  /**
+   * BLOCKS the case unless `held` is true - the "an absent control must
+   * baseline first" rule (2026-09-21) without an `if` in the spec. Called with
+   * what a session HOLDING the right was offered: a control never on offer
+   * proves nothing when it is later absent, so the case reports the missing
+   * state instead of a false pass. Added 2026-10-21 for the network stories.
+   */
+  requireBaseline: (held: boolean, what: string) => void;
   /**
    * Reshapes the role WITHOUT signing anyone in.
    *
@@ -215,6 +227,8 @@ export const test = base.extend<ShapedNonAdminFixtures>({
           payerMetrics: new PayerMetricsPanel(shaped),
           approvals: new ApprovalManagementPage(shaped),
           networks: new NetworkManagementPage(shaped),
+          networkDetail: new NetworkDetailPage(shaped),
+          networkApprovals: new ApprovalManagementPage(shaped, 'network'),
           exportMenu: new ExportMenu(shaped),
           removed: (shape.without ?? []).map((key) => ROLE_PERMISSION[key]),
           granted: (shape.with ?? []).map((key) => ROLE_PERMISSION[key]),
@@ -312,5 +326,17 @@ export const test = base.extend<ShapedNonAdminFixtures>({
       await setPermissions([...changed].reverse());
     }
     await admin.close();
+  },
+  // ---- story 21 / 36 additions ----
+  requireBaseline: async ({}, use, testInfo) => {
+    await use((held, what) => {
+      if (!held) {
+        blockedByPrecondition(
+          testInfo,
+          `a baseline in which ${what} is offered to a session holding the right`,
+          new Error(`${what} is not offered even to a session holding the permission, so its absence cannot be attributed to the permission`),
+        );
+      }
+    });
   },
 });
