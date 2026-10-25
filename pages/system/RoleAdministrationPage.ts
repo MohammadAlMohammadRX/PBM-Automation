@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { RolePermissionsStep } from './RolePermissionsStep';
 import { AppRoutes } from '../../constants/AppRoutes';
-import { ROLE_FORM, ROLE_LIST, ROLE_ROW_FIELD, TOAST, buttonSelector } from '../../constants/ElementIds';
+import { ROLE_FORM, ROLE_LIST, ROLE_ROW_FIELD, TOAST, buttonSelector, multiselectControl } from '../../constants/ElementIds';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 import { ROLE_SAVED } from '../../data/accounts/payerAdminRole.data';
@@ -231,6 +231,9 @@ export class RoleAdministrationPage extends BasePage {
    */
   async saveRole(): Promise<void> {
     Logger.step('Saving the role');
+    // Save lives on step 2 of the drawer; an edit opens on step 1 (18298, 2026-10-25).
+    const save = this.page.locator(`#${ROLE_FORM.root}`).getByRole('button', { name: 'Save', exact: true }); // locator-exception: the Save button has no id; scoped to the drawer.
+    if (!(await save.isVisible().catch(() => false))) await this.page.locator(buttonSelector(ROLE_FORM.nextButton)).click();
     await this.page
       .locator(`#${ROLE_FORM.root}`)
       // locator-exception: the drawer's Save button is the one control here with no id; scoped to the drawer.
@@ -286,7 +289,10 @@ export class RoleAdministrationPage extends BasePage {
   /** Clicks the "Has Assigned Payers" switch `times` times without pausing. */
   async toggleHasAssignedPayers(times = 1): Promise<void> {
     const checkbox = this.page.locator(`#${ROLE_FORM.hasAssignedPayers}`);
-    for (let i = 0; i < times; i += 1) await checkbox.click({ force: true });
+    // dispatchEvent, not click (2026-10-25): in the EDIT drawer the input sits
+    // outside the scrollable area and even a forced click is refused with
+    // "outside of the viewport" (18298). The native click still toggles it.
+    for (let i = 0; i < times; i += 1) await checkbox.dispatchEvent('click');
   }
 
   /** Sets the "Has Assigned Payers" switch on the open drawer. */
@@ -303,6 +309,19 @@ export class RoleAdministrationPage extends BasePage {
    * One harmless read permission is ticked because a role with no privileges
    * may not be savable - the case is about the role's flags, not its rights.
    */
+  /**
+   * Ticks the first role the "Assignable Roles" field offers - required since
+   * the 2026-10-25 build, so a role without one never gets past step 1 (18298).
+   * The overlay is closed by clicking the drawer's title: Escape closes the
+   * whole drawer.
+   */
+  private async chooseFirstAssignableRole(): Promise<void> {
+    await this.page.locator(multiselectControl(ROLE_FORM.assignableRoles)).first().click();
+    // locator-exception: PrimeNG options carry generated ids; the first visible one is taken.
+    await this.page.getByRole('option').filter({ visible: true }).first().click();
+    await this.page.locator(`#${ROLE_FORM.title}`).click();
+  }
+
   async createDisposableRole(nameEn: string, nameAr: string, hasAssignedPayers: boolean, permission: string): Promise<void> {
     Logger.step(`Creating disposable role "${nameEn}"`);
     await this.open();
@@ -311,6 +330,7 @@ export class RoleAdministrationPage extends BasePage {
     await this.page.locator(`#${ROLE_FORM.englishName}`).fill(nameEn);
     await this.page.locator(`#${ROLE_FORM.arabicName}`).fill(nameAr);
     await this.setHasAssignedPayers(hasAssignedPayers);
+    await this.chooseFirstAssignableRole();
     await this.page.locator(buttonSelector(ROLE_FORM.nextButton)).click();
     const privileges = new RolePermissionsStep(this.page);
     await privileges.waitForLoaded();

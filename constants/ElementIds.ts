@@ -1110,7 +1110,16 @@ export const ROLE_FORM = {
   hasAssignedPayers: 'role-form-drawer-has-assigned-payers-checkbox',
   canApproveOwnRequests: 'role-form-drawer-can-approve-own-requests-checkbox',
   permissionSearch: 'role-form-drawer-permission-search-input',
+  /** REQUIRED since the 2026-10-25 build: Next is refused while it is empty. */
+  assignableRoles: 'role-form-drawer-assignable-role-ids-multiselect',
 } as const;
+
+/**
+ * A PrimeNG multiselect's id sits on its hidden accessibility <input>, which
+ * takes no click; the visible control is the wrapping `.p-multiselect`
+ * (read live 2026-10-25 - 18275 clicked the input and timed out).
+ */
+export const multiselectControl = (id: string): string => `.p-multiselect:has(> .p-hidden-accessible > #${id}), .p-multiselect:has(#${id})`;
 
 /**
  * The permission tree's group headings, as the Privileges step renders them.
@@ -1306,6 +1315,10 @@ export type NetworkOverviewField = keyof typeof NETWORK_DETAIL.overview;
 export const DETAIL_TAB_SEARCH = {
   inputSelector: '[id^="network-detail-inactivation-details-search"][id$="-input"]',
   filterButtonSelector: 'button[id^="network-detail-inactivation-details-search"][id$="-filter-button"], [id^="network-detail-inactivation-details-search"][id$="-filter-button"] > button',
+  /** The applied-filter chips of the same component - numbered the same way. */
+  chipsSelector: '[id^="network-detail-inactivation-details-chips"]',
+  /** "Clear" lives on the SEARCH component (`...-search-2-clear-button`), not on the chips. */
+  clearButtonSelector: 'button[id^="network-detail-inactivation-details-search"][id$="-clear-button"]',
 } as const;
 
 export const NETWORK_FACILITIES = {

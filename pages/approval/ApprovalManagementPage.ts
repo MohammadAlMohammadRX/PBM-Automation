@@ -9,6 +9,7 @@ import {
   APPROVALS_HUB,
   SCREEN,
   buttonSelector,
+  multiselectControl,
   type ApprovalsRowAction,
 } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
@@ -675,7 +676,7 @@ export class ApprovalManagementPage extends BasePage {
    * old "first combobox in the toolbar" resolved to the search input (18275).
    */
   private changeTypeFilter(): Locator {
-    return this.byId(`${this.screen}-filter-change-type-multiselect`);
+    return this.page.locator(multiselectControl(`${this.screen}-filter-change-type-multiselect`)).first();
   }
 
   /** The change types the filter offers. */

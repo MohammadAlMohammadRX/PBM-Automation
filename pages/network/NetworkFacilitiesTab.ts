@@ -113,9 +113,11 @@ export class NetworkFacilitiesTab {
     // No table: the message sits in the tab's panel, below its toolbar.
     // locator-exception: the empty-state text carries no id; read from the
     // nearest ancestor of the tab's own search box that holds more than the box.
-    const panel = this.searchInput().locator('xpath=ancestor::*[count(.//button) > 1][1]');
+    // The first ancestor that holds a "No ..." / "لا ..." line - the toolbar
+    // row alone (Export, Import, Assign) was picked before (17944, 2026-10-25).
+    const panel = this.searchInput().locator('xpath=ancestor::*[contains(normalize-space(.), "No ") or contains(normalize-space(.), "لا ")][1]');
     const text = (await panel.innerText().catch(() => '')).split('\n').map((t) => t.trim()).filter(Boolean);
-    return text.find((t) => /no |لا /i.test(t)) ?? text[text.length - 1] ?? '';
+    return text.find((t) => /^no |^لا /i.test(t)) ?? '';
   }
 
   /** One facility's row, or null when the table does not show it. */
@@ -142,6 +144,22 @@ export class NetworkFacilitiesTab {
     if (term === '') await input.press('Delete');
     else await input.pressSequentially(term);
     await this.detail.waitForPageReady();
+    // The search is debounced, so rows read at once were the UNFILTERED list
+    // (18089, 2026-10-25). Wait until two reads 600 ms apart agree.
+    let previous = '';
+    await expect
+      .poll(async () => {
+        const current = (await this.readRows()).map((r) => r.code).join('|');
+        const settled = current === previous;
+        previous = current;
+        return settled;
+      }, { timeout: Timeouts.default, intervals: [600, 600, 800, 1_000] })
+      .toBe(true);
+  }
+
+  /** The applied-filter chips, by id family (see DETAIL_TAB_SEARCH). */
+  private chips(): Locator {
+    return this.page.locator(DETAIL_TAB_SEARCH.chipsSelector).filter({ visible: true }).first();
   }
 
   async getSearchValue(): Promise<string> {
@@ -158,7 +176,7 @@ export class NetworkFacilitiesTab {
 
   /** Filter chips the tab shows after an advanced search. */
   async getChips(): Promise<string[]> {
-    return (await this.page.locator(`#${NETWORK_FACILITIES.chips} [id]`).allInnerTexts().catch(() => [] as string[]))
+    return (await this.chips().locator('[id]').allInnerTexts().catch(() => [] as string[]))
       .map((t) => t.trim())
       .filter((t) => t !== '');
   }
@@ -480,7 +498,7 @@ export class NetworkFacilitiesTab {
   /** Clears every applied filter with the chips' clear-all control, then the keyword. */
   async clearAllFilters(): Promise<void> {
     Logger.step('Clearing every facility filter');
-    const clearAll = this.page.locator(`#${NETWORK_FACILITIES.chips} [id$="clear-all"], #${NETWORK_FACILITIES.chips} [id*="clear"]`).first();
+    const clearAll = this.page.locator(DETAIL_TAB_SEARCH.clearButtonSelector).filter({ visible: true }).first();
     await clearAll.click();
     await this.detail.waitForPageReady();
   }

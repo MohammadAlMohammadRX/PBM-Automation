@@ -113,7 +113,12 @@ export class NetworkManagementPage extends ListPageBase {
    * table never appeared" (2026-10-24).
    */
   async search(term: string): Promise<void> {
-    if (!/\/network-management\/?$/.test(new URL(this.page.url(), env.baseUrl).pathname)) await this.openList();
+    const onList = /\/network-management\/?$/.test(new URL(this.page.url(), env.baseUrl).pathname);
+    // A search that matched nothing replaces the TABLE with an empty state, so
+    // the next search on the same page found no table to type into - 18032's
+    // create/delete cycles failed on cycle 2 that way (2026-10-25).
+    const tableShown = onList && (await this.tableFor(this.screen).isVisible().catch(() => false));
+    if (!tableShown) await this.openList();
     await super.search(term);
   }
 

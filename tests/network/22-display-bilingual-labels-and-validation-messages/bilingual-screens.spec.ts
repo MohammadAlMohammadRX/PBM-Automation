@@ -159,7 +159,7 @@ test.describe('US 14141 - Screens in each language', () => {
       const form = await networkManagementPage.openAddForm();
       texts.push(await form.getTitleText(), ...(await form.getStepLabels()));
       await form.closeAndDiscard();
-      const prompt = await networkManagementPage.openDeletePrompt(draft.name);
+      const prompt = await networkManagementPage.openDeletePrompt(draft.nameAr); // Arabic list: rows show and search the Arabic name (2026-10-25)
       texts.push(await prompt.getTitle());
       await prompt.cancel();
       expect(untranslatedWords(texts, [draft.name]), 'English words in the Arabic module').toEqual([]);
@@ -208,7 +208,7 @@ test.describe('US 14141 - Screens in each language', () => {
       const required = await form.readFieldError('nameEn');
       texts.push(...(await form.getStepLabels()), required);
       await form.closeAndDiscard();
-      const prompt = await networkManagementPage.openDeletePrompt(draft.name);
+      const prompt = await networkManagementPage.openDeletePrompt(draft.nameAr); // Arabic list: rows show and search the Arabic name (2026-10-25)
       texts.push(await prompt.getTitle());
       await prompt.cancel();
       expect(required).toMatch(ARABIC_TEXT);
