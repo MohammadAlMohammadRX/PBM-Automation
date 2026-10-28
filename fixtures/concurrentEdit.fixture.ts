@@ -7,6 +7,8 @@ import { PayerFormDialog } from '../pages/payer/PayerFormDialog';
 import { PayerInactivateDialog } from '../pages/payer/PayerInactivateDialog';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
+import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
+import { PlanDetailPage } from '../pages/plan/PlanDetailPage';
 import { DEFAULT_VIEWPORT } from '../constants/BrowserConfig';
 import { env } from '../constants/EnvironmentConfig';
 import { Logger } from '../utils/Logger';
@@ -77,6 +79,17 @@ export interface StaleSession {
   networks: NetworkManagementPage;
   networkDetail: NetworkDetailPage;
   networkApprovals: ApprovalManagementPage;
+  // ---- plan folder 17 / 18 additions (2026-10-27) ----
+  /** The approvals hub's Plan tab in the second window - the concurrent plan-decision cases. */
+  planApprovals: ApprovalManagementPage;
+  // ---- plan folder 02 / 15 additions (2026-10-27) ----
+  /**
+   * The Plans list and a plan's detail screen in the second window - "User A /
+   * User B" of the plan optimistic-concurrency story (US 14166) and the
+   * concurrent edit of US 14146, which need the same administrator twice.
+   */
+  plans: PlanManagementPage;
+  planDetail: PlanDetailPage;
 }
 
 export interface ConcurrentEditFixtures {
@@ -116,6 +129,9 @@ export const test = base.extend<ConcurrentEditFixtures>({
       networks: new NetworkManagementPage(page),
       networkDetail: new NetworkDetailPage(page),
       networkApprovals: new ApprovalManagementPage(page, 'network'),
+      planApprovals: new ApprovalManagementPage(page, 'plan'),
+      plans: new PlanManagementPage(page),
+      planDetail: new PlanDetailPage(page),
       async openEditForm(payerName: string): Promise<PayerFormDialog> {
         Logger.step(`[fixture] Second session opening "${payerName}" for edit`);
 

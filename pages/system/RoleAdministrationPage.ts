@@ -360,4 +360,30 @@ export class RoleAdministrationPage extends BasePage {
   async attemptRoleUpdateViaApi(body: Record<string, unknown>): Promise<{ status: number; text: string }> {
     return NetworkUtils.requestAsSession(this.page, 'PUT', ApiEndpoints.roleUpdate, body);
   }
+
+  // ---- plan folder 26 additions (2026-10-27) ----
+
+  /**
+   * Which roles HOLD a permission, read role by role from each catalogue
+   * (opened and closed again, nothing saved).
+   *
+   * The permission is named by candidates - its intended bilingual name and
+   * its raw code - because the catalogue still shows many permissions under
+   * their codes (see RolePermissionsStep.resolveLabel). `label` is the first
+   * candidate the catalogue offers, '' when it offers none (then no role can
+   * hold it and `holders` is empty).
+   */
+  async getRolesHoldingPermission(candidates: readonly string[]): Promise<{ label: string; holders: string[]; roles: string[] }> {
+    await this.open();
+    const roles = await this.getRoleNames();
+    let label = '';
+    const holders: string[] = [];
+    for (const role of roles) {
+      const privileges = await this.openPermissionCatalogue(role);
+      label = label || (await privileges.resolveLabel(candidates));
+      if (label !== '' && (await privileges.isPermissionChecked(label))) holders.push(role);
+      await this.closeDrawer();
+    }
+    return { label, holders, roles };
+  }
 }

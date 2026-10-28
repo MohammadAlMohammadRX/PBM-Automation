@@ -1,7 +1,7 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Dialog, Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { Timeouts } from '../../constants/Timeouts';
-import { TOAST, buttonSelector, type WizardField } from '../../constants/ElementIds';
+import { DIALOG, TOAST, buttonSelector, type WizardField } from '../../constants/ElementIds';
 import { Logger } from '../../utils/Logger';
 import { ConfirmDialog } from './ConfirmDialog';
 import { WaitUtils } from '../../utils/WaitUtils';
@@ -341,6 +341,18 @@ export abstract class EntityWizardDialog {
   async expectFieldValue(label: string, expected: string): Promise<void> {
     await this.goToStepContaining(label);
     await expect(this.field(label)).toHaveValue(expected, { timeout: Timeouts.default });
+  }
+
+  /**
+   * Asserts a date field holds the date `expected` ("dd/MM/yyyy"), with or
+   * without a time. The pickers began showing a time ("31/02/2026 23:59") on or
+   * before 2026-10-27, and an exact comparison failed every payer expiry case
+   * on the time alone (folder 20).
+   */
+  async expectDateFieldValue(label: string, expected: string): Promise<void> {
+    await this.goToStepContaining(label);
+    const date = expected.trim().split(' ')[0].replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    await expect(this.field(label)).toHaveValue(new RegExp(`^${date}( \\d{2}:\\d{2})?$`), { timeout: Timeouts.default });
   }
 
   /**
@@ -738,4 +750,145 @@ export abstract class EntityWizardDialog {
       timeout: Timeouts.default,
     });
   }
+
+  // ---- plan folder 14 additions (2026-10-27) ----
+  // The unsaved-changes guard (plan US 14165, usable by every wizard). The guard
+  // is the shared dialog with the `stay` / `discard` action keys (ConfirmDialog).
+  // These methods TRIGGER an exit and REPORT what came up, leaving the answer to
+  // the caller - unlike closeAndDiscard, which answers the guard itself.
+
+  /**
+   * Tries to leave the drawer the given way WITHOUT answering any guard, and
+   * answers whether the unsaved-changes guard came up. A drawer that is no
+   * longer open (a successful save closed it) answers false with nothing
+   * clicked - "it closed without a warning".
+   */
+  async requestClose(via: DrawerExitPath = 'close-button'): Promise<boolean> {
+    if (!(await this.isOpen())) return false;
+    Logger.step(`Trying to leave the drawer via ${via}`);
+    // A drawer already sliding out (a save closed it) takes the close button
+    // with it; that is "closed without a warning", not a failed click.
+    if (via === 'close-button') {
+      await this.clickClose().catch(async (error: unknown) => {
+        if (!(await this.closesWithin())) throw error;
+      });
+    }
+    if (via === 'escape') await this.page.keyboard.press('Escape');
+    if (via === 'outside-click') await this.clickOutside();
+    return this.isGuardShown();
+  }
+
+  /**
+   * Clicks the page beside the drawer (its mask), on whichever side the drawer
+   * is not - the drawer slides in from the end side, so in Arabic it is on the
+   * left. Positional by design: the mask is a PrimeNG element with no app id,
+   * and "outside the drawer" is a place, not an element.
+   */
+  private async clickOutside(): Promise<void> {
+    const box = await this.title().boundingBox();
+    const viewport = this.page.viewportSize() ?? { width: 1920, height: 1080 };
+    const drawerOnRight = (box?.x ?? viewport.width) > viewport.width / 2;
+    await this.page.mouse.click(drawerOnRight ? 10 : viewport.width - 10, Math.round(viewport.height / 2));
+  }
+
+  /** Whether the unsaved-changes guard is on screen, waiting a moment for it to animate in. */
+  async isGuardShown(): Promise<boolean> {
+    return new ConfirmDialog(this.page).isDiscardPromptVisible();
+  }
+
+  /** What the guard says and offers: title, message, action keys and their labels. */
+  async readGuard(): Promise<{ title: string; message: string; actions: string[]; labels: string[] }> {
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    const title = await dialog.getTitle().catch(() => '');
+    const message = await dialog.getMessage().catch(() => '');
+    const actions = await dialog.getActionKeys();
+    const labels = (await this.page.locator(`#${DIALOG.actions} [id^="pbm-dialog-action-"]`).allInnerTexts())
+      .map((label) => label.replace(/\s+/g, ' ').trim());
+    return { title, message, actions, labels };
+  }
+
+  /** How many shared dialogs are on screen at once - the duplicate-guard check. */
+  async countOpenDialogs(): Promise<number> {
+    return this.page.locator(`#${DIALOG.root}`).filter({ visible: true }).count();
+  }
+
+  /** Answers the guard: Discard (the drawer closes) or Keep Editing / Cancel (it stays). */
+  async answerGuard(choice: 'discard' | 'stay'): Promise<void> {
+    Logger.step(`Answering the unsaved-changes guard: ${choice}`);
+    const dialog = new ConfirmDialog(this.page);
+    if (choice === 'discard') await dialog.discardChanges();
+    else await dialog.keepEditing();
+  }
+
+  /**
+   * Clicks the drawer's close control `times` times without waiting between
+   * the clicks (the double-close race), then answers whether a guard came up.
+   * Clicks that land after the guard covered the button are expected to fail
+   * and are ignored - what matters is what is on screen afterwards.
+   */
+  async requestCloseRepeatedly(times: number): Promise<boolean> {
+    Logger.step(`Clicking the drawer's close control ${times} times in rapid succession`);
+    const button = this.closeButton();
+    await Promise.all(
+      Array.from({ length: times }, () => button.click({ force: true, noWaitAfter: true, timeout: Timeouts.short }).catch(() => undefined)),
+    );
+    return this.isGuardShown();
+  }
+
+  /**
+   * Follows an in-app navigation link (the left-hand menu) while the drawer is
+   * open, and answers whether the guard intercepted it. The click is dispatched
+   * on the link itself: the drawer's modal mask covers the menu, and the
+   * question is what the router does with the navigation, not whether the mask
+   * swallows a pointer.
+   */
+  async requestNavigation(navLinkId: string): Promise<boolean> {
+    const link = this.page.locator(`#${navLinkId}`).first();
+    await link.waitFor({ state: 'attached', timeout: Timeouts.default });
+    Logger.step(`Following the "${navLinkId}" menu link with the drawer open`);
+    await link.dispatchEvent('click');
+    return this.isGuardShown();
+  }
+
+  /**
+   * Reloads the page while the drawer is open and answers whether the browser
+   * raised its native "leave site?" (beforeunload) prompt. The prompt itself is
+   * accepted by BasePage's handler; this only records that it was raised.
+   */
+  async reloadReportingUnloadPrompt(): Promise<boolean> {
+    let prompted = false;
+    const listener = (dialog: Dialog): void => {
+      if (dialog.type() === 'beforeunload') prompted = true;
+    };
+    this.page.on('dialog', listener);
+    try {
+      await this.page.reload({ waitUntil: 'domcontentloaded', timeout: Timeouts.navigation }).catch(() => undefined);
+    } finally {
+      this.page.off('dialog', listener);
+    }
+    Logger.step(`Reloading with the drawer dirty ${prompted ? 'raised' : 'did not raise'} a beforeunload prompt`);
+    return prompted;
+  }
+
+  /**
+   * Whether the drawer is gone within `timeout` - "it closed immediately".
+   * Waits for HIDDEN, so a drawer still sliding out is not read as open.
+   */
+  async closesWithin(timeout: number = Timeouts.short): Promise<boolean> {
+    return this.title().waitFor({ state: 'hidden', timeout }).then(() => true).catch(() => false);
+  }
+
+  /**
+   * Tidies up after an exit attempt whatever it led to: a guard on screen is
+   * answered Discard, and the drawer is then expected closed (closed outright
+   * when neither happened).
+   */
+  async settleAfterExit(): Promise<void> {
+    if (await this.isGuardShown()) await this.answerGuard('discard');
+    if (!(await this.closesWithin())) await this.closeAndDiscard();
+  }
 }
+
+/** The ways a user can try to leave a wizard drawer (plan folder 14, 2026-10-27). */
+export type DrawerExitPath = 'close-button' | 'escape' | 'outside-click';

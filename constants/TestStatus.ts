@@ -71,4 +71,16 @@ export interface StepRecord {
   durationMs: number;
   /** Absolute path of the screenshot taken when this step failed, if any. */
   screenshot?: string;
+  /**
+   * For a failed step: what the application showed while it ran (toasts,
+   * alerts, field errors, dialogs, failed API calls, console errors), one line
+   * each with the time into the step, and the screenshots taken the moment
+   * each message appeared (utils/UiEventRecorder.ts).
+   */
+  observed?: { events: string[]; screenshots: string[] };
+  /**
+   * For a failed step, in plain language for any reader (utils/failureNarrator.js):
+   * what should have happened, what actually happened, and what the screen showed.
+   */
+  plain?: { expected: string; actual: string; screen: string[] };
 }

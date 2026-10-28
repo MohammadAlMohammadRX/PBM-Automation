@@ -48,7 +48,7 @@ test.describe('Network selection re-validation - Net-change detection', () => {
     await steps.critical('The network is shown as currently assigned', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames()).toContain(networkNameOf(network));
     });
 
     await steps.step('The drawer no longer offers it, so no duplicate can be selected', async () => {
@@ -134,7 +134,9 @@ test.describe('Network selection re-validation - Net-change detection', () => {
 
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.expectLinkedNetworkCount(2);
+      expect(await detail.getLinkedNetworkNames(), 'both networks should now be linked').toEqual(
+        expect.arrayContaining([networkNameOf(linkedNetwork), networkNameOf(newNetwork)]),
+      );
       expect(
         await detail.getLinkedNetworkAssignmentState(networkNameOf(linkedNetwork)),
         'the already-linked network should not have been re-processed',

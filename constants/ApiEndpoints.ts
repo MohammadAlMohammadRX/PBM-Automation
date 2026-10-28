@@ -194,6 +194,76 @@ export const ApiEndpoints = {
   networkStatusLookup: '/api/Lookups/Items/networkStatus',
   networkTypeLookup: '/api/Lookups/Items/networkType',
   networkInactivationReasonLookup: '/api/Lookups/Items/networkInactivationReason',
+  // ---- Plans module (observed in the live traffic, 2026-10-27) -------------
+
+  /** The list (POST) `{pageNumber, rowsPerPage, sortBy, searchText?, ...}`; envelope `payload.plans`. */
+  planList: '/api/Plans/GetPlans',
+  /** The KPI band (POST `{}`) -> `{ total, active, pending, inactive, expired }`. */
+  planDashboard: '/api/Plans/GetPlansDashboard',
+  /** One plan (POST `{ id }`) - carries `statusId`, `effectiveStatusId`, `formularyId`, `concurrencyStamp`. */
+  planGet: '/api/Plans/GetPlan',
+  /** POST - answers "The plan has been saved as a draft..." with `payload.id`. */
+  planCreate: '/api/Plans/CreatePlan',
+  /** Saving an edit (PUT), like networkUpdate. */
+  planUpdate: '/api/Plans/UpdatePlan',
+  /** DELETE `/{id}`. */
+  planDelete: '/api/Plans/DeletePlan',
+  /** POST `{ planId }`. */
+  planSubmit: '/api/Plans/SubmitPlanForApproval',
+  /**
+   * POST `{ planId, formularyId }`. The formulary must be APPROVED (a draft one
+   * answers 404 "Unable to load the requested formulary") and of the plan's payer.
+   * A plan cannot be approved without one (409, 2026-10-27).
+   */
+  planAssignFormulary: '/api/Plans/AssignFormularyToPlan',
+  planSetActive: '/api/Plans/SetPlanActive',
+  // ---- plan folder 29/30 additions (2026-10-27) ----
+  /** POST `{ id, inactivationReasonId, inactivationDetails }` - stages a plan's inactivation (fixtures/planModule.fixture.ts). */
+  planInactivate: '/api/Plans/InactivatePlan',
+  planRevert: '/api/Plans/RevertPlanVersion',
+  planClone: '/api/Plans/ClonePlan',
+  /** POST `{ planId }`. */
+  planVersions: '/api/Plans/GetPlanVersions',
+  /** POST `{ planId, actionType, pageNumber, rowsPerPage }`. */
+  planAuditTrail: '/api/Plans/GetPlanAuditTrail',
+  /** POST `{ id }` - the current and published formulary of a plan. */
+  planFormularyAssignment: '/api/Plans/GetPlanFormularyAssignment',
+  /** POST `{ planId }` - every formulary the plan has had, per version. */
+  planFormularyHistory: '/api/Plans/GetPlanFormularyHistory',
+  planStatusLookup: '/api/Lookups/Items/planStatus',
+  planTypeLookup: '/api/Lookups/Items/planType',
+  planInactivationReasonLookup: '/api/Lookups/Items/planInactivationReason',
+
+  // ---- Formulary module (2026-10-27) - only what the plan suite needs -----
+
+  /** GET - every formulary with its `payerId` and `statusId`. */
+  formularyDropdown: '/api/Formularies/GetFormulariesDropdown',
+  formularyGet: '/api/Formularies/GetFormulary',
+  formularyCreate: '/api/Formularies/CreateFormulary',
+  /** POST `{ formularyId, tierNameEn, tierNameAr, tierOrder, defaultCoveragePercentage }` -> payload = tier id. */
+  formularyCreateTier: '/api/Formularies/CreateTier',
+  /** POST `{ formularyId, tradeId, tierId, coveragePercentage, effectiveFrom, effectiveTo, ... }`. */
+  formularyAddTrade: '/api/Formularies/AddFormularyTrade',
+  /** POST `{ formularyId }`. A formulary needs at least one trade to be approved (409). */
+  formularySubmit: '/api/Formularies/SubmitFormularyForApproval',
+  formularyStatusLookup: '/api/Lookups/Items/formularyStatus',
+
+  // ---- plan folder 27 additions (2026-10-27) ----
+  // Read off the application's own formulary service (main bundle, 2026-10-27),
+  // not yet observed in live traffic.
+  /**
+   * PUT `{ id, concurrencyStamp, formularyNameEn, formularyNameAr, payerId, descriptionEn,
+   * descriptionAr, effectiveDate, expiryDate, confirmRevertToDraft }`. May answer
+   * `requiresDraftConfirmation` / `noChanges`.
+   */
+  formularyUpdate: '/api/Formularies/UpdateFormulary',
+  /** DELETE `/DeleteFormulary/{id}` (`?confirmRevertToDraft=true` to withdraw a pending request). */
+  formularyDelete: '/api/Formularies/DeleteFormulary',
+  /** POST `{ id, isActive, inactivationReasonId?, inactivationDetails?, confirmRevertToDraft }` - stages a status change. */
+  formularySetActive: '/api/Formularies/SetFormularyActive',
+  /** Inferred 2026-10-27 from the plan / network lookups, not yet verified live. */
+  formularyInactivationReasonLookup: '/api/Lookups/Items/formularyInactivationReason',
+
   /** Rejecting an approval request (POST). */
   approvalReject: '/api/Approvals/RejectRequest',
   approvalApprove: '/api/Approvals/ApproveRequest',

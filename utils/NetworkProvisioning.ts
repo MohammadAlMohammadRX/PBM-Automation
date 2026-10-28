@@ -215,7 +215,7 @@ export async function deleteNetworkById(page: Page, id: string): Promise<Answer>
  * Needs a signed-in page on the application (postAsSession reads its token).
  */
 /** The facility a network gets when its case names none - Nathealth, see provisionNetwork. */
-const DEFAULT_FACILITY_CODE = 'FCL-000009';
+const DEFAULT_FACILITY_CODE = 'FCL-000030'; // FCL-000009 Nathealth went Inactive (2026-10-27)
 
 export async function provisionNetwork(page: Page, spec: NetworkSpec = {}): Promise<ProvisionedNetwork> {
   const stamp = networkStamp();

@@ -19,7 +19,6 @@ import { networkStamp } from '../../utils/NetworkProvisioning';
 export const BLOCKER_MESSAGE = {
   expiry: /expir/i,
   facility: /facilit|pharmac/i,
-  payer: /payer/i,
   duplicateName: /name|already|exist|duplicate/i,
 } as const;
 
@@ -33,9 +32,6 @@ export const CLEARED_INACTIVATION_FIELDS = [
 
 /** The details text the Inactive fixture records ("Deactivated by an automated regression test."). */
 export const FIXTURE_INACTIVATION_DETAILS = 'Deactivated by an automated regression test.';
-
-/** The reason used when this story inactivates an owning payer. */
-export const PAYER_INACTIVATION_DETAILS = 'Inactivated to test a network whose payer is not active.';
 
 /** A shared English name for the duplicate-name cases ("North Region Network" in the sheet). */
 export const duplicateName = (): string => `North Region Network ${networkStamp()}`;

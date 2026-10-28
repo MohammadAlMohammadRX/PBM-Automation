@@ -242,7 +242,7 @@ export const NETWORK_STATUS_LABEL_AR: Readonly<Record<string, string>> = {
 export const KNOWN_FACILITIES = [
   { code: 'FCL-000025', nameEn: 'QA Automation Pharmacy A' },
   { code: 'FCL-000026', nameEn: 'QA Automation Pharmacy B' },
-  { code: 'FCL-000009', nameEn: 'Nathealth' },
+  { code: 'FCL-000030', nameEn: 'Facility Al - Tawnyah' },
 ] as const;
 
 /**

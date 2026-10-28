@@ -35,6 +35,8 @@ export const SCREEN = {
    * Page Object serve both, given the namespace as a parameter.
    */
   approvalsNetwork: 'approvals-network',
+  /** The Plan tab of the approvals hub (2026-10-27) - the same component again. */
+  approvalsPlan: 'approvals-plan',
   lookupItems: 'lookup-items',
   lookupItemForm: 'lookup-item-form-drawer',
 } as const;
@@ -59,6 +61,14 @@ export const SCREEN = {
  */
 export const NAV = {
   terminologyManagement: 'app-nav-terminology-management-link',
+  // ---- plan folder 14 additions (2026-10-27) ----
+  /**
+   * The Payer Management menu entry - the in-app navigation target of the
+   * plan unsaved-changes guard (19146). Inferred 2026-10-27 from the
+   * terminology link's convention (`app-nav-{route}-link`, route
+   * /payer-management), not yet verified live.
+   */
+  payerManagement: 'app-nav-payer-management-link',
 } as const;
 
 export const GLOBAL = {
@@ -703,6 +713,13 @@ export const PAYER_SELECT = {
   planForm: 'plan-form-drawer-payer-id-select',
   planListFilter: 'plan-list-filter-payer-select',
   networkListFilter: 'network-list-filter-payer-select',
+  // ---- plan folder 24 additions (2026-10-27) ----
+  /**
+   * The top-bar payer scope selector (the same id as GLOBAL.payerScopeSelect),
+   * read as a dropdown: the Plans module's "Payer filter" for a payer-scoped
+   * user (US 14335), as it is the network directory's (US 14302).
+   */
+  topBarScope: 'app-breadcrumb-payer-select',
 } as const;
 
 export type PayerSelectSurface = keyof typeof PAYER_SELECT;
@@ -737,6 +754,312 @@ export const PLAN_COLUMN = {
   effectiveDate: 'effectivedate',
   status: 'status',
 } as const;
+
+/** The ids a detail screen's Audit History tab is built from (components/AuditHistoryTab). */
+export interface AuditTabIds {
+  searchInput: string;
+  /** The id prefix the tab's advanced-search drawer namespaces its fields under. */
+  searchPrefix: string;
+  advancedSearchButton: string;
+  advancedSearch: string;
+  chips: string;
+  viewButton: string;
+  pager: string;
+  drawer: {
+    title: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    meta: string;
+    diffTable: string;
+    rowPrefix: string;
+    close: string;
+  };
+}
+
+/** The shared "Audit Entry" drawer - one component for every module (verified 2026-10-21 / 2026-10-27). */
+export const AUDIT_ENTRY_DRAWER = {
+  title: 'audit-log-detail-drawer-title',
+  action: 'audit-log-detail-drawer-action-chip',
+  entityType: 'audit-log-detail-drawer-entity-type',
+  entityId: 'audit-log-detail-drawer-entity-id',
+  meta: 'audit-log-detail-drawer-meta',
+  diffTable: 'audit-log-detail-drawer-diff-table',
+  rowPrefix: 'audit-log-detail-drawer-row-',
+  close: 'audit-log-detail-drawer-close-button',
+} as const;
+
+// ---- Plans module (Feature 14144) - every id below read off the live screens, 2026-10-27 ----
+
+/** The Plans list (`/plans-management`) - the same id conventions as the network list. */
+export const PLAN_LIST = {
+  screen: 'plan-list',
+  kpiBand: 'plan-list-kpis',
+  /** `${kpi}-label` and `${kpi}-value` hang off each. "pending" is labelled "Future Plans". */
+  kpi: {
+    total: 'plan-list-kpi-total',
+    active: 'plan-list-kpi-active',
+    pending: 'plan-list-kpi-pending',
+    inactive: 'plan-list-kpi-inactive',
+    expired: 'plan-list-kpi-expired',
+  },
+  typeFilter: 'plan-list-filter-type-select',
+  statusFilter: 'plan-list-filter-status-select',
+  advancedSearchButton: 'plan-list-search-filter-button',
+  advancedSearch: 'plan-list-advanced-search',
+  chips: 'plan-list-filter-chips',
+  sortTrigger: 'plan-list-sort-trigger',
+  sortMenu: 'plan-list-sort-menu',
+  sortOptionPrefix: 'plan-list-sort-option-',
+  addButton: 'plan-list-add-button',
+  importTrigger: 'plan-list-import-trigger',
+  tableBody: 'plan-list-table-body',
+  /** Card view: `plan-card-{id}` with `-title`, `-code`, `-payer`, `-status`, `-view-button`, ... */
+  cards: 'plan-list-cards',
+  cardPrefix: 'plan-card-',
+  viewToggleTable: 'app-breadcrumb-view-toggle-table',
+  viewToggleCards: 'app-breadcrumb-view-toggle-cards',
+} as const;
+
+export type PlanKpiKey = keyof typeof PLAN_LIST.kpi;
+
+/** The Plans list's Export menu - the same two-step flow as the network list's. */
+export const PLAN_EXPORT = {
+  root: 'plan-list-export',
+  trigger: 'plan-list-export-trigger',
+  menu: 'plan-list-export-menu',
+  selected: 'plan-list-export-selected',
+  all: 'plan-list-export-all',
+  template: 'plan-list-export-template',
+} as const;
+
+/** Sort By option ids are `plan-list-sort-option-{field}-{asc|desc}`. */
+export const PLAN_SORT_FIELD = {
+  name: 'plannameen',
+  code: 'plancode',
+  type: 'plantypeid',
+  status: 'statusid',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  createdOn: 'createdon',
+  modifiedOn: 'modifiedon',
+} as const;
+
+export type PlanSortColumn = keyof typeof PLAN_SORT_FIELD;
+
+/** The Plans list's Advanced Search criteria (`plan-list-advanced-search-field-{key}`). */
+export const PLAN_ADVANCED_SEARCH_FIELD = {
+  nameOrCode: 'searchtext',
+  type: 'plantypeid',
+  status: 'statusid',
+  approvalStatus: 'approvalstatus',
+  // ---- plan folder 10 additions (2026-10-27) ----
+  /** The Payer criterion US 14159 requires - inferred 2026-10-27, not yet verified live. */
+  payer: 'payerid',
+} as const;
+
+/** A criterion of the Plans list's Advanced Search, by PLAN_ADVANCED_SEARCH_FIELD key (plan folder 10, 2026-10-27). */
+export type PlanSearchField = keyof typeof PLAN_ADVANCED_SEARCH_FIELD;
+
+export const PLAN_FORM_PREFIX = 'plan-form-drawer';
+
+/** The Add / Edit Plan wizard: step 1 Basic Information, step 2 Effective Period. */
+export const PLAN_FORM_FIELD: Record<string, WizardField> = {
+  'Plan Name': { key: 'plan-name-en', kind: 'text', step: 1 },
+  'Plan Name (Arabic)': { key: 'plan-name-ar', kind: 'text', step: 1 },
+  Payer: { key: 'payer-id', kind: 'select', step: 1 },
+  'Plan Type': { key: 'plan-type-id', kind: 'select', step: 1 },
+  Description: { key: 'description-en', kind: 'text', step: 1 },
+  'Description (Arabic)': { key: 'description-ar', kind: 'text', step: 1 },
+  'Effective Date': { key: 'effective-date', kind: 'date', step: 2 },
+  'Expiry Date': { key: 'expiry-date', kind: 'date', step: 2 },
+};
+
+export const PLAN_FORM = {
+  title: 'plan-form-drawer-title',
+  close: 'plan-form-drawer-close',
+  /** "Important: This plan will be submitted for approval ..." (step 1 and step 2). */
+  importantNotice: 'plan-form-drawer-important-title-message',
+  /** The read-only payer tag shown while a payer is in the top-bar scope (verified 2026-10-27). */
+  payerTag: 'plan-form-drawer-payer-id-tag',
+} as const;
+
+/** The plan detail screen (`/plans-management/{id}`). */
+export const PLAN_DETAIL = {
+  root: 'plan-detail',
+  headerCard: 'plan-detail-header-card',
+  name: 'plan-detail-name',
+  statusBadge: 'plan-detail-status-badge',
+  versionBadge: 'plan-detail-version-badge',
+  /** "Important: A change to this plan is awaiting approval ..." */
+  notice: 'plan-detail-important-title-message-text',
+  tabs: 'plan-detail-tabs',
+  tab: {
+    overview: 'plan-detail-tab-overview',
+    formulary: 'plan-detail-tab-formulary',
+    benefits: 'plan-detail-tab-benefits',
+    versions: 'plan-detail-tab-versions',
+    audit: 'plan-detail-tab-audit',
+  },
+  /** Header actions, `plan-detail-{action}-button`; offered by state. */
+  action: {
+    edit: 'plan-detail-edit-button',
+    clone: 'plan-detail-clone-button',
+    delete: 'plan-detail-delete-button',
+    inactivate: 'plan-detail-inactivate-button',
+    activate: 'plan-detail-activate-button',
+    submit: 'plan-detail-submit-for-approval-button',
+  },
+  /** Overview fields, `plan-detail-overview-{key}`. */
+  overview: {
+    code: 'plan-detail-overview-plan-code',
+    payer: 'plan-detail-overview-payer',
+    type: 'plan-detail-overview-plan-type',
+    nameEn: 'plan-detail-overview-plan-name-en',
+    nameAr: 'plan-detail-overview-plan-name-ar',
+    description: 'plan-detail-overview-description',
+    effectiveDate: 'plan-detail-overview-effective-date',
+    expiryDate: 'plan-detail-overview-expiry-date',
+    createdAt: 'plan-detail-overview-created-at',
+    lastUpdated: 'plan-detail-overview-last-updated',
+    // ---- plan folder 07 additions (2026-10-27) ----
+    /** inferred 2026-10-27, not yet verified live - the "Created By" metadata US 14155 asks for. */
+    createdBy: 'plan-detail-overview-created-by',
+  },
+} as const;
+
+// ---- plan folder 07 / 16 additions (2026-10-27) ----
+
+/** The shell's breadcrumb trail ("Dashboard > Plans Mgmt > <name>") - the id PlanDetailPage.getBreadcrumb reads. */
+export const APP_BREADCRUMB = {
+  list: 'app-breadcrumb-list',
+} as const;
+
+/**
+ * Row-action suffixes for the approval decisions US 14168 asks the Plans list to
+ * offer while a change is Pending Approval (`{rowId}-{action}`, the RowAction
+ * convention). inferred 2026-10-27, not yet verified live - the live rows
+ * offered none of them on 2026-10-27.
+ */
+export const PLAN_ROW_DECISION_ACTION = {
+  approve: 'approve',
+  reject: 'reject',
+  recall: 'recall',
+} as const;
+
+export type PlanRowDecisionAction = keyof typeof PLAN_ROW_DECISION_ACTION;
+
+export type PlanDetailTab = keyof typeof PLAN_DETAIL.tab;
+export type PlanOverviewField = keyof typeof PLAN_DETAIL.overview;
+
+/** The plan detail's Audit History tab - the shared component (components/AuditHistoryTab). */
+export const PLAN_AUDIT = {
+  searchInput: 'plan-detail-audit-search-input',
+  searchPrefix: 'plan-detail-audit',
+  advancedSearchButton: 'plan-detail-audit-search-filter-button',
+  advancedSearch: 'plan-detail-audit-advanced-search',
+  chips: 'plan-detail-audit-filter-chips',
+  /** locator-exception: every entry's button shares this id; entries have none. */
+  viewButton: 'plan-detail-view-audit-button',
+  pager: 'plan-detail-audit-pager',
+  drawer: AUDIT_ENTRY_DRAWER,
+} as const satisfies AuditTabIds;
+
+/** The plan detail's Version History tab (`plan-detail-versions-table`). */
+export const PLAN_VERSIONS = {
+  searchInput: 'plan-detail-versions-search-input',
+  table: 'plan-detail-versions-table',
+  /** Rows `plan-detail-versions-table-row-{id}`, cells `-cell-{version|status|changetype|reason|requestedby|requestedon|reviewedby|reviewedon}`. */
+  rowPrefix: 'plan-detail-versions-table-row-',
+  /** locator-exception: every row's View button shares this id. */
+  viewButton: 'plan-detail-view-version-button',
+  pager: 'plan-detail-versions-table-pager',
+} as const;
+
+/** The plan detail's Formulary Assignment tab. */
+export const PLAN_FORMULARY_TAB = {
+  /** The picker shown while no formulary is assigned, and its Assign button. */
+  select: 'plan-detail-selected-formulary-id-select',
+  assignButton: 'plan-detail-assign-formulary-button',
+  /** Shown once one is assigned. */
+  viewButton: 'plan-detail-view-formulary-button',
+  removeButton: 'plan-detail-remove-formulary-button',
+  /** The assignment's state badge ("Draft Assignment", "Pending Approval", "Future", ...). */
+  stateBadge: 'plan-detail-last-updated-badge',
+} as const;
+
+// ---- plan folder 04 / 20 / 21 additions (2026-10-27) ----
+
+/**
+ * More of the Formulary Assignment tab. Each assignment card (one per formulary
+ * the plan has had, per version) carries the shared state badge above and no id
+ * of its own; the picker's field error is inferred 2026-10-27, not yet verified live.
+ */
+export const PLAN_FORMULARY_TAB_EXTRA = {
+  /** Inferred 2026-10-27, not yet verified live - where a required-field error would render. */
+  selectError: 'plan-detail-selected-formulary-id-error',
+} as const;
+
+// ---- plan folder 27 additions (2026-10-27) ----
+
+/**
+ * The formulary detail screen (`/formulary-pricing/{id}`). Read off the
+ * application's own bundle on 2026-10-27, not yet verified live.
+ */
+export const FORMULARY_DETAIL = {
+  root: 'formulary-detail',
+  headerCard: 'formulary-detail-header-card',
+  name: 'formulary-detail-name',
+  statusBadge: 'formulary-detail-status-badge',
+  versionBadge: 'formulary-detail-version-badge',
+  notice: 'formulary-detail-important-title-message',
+  tabs: 'formulary-detail-tabs',
+  action: {
+    edit: 'formulary-detail-edit-button',
+    clone: 'formulary-detail-clone-button',
+    delete: 'formulary-detail-delete-button',
+    setActive: 'formulary-detail-set-active-button',
+    submit: 'formulary-detail-submit-for-approval-button',
+    revert: 'formulary-detail-revert-button',
+  },
+  overview: {
+    code: 'formulary-detail-overview-formulary-code',
+    payer: 'formulary-detail-overview-payer',
+    description: 'formulary-detail-overview-description',
+    effectiveDate: 'formulary-detail-overview-effective-date',
+    expiryDate: 'formulary-detail-overview-expiry-date',
+    totalTiers: 'formulary-detail-overview-total-tiers',
+    totalTrades: 'formulary-detail-overview-total-trades',
+  },
+} as const;
+
+/**
+ * The Add / Edit Formulary drawer (`formulary-form-drawer`). In edit mode the
+ * payer renders as a read-only tag; a payer the user may choose renders as the
+ * select. Read off the bundle on 2026-10-27, not yet verified live.
+ */
+export const FORMULARY_FORM = {
+  root: 'formulary-form-drawer',
+  payerSelect: 'formulary-form-drawer-payer-id-select',
+  payerTag: 'formulary-form-drawer-payer-id-tag',
+  payerError: 'formulary-form-drawer-payer-id-error',
+  /** Inferred 2026-10-27 from the plan form's `-close`, not yet verified live. */
+  close: 'formulary-form-drawer-close',
+} as const;
+
+/** The Inactivate Plan drawer - the network's drawer component, reason (lookup) and optional details. */
+export const PLAN_INACTIVATE = {
+  root: 'plan-inactivate-dialog',
+  title: 'plan-inactivate-dialog-title',
+  close: 'plan-inactivate-dialog-close',
+  reasonSelect: 'plan-inactivate-dialog-reason-id-select',
+  reasonError: 'plan-inactivate-dialog-reason-id-error',
+  detailsInput: 'plan-inactivate-dialog-details-input',
+  detailsError: 'plan-inactivate-dialog-details-error',
+  approvalNotice: 'plan-inactivate-dialog-approval-notice-text',
+  cancel: 'plan-inactivate-dialog-cancel-button',
+  save: 'plan-inactivate-dialog-save-button',
+} as const satisfies InactivateDialogIds;
 
 /** The Policy list's columns, as its cell ids carry them. */
 export const POLICY_COLUMN = {
@@ -897,6 +1220,20 @@ export const AUDIT_LOG_COLUMN = {
  * Note also that only INACTIVATION uses a drawer. Activating a network raises
  * the shared #pbm-dialog instead.
  */
+/** The ids of an "Inactivate <record>" drawer - one component for networks and plans. */
+export interface InactivateDialogIds {
+  root: string;
+  title: string;
+  close: string;
+  reasonSelect: string;
+  reasonError: string;
+  detailsInput: string;
+  detailsError: string;
+  approvalNotice: string;
+  cancel: string;
+  save: string;
+}
+
 export const NETWORK_INACTIVATE_DIALOG = {
   root: 'network-inactivate-dialog',
   title: 'network-inactivate-dialog-title',
@@ -909,7 +1246,7 @@ export const NETWORK_INACTIVATE_DIALOG = {
   approvalNotice: 'network-inactivate-dialog-approval-notice-text',
   cancel: 'network-inactivate-dialog-cancel-button',
   save: 'network-inactivate-dialog-save-button',
-} as const;
+} as const satisfies InactivateDialogIds;
 
 
 /**
@@ -1250,6 +1587,13 @@ export const NETWORK_FORM_FIELD: Record<string, WizardField> = {
 export const NETWORK_FORM = {
   /** The owning payer, shown read-only as a tag (the top-bar scope payer). */
   payerTag: 'network-form-drawer-payer-id-tag',
+  /**
+   * The "Payers" multi-select, offered instead of the tag when the top bar is on
+   * "All Payers" (verified 2026-10-27): "Choose All Payers, one payer (it will own
+   * the network), or several payers". Defaults to an "All Payers" chip. The id
+   * is on PrimeNG's hidden input - click it through multiselectControl().
+   */
+  payersMultiselect: 'network-form-drawer-payer-ids-multiselect',
   /** Step 2's "Important: Initial status will be set to Pending ..." notice. */
   importantNotice: 'network-form-drawer-important-title-message-text',
 } as const;
@@ -1388,25 +1732,18 @@ export const NETWORK_VERSION_FIELD = {
 export type NetworkVersionField = keyof typeof NETWORK_VERSION_FIELD;
 
 /** The Audit History tab and the shared "Audit Entry" drawer it opens. */
+
 export const NETWORK_AUDIT = {
   searchInput: 'network-detail-audit-search-input',
+  searchPrefix: 'network-detail-audit',
   advancedSearchButton: 'network-detail-audit-search-filter-button',
   advancedSearch: 'network-detail-audit-advanced-search',
   chips: 'network-detail-audit-filter-chips',
   /** locator-exception: every entry's button shares this id; entries have none. */
   viewButton: 'network-detail-view-audit-button',
   pager: 'network-detail-audit-pager',
-  drawer: {
-    title: 'audit-log-detail-drawer-title',
-    action: 'audit-log-detail-drawer-action-chip',
-    entityType: 'audit-log-detail-drawer-entity-type',
-    entityId: 'audit-log-detail-drawer-entity-id',
-    meta: 'audit-log-detail-drawer-meta',
-    diffTable: 'audit-log-detail-drawer-diff-table',
-    rowPrefix: 'audit-log-detail-drawer-row-',
-    close: 'audit-log-detail-drawer-close-button',
-  },
-} as const;
+  drawer: AUDIT_ENTRY_DRAWER,
+} as const satisfies AuditTabIds;
 
 /**
  * The Network list's Cards view (story 03, 2026-10-21). INFERRED from the

@@ -1,3 +1,4 @@
+import { env } from '../../constants/EnvironmentConfig';
 import { pickerDateTime, repeatTo } from './network.data';
 import { arabicOfLength, buildNetwork, named, namedAr, networkEffectiveToday } from './networkForm.data';
 
@@ -27,7 +28,15 @@ export const REGISTER = {
   missingEnglish: { azureId: '17785', key: 'nameEn', label: 'English' },
   missingArabic: { azureId: '17786', key: 'nameAr', label: 'Arabic' },
   labelBothLanguages: { azureId: '17787' },
-  privateDraft: { azureId: '17788' },
+  // QA lead, 2026-10-27: a System Administrator's network is seen by every user; a Payer Admin's
+  // network, created for the payer chosen in the payer dropdown, only by that payer's users.
+  creatorVisibility: {
+    azureId: '17788',
+    byAdmin: () => networkEffectiveToday({ nameEn: named('Admin Visible Network') }),
+    byPayerAdmin: () => networkEffectiveToday({ nameEn: named('Payer Admin Network') }),
+    /** The payer the administrator switches to for the last step - the suite's scope payer (SCOPE_PAYER). */
+    adminWorkingPayer: () => env.scopePayer,
+  },
   inactivePayer: { azureId: '17789' },
   codeOnlyAtApproval: { azureId: '17790' },
   registrationRole: { azureId: '17791' },

@@ -57,6 +57,21 @@ export class DateUtils {
     return `${year}-${month}-${day}`;
   }
 
+  /**
+   * Any date the screens show, as "DD/MM/YYYY". The payer detail screen showed
+   * "YYYY-MM-DD" until it began showing "DD/MM/YYYY HH:mm" (on or before
+   * 2026-10-27); both, and a bare "DD/MM/YYYY", are accepted so a case compares
+   * the calendar day only.
+   */
+  static toDisplayDate(value: string): string {
+    const text = value.trim();
+    const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    const display = text.match(/^(\d{2}\/\d{2}\/\d{4})/);
+    if (display) return display[1];
+    throw new Error(`[DateUtils] Expected a YYYY-MM-DD or DD/MM/YYYY date, got "${value}".`);
+  }
+
   static timestampForFilename(date: Date = new Date()): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return (

@@ -4,7 +4,7 @@ import { toDisplayDate } from './network.data';
  * Facility data shared by the facility-assignment stories (14, 15, 16, 27, 28,
  * 29 - US 14131, 14132, 14133, 14304, 14306, 14307).
  *
- * The cases use THREE active pharmacies: FCL-000009 "Nathealth" and the
+ * The cases use THREE active pharmacies: FCL-000030 "Facility Al - Tawnyah" (Nathealth, FCL-000009, until it went Inactive on 2026-10-27) and the
  * automation pharmacies FCL-000025 / FCL-000026 (FCL-000027 is a spare).
  * Every case's network is its own (fixture `networkIn`) and is given
  * facilities by code, so a case always knows which facility is which. The
@@ -28,11 +28,13 @@ export const FACILITY = {
   // longer offer.
   pharmacyA: { code: 'FCL-000025', name: 'QA Automation Pharmacy A', id: '1ccb483e-f36b-1410-8e0a-00abe6b0babb' },
   pharmacyB: { code: 'FCL-000026', name: 'QA Automation Pharmacy B', id: '24cb483e-f36b-1410-8e0a-00abe6b0babb' },
-  nathealth: { code: 'FCL-000009', name: 'Nathealth', id: '9e63473e-f36b-1410-8e0a-00abe6b0babb' },
+  // FCL-000009 "Nathealth" was inactivated on or before 2026-10-27; its place is taken by
+  // FCL-000030, an Active pharmacy (FCL-000027, the suite's spare, was inactivated too).
+  pharmacyC: { code: 'FCL-000030', name: 'Facility Al - Tawnyah', id: '50a9493e-f36b-1410-8e0a-00abe6b0babb' },
 } as const;
 
 /** The three codes the cases use. */
-export const ALL_FACILITY_CODES = [FACILITY.nathealth.code, FACILITY.pharmacyB.code, FACILITY.pharmacyA.code] as const;
+export const ALL_FACILITY_CODES = [FACILITY.pharmacyC.code, FACILITY.pharmacyB.code, FACILITY.pharmacyA.code] as const;
 
 /** The Assignment cell of a settled (live) assignment. */
 export const SETTLED = '—';

@@ -11,7 +11,7 @@ import { EDIT, EDIT_CHECKLIST, ORIGINAL_DESCRIPTION, sameDayLate } from '../../.
  * enforces registration's rules, and that it works whatever the status.
  */
 test.describe('US 14125 - Edit form', () => {
-  test(`TC-${EDIT.prepopulated.azureId}: should pre-fill every current value and show the network code read-only when the edit form opens`, async ({
+  test(`TC-${EDIT.prepopulated.azureId}: should pre-fill every current value and keep the network code from being edited when the edit form opens`, async ({
     networkManagementPage,
     networkDetailPage,
     networkIn,
@@ -44,9 +44,10 @@ test.describe('US 14125 - Edit form', () => {
       expect(values.expiryDate).toBe(current.expiryDate);
     });
 
-    await steps.step('The network code is shown, matches the network, and cannot be edited', async () => {
-      expect(await form.offersNetworkCodeField(), 'the code must not be editable').toBe(false);
-      expect(await form.getDrawerText(), 'the form should display the network code').toContain(current.code);
+    await steps.step('The network code cannot be edited - it is hidden or read-only', async () => {
+      // QA lead, 2026-10-27: the code must not be editable; whether the form
+      // hides it or shows it read-only, both pass.
+      expect(await form.offersNetworkCodeField(), 'the network code must not be editable (hidden or read-only)').toBe(false);
       await form.closeAndDiscard();
     });
   });

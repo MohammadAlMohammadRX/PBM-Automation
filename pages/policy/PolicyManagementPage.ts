@@ -109,4 +109,35 @@ export class PolicyManagementPage extends ListPageBase {
       .filter((row) => row.payer === payerName)
       .map((row) => ({ name: row.name, status: row.status }));
   }
+
+  // ---- plan folder 30 additions (2026-10-27) ----
+
+  /**
+   * The policies linked to one plan, with the status each displays - read on
+   * the Policies module with the plan's payer in scope and the plan's name
+   * searched, filtered on the Plan column. Answers [] when the payer has no
+   * policies at all (the module then renders "No policies found." and no
+   * table), which is a legitimate answer for a plan with none linked.
+   */
+  async getPoliciesOfPlan(payerName: string, planName: string): Promise<{ name: string; plan: string; status: string }[]> {
+    await this.open();
+    await this.scopeTo(payerName).catch(() => false);
+    await this.waitForPageReady();
+    const shown = await this.tableFor(this.screen)
+      .waitFor({ state: 'visible', timeout: Timeouts.default })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) return [];
+    await this.search(planName);
+    const rows = await this.rows().evaluateAll(
+      (nodes, keys) =>
+        nodes.map((node) => {
+          const read = (key: string): string =>
+            ((node.querySelector(`[id$="-cell-${key}"]`) as HTMLElement | null)?.innerText ?? '').trim();
+          return { name: read(keys.name), plan: read(keys.plan), status: read(keys.status) };
+        }),
+      { name: POLICY_COLUMN.name, plan: POLICY_COLUMN.plan, status: POLICY_COLUMN.status },
+    );
+    return rows.filter((row) => row.plan === planName);
+  }
 }

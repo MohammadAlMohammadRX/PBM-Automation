@@ -53,6 +53,7 @@ const BASE = LABEL ? `PBM-${TITLE}-Module-${LABEL}` : `PBM-${TITLE}-Module-Full-
 // input was overwritten by the report data on every run.
 const MERGED = path.join(ROOT, 'reports', `${BASE}.merged.json`);
 const HTML = path.join(ROOT, 'reports', `${BASE}.html`);
+const SHEET = path.join(ROOT, 'reports', `${BASE}-Failures.xlsx`);
 const MANIFEST = path.join(PARTIALS, 'run-manifest.json');
 const CRASH_SIGNS = /Target crashed|worker process exited|3221225794|net::ERR_[A-Z_]+|browserType\.launch: Timeout/g;
 
@@ -193,6 +194,12 @@ if (merge.status === 0) {
   spawnSync('node', [path.join('scripts', 'buildReport.js'), JSON.stringify(MERGED), JSON.stringify(HTML), JSON.stringify(PARTIALS)], {
     cwd: ROOT, shell: true, encoding: 'utf8', stdio: 'inherit',
   });
+  // The failure sheet beside every report: each failed step as plain Expected /
+  // Actual / On screen, with screenshot links (QA lead, 2026-10-28).
+  spawnSync('node', [path.join('scripts', 'buildFailureSheet.js'), JSON.stringify(HTML.replace(/\.html$/, '.json')), JSON.stringify(SHEET)], {
+    cwd: ROOT, shell: true, encoding: 'utf8', stdio: 'inherit',
+  });
 }
 console.log(`=== done ${clock()} UTC`);
 console.log(`    report: ${path.relative(ROOT, HTML)}`);
+console.log(`    failure sheet: ${path.relative(ROOT, SHEET)}`);

@@ -4,7 +4,7 @@ import { EntityWizardDialog } from '../components/EntityWizardDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Timeouts } from '../../constants/Timeouts';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
-import { NETWORK_FORM, NETWORK_FORM_FIELD, NETWORK_FORM_PREFIX } from '../../constants/ElementIds';
+import { NETWORK_FORM, NETWORK_FORM_FIELD, NETWORK_FORM_PREFIX, multiselectControl } from '../../constants/ElementIds';
 import { NetworkUtils } from '../../utils/NetworkUtils';
 import { Logger } from '../../utils/Logger';
 import type { NetworkFormData } from '../../data/networks/network.data';
@@ -87,6 +87,47 @@ export class NetworkFormDialog extends EntityWizardDialog {
     const tag = this.page.locator(`#${NETWORK_FORM.payerTag}`);
     await expect(tag).toBeVisible({ timeout: Timeouts.default });
     return (await tag.innerText()).trim();
+  }
+
+  /**
+   * The payer that will own the network, whichever way step 1 shows it: the
+   * read-only tag (a payer in the top-bar scope) or the payer dropdown ("All
+   * Payers" in scope). '' when the dropdown is left empty - a network for every
+   * user (17788, 2026-10-27).
+   */
+  async getOwningPayer(): Promise<string> {
+    await this.goToStepContaining(NETWORK_FIELD.nameEn);
+    const tag = this.page.locator(`#${NETWORK_FORM.payerTag}`);
+    const payers = this.page.locator(multiselectControl(NETWORK_FORM.payersMultiselect)).first();
+    await expect(tag.or(payers).first(), 'step 1 should show the owning payer').toBeVisible({ timeout: Timeouts.default });
+    if (await tag.isVisible()) return (await tag.innerText()).trim();
+    // "All Payers" (the default chip) means no single owner - every user.
+    const shown = (await payers.innerText()).replace(/\s+/g, ' ').trim();
+    return /^(select|اختر)?$|all payers|كل|جميع/i.test(shown) ? '' : shown;
+  }
+
+  /**
+   * Picks the network's payer in the step-1 payer dropdown - the first payer
+   * offered, or `payerName` - and returns it. Where the form shows the tag
+   * instead, the scope already decided it and the tag is returned.
+   */
+  async chooseOwningPayer(payerName?: string): Promise<string> {
+    await this.goToStepContaining(NETWORK_FIELD.nameEn);
+    const payers = this.page.locator(multiselectControl(NETWORK_FORM.payersMultiselect)).first();
+    if (!(await payers.isVisible().catch(() => false))) return this.getOwningPayer();
+    await payers.click();
+    // locator-exception: PrimeNG multiselect options carry render-order ids; read by role in the open overlay.
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await options.first().waitFor({ state: 'visible', timeout: Timeouts.default });
+    const labels = (await options.allInnerTexts()).map((t) => t.trim()).filter((t) => t !== '' && !/^All\s|^كل\s|^جميع\s/i.test(t));
+    const wanted = payerName ?? labels[0] ?? '';
+    expect(wanted, 'the Payers field should offer at least one payer').not.toBe('');
+    Logger.step(`Choosing "${wanted}" as the network's payer`);
+    await options.filter({ hasText: new RegExp(`^\\s*${wanted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) }).first().click();
+    // Close the overlay by clicking the drawer's title - Escape closes the whole drawer (2026-10-27).
+    await this.title().click();
+    await expect(options.first(), 'the Payers overlay should close').toBeHidden({ timeout: Timeouts.short }).catch(() => undefined);
+    return wanted;
   }
 
   /** Step 2's "Important" notice about the initial status. */

@@ -91,7 +91,6 @@ export const CASES = {
   },
   adminReview: { azureId: '17806' },
   withFilter: { azureId: '17805', status: NETWORK_LIFECYCLE.active, allStatuses: 'All Statuses' },
-  exploratory: { azureId: '17809', keyboardSteps: 1 },
   checklist: { azureId: '17807' },
 } as const;
 

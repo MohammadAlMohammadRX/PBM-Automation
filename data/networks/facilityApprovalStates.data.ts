@@ -28,7 +28,7 @@ export const CASE = {
 } as const;
 
 /** The membership every case's network starts with: kept (stays settled) and removed. */
-export const START = { kept: FACILITY.pharmacyB, removed: FACILITY.nathealth } as const;
+export const START = { kept: FACILITY.pharmacyB, removed: FACILITY.pharmacyC } as const;
 
 /** The facility a case proposes. */
 export const PROPOSED = FACILITY.pharmacyA;

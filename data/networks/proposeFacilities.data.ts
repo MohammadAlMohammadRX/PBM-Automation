@@ -19,7 +19,6 @@ export const CASE = {
   decisionTable: '17908',
   approvedApplied: '17909',
   rejected: '17910',
-  reviewerSees: '17912',
   zeroSelected: '17913',
   coordinatorOnly: '17916',
   approverOnly: '17915',
@@ -30,7 +29,7 @@ export const CASE = {
 
 /** The facility a case's network starts with, and the ones it proposes. */
 export const MEMBERSHIP = {
-  existing: FACILITY.nathealth,
+  existing: FACILITY.pharmacyC,
   proposed: [FACILITY.pharmacyA, FACILITY.pharmacyB],
   /** The single facility the reject / draft / concurrency cases propose. */
   single: FACILITY.pharmacyA,

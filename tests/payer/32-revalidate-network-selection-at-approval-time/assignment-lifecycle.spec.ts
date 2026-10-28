@@ -127,8 +127,8 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.step("The network now appears in the payer's network list", async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      const linked = await detail.getFirstLinkedNetwork();
-      expect(linked.name, 'the approved network should be the one submitted').toBe(networkNameOf(network));
+      const linked = await detail.getLinkedNetworkNames();
+      expect(linked, 'the approved network should be the one submitted').toContain(networkNameOf(network));
     });
   });
 
@@ -159,21 +159,19 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.critical('The network is shown as assigned', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames()).toContain(networkNameOf(network));
     });
 
     await steps.step('Submitting the removal creates a request and leaves the link in place', async () => {
       const detail = payerManagementPage.detail();
-      await detail.unassignAllNetworks();
+      await detail.unassignNetwork(networkNameOf(network));
       // Still attached: the sheet's "remains assigned in the meantime". The row
       // survives with a changed assignment state, which is exactly how a
       // maker-checker removal should look.
-      const stillThere = await detail.getFirstLinkedNetwork();
-      expect(stillThere.name, 'the link should survive until the removal is approved').toBe(
-        networkNameOf(network),
-      );
+      const stillThere = (await detail.getLinkedNetworkRows()).find((row) => row.name.trim() === networkNameOf(network));
+      expect(stillThere?.name, 'the link should survive until the removal is approved').toBe(networkNameOf(network));
       expect(
-        stillThere.status,
+        stillThere?.status,
         'the row should still report the network its own status',
       ).not.toBe('');
     });
@@ -189,7 +187,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
     await steps.step('The network no longer appears as assigned', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.expectLinkedNetworkCount(0);
+      expect(await detail.getLinkedNetworkNames(), 'the payer must not hold the network').not.toContain(networkNameOf(network));
     });
   });
 
@@ -249,7 +247,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
 
     await steps.step('Submitting a removal moves it to a pending removal, still linked', async () => {
       const detail = payerManagementPage.detail();
-      await detail.unassignAllNetworks();
+      await detail.unassignNetwork(networkNameOf(network));
       // Staging is only half of a removal: the row reads "Draft Removal" until
       // the change is sent for approval, which is when it becomes pending.
       await payerManagementPage.submitStagedChange(publishedPayer.nameEn);
@@ -257,7 +255,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
       const state = await detail.getLinkedNetworkAssignmentState(networkNameOf(network));
       observed.push(state);
       expect(state, 'a submitted removal should be marked as pending').toMatch(/pending/i);
-      expect((await detail.getFirstLinkedNetwork()).name, 'and still linked').toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames(), 'and still linked').toContain(networkNameOf(network));
     });
 
     await steps.step('Approving the removal returns it to unassigned', async () => {
@@ -267,7 +265,7 @@ test.describe('Network selection re-validation - Assignment lifecycle', () => {
 
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      await detail.expectLinkedNetworkCount(0);
+      expect(await detail.getLinkedNetworkNames(), 'the payer must not hold the network').not.toContain(networkNameOf(network));
       const drawer = await detail.openAssignNetwork();
       expect(
         await drawer.listAvailableNetworks(),

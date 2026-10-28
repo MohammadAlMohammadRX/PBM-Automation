@@ -50,27 +50,31 @@ test.describe('US 14117 - Advanced search input and drawer', () => {
     });
   });
 
-  test(`TC-${SEARCH_CASES.debounce.azureId}: should send a single search request after typing pauses when Name/Code is typed quickly`, async ({
+  test(`TC-${SEARCH_CASES.searchOnClick.azureId}: should send no request while typing and one request when Search is clicked`, async ({
     networkManagementPage,
     steps,
   }) => {
-    const data = SEARCH_CASES.debounce;
-    let requests = -1;
-    let sentTerm = '';
+    const data = SEARCH_CASES.searchOnClick;
 
     await steps.critical('Navigate to the module and open the drawer', async () => {
       await networkManagementPage.openList();
       await networkManagementPage.openAdvancedSearch();
     });
 
-    await steps.step('Typing quickly fires no request per keystroke, and one request carries the final value', async () => {
+    await steps.step('Typing in Name / Code sends no search request', async () => {
       const drawer = networkManagementPage.advancedSearch();
+      const requests = await networkManagementPage.countListRequests(() => drawer.typeText(FIELD.nameOrCode, data.term), data.settleMs);
+      expect(requests, 'typing alone must not search - the search runs when Search is clicked').toBe(0);
+    });
+
+    await steps.step('Clicking Search sends one request carrying the typed value', async () => {
+      const drawer = networkManagementPage.advancedSearch();
+      let requests = -1;
       const body = await networkManagementPage.captureListRequest(async () => {
-        requests = await networkManagementPage.countListRequests(() => drawer.typeText(FIELD.nameOrCode, data.term), data.debounceMs * 4);
+        requests = await networkManagementPage.countListRequests(() => drawer.submit(), data.settleMs);
       });
-      sentTerm = String(body.searchText ?? '');
-      expect(requests, 'exactly one search request should fire once typing pauses for 300 ms').toBe(1);
-      expect(sentTerm, 'the request should carry the final value').toBe(data.term);
+      expect(requests, 'one click on Search should send exactly one search request').toBe(1);
+      expect(String(body.searchText ?? ''), 'the request should carry the typed value').toBe(data.term);
     });
   });
 

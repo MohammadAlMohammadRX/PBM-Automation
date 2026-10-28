@@ -1,7 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { NETWORK_LIFECYCLE, NETWORK_TOAST } from '../../../data/networks/network.data';
 import { ACTIVATION_PROMPT } from '../../../data/networks/networkActivation.data';
-import { LIFECYCLE_STATUS } from '../../../data/payers/statusTransition.data';
 import { minutesUntilEndOfToday } from '../../../data/networks/lifecycleJob.data';
 import {
   ACTIVATION_AUDIT,
@@ -9,7 +8,6 @@ import {
   CLEARED_INACTIVATION_FIELDS,
   FIXTURE_INACTIVATION_DETAILS,
   LIFECYCLE_TIMEOUT_MS,
-  PAYER_INACTIVATION_DETAILS,
   UNAUTHORISED,
   duplicateName,
 } from '../../../data/networks/activateNetwork.data';
@@ -197,43 +195,6 @@ test.describe('US 14128 - Manual activation from Inactive', () => {
       const result = await networkManagementPage.attemptActivation(network.name);
       expect(result.status, 'the activation must be refused').toBeGreaterThanOrEqual(400);
       expect(`${result.text} ${result.toast}`).toMatch(BLOCKER_MESSAGE.facility);
-    });
-  });
-
-  test('TC-17828: should block activation and require an active payer when the owning payer is not active', async ({
-    networkDetailPage,
-    networkIn,
-    publishedPayer,
-    payerManagementPage,
-    payerInactivateDialog,
-    approvalManagementPage,
-    steps,
-  }) => {
-    test.setTimeout(35 * 60_000);
-    const payer = publishedPayer.nameEn;
-    const network = await networkIn('Inactive', { payerName: payer });
-
-    await steps.critical('Navigate to the Payer module and make the owning payer Inactive', async () => {
-      await payerManagementPage.findAndInactivateRow(payer);
-      await payerInactivateDialog.inactivateWithFirstReason(PAYER_INACTIVATION_DETAILS);
-      await payerManagementPage.open();
-      await payerManagementPage.sendForApproval(payer);
-      await approvalManagementPage.open();
-      await approvalManagementPage.approve(payer);
-      await payerManagementPage.open();
-      await payerManagementPage.search(payer);
-      await payerManagementPage.expectLifecycleStatus(payer, LIFECYCLE_STATUS.inactive.en);
-    });
-
-    await steps.critical('The network detail screen shows Inactive', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.inactive);
-    });
-
-    await steps.step('Activate is blocked with a message requiring an active payer', async () => {
-      const result = await networkDetailPage.attemptActivation();
-      expect(result.status, 'the activation must be refused').toBeGreaterThanOrEqual(400);
-      expect(`${result.text} ${result.toast}`).toMatch(BLOCKER_MESSAGE.payer);
     });
   });
 

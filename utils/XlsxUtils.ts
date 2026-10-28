@@ -38,10 +38,18 @@ function columnIndex(ref: string): number {
   return [...letters].reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
 }
 
+/**
+ * Drops namespace prefixes from tag names. The application's export is written
+ * by the OpenXML SDK, which prefixes every element (`<x:row>`, `<x:c>`,
+ * `<x:si>`), so prefix-free patterns found no rows at all and every Excel case
+ * read an empty workbook (17762, 17763, 17767, 17769 - found 2026-10-27).
+ */
+const unprefixed = (xml: string): string => xml.replace(/<(\/?)[A-Za-z][\w.-]*:/g, '<$1');
+
 /** Parses the first worksheet of an .xlsx file. */
 export function parseXlsx(bytes: Buffer): ParsedXlsx {
   const zip = new AdmZip(bytes);
-  const read = (name: string): string => zip.getEntry(name)?.getData().toString('utf8') ?? '';
+  const read = (name: string): string => unprefixed(zip.getEntry(name)?.getData().toString('utf8') ?? '');
 
   const shared = [...read('xl/sharedStrings.xml').matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textOf(m[1]));
   const sheetName = zip

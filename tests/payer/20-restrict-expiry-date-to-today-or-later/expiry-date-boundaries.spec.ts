@@ -110,7 +110,7 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
       expect(outcome!.status).toBe(200);
 
       const detail = await payerManagementPage.openDetails(payer.nameEn);
-      expect(await detail.getFieldValue('Expiry Date')).toBe(DateUtils.toIsoDate(future));
+      expect(DateUtils.toDisplayDate(await detail.getFieldValue('Expiry Date')), 'the stored expiry day').toBe(future);
     });
   });
 
@@ -140,7 +140,7 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
       await steps.step(`The field takes the ${refused.label} value`, async () => {
         await form.fillDateField('Effective Date', payer.effectiveDate);
         await form.fillDateField('Expiry Date', pastValue);
-        await form.expectFieldValue('Expiry Date', pastValue);
+        await form.expectDateFieldValue('Expiry Date', pastValue);
       });
 
       await steps.step('The boundary message is reported against the Expiry Date', () =>
@@ -178,7 +178,7 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
     await steps.step('The field keeps the unparseable text as typed', async () => {
       await form.fillDateField('Effective Date', payer.effectiveDate);
       await form.fillDateField('Expiry Date', MALFORMED_EXPIRY);
-      await form.expectFieldValue('Expiry Date', MALFORMED_EXPIRY);
+      await form.expectDateFieldValue('Expiry Date', MALFORMED_EXPIRY);
     });
 
     // DIVERGENCE: the sheet expects a message about the DATE FORMAT. The
@@ -223,7 +223,7 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
       await form.clickNext();
       await form.fillDateField('Effective Date', payer.effectiveDate);
       await form.fillDateField('Expiry Date', leapDay);
-      await form.expectFieldValue('Expiry Date', leapDay);
+      await form.expectDateFieldValue('Expiry Date', leapDay);
       await form.expectNoFieldError('Expiry Date');
     });
 
@@ -231,7 +231,7 @@ test.describe('Restrict Expiry Date to Today or Later - Boundaries', () => {
       const outcome = await form.saveNewAndCaptureOutcome();
       expect(outcome!.status).toBe(200);
       const detail = await payerManagementPage.openDetails(payer.nameEn);
-      expect(await detail.getFieldValue('Expiry Date')).toBe(DateUtils.toIsoDate(leapDay));
+      expect(DateUtils.toDisplayDate(await detail.getFieldValue('Expiry Date')), 'the stored expiry day').toBe(leapDay);
     });
   });
 });

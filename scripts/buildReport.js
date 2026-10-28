@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const { storyOfFolder, workItemUrl } = require('./azureIds');
+const { narrateActual, narrateStep, stepHeading } = require('../utils/failureNarrator');
 
 const IN = process.argv[2] || path.join('reports', 'results.json');
 const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Results.html');
@@ -322,6 +323,38 @@ const STORIES = [
   ['41-review-and-approve-or-reject-pending-network-changes', 'US 14320 Review and approve or reject pending network changes'],
   ['42-view-network-version-history-and-revert-to-a-previous-version', 'US 14321 View network version history and revert to a previous version'],
   ['43-restrict-role-payer-assignments-to-a-defined-scope', 'US 14322 Restrict role payer assignments to a defined scope'],
+  // Plans module (Feature 14144), added 2026-10-27. Stories 14156, 14330 and 14338 are Manual and
+  // have no folder; 14167, 14175, 14333, 14341 and 15212 have no test cases.
+  ['01-view-plan-directory-with-kpi-tiles-and-filtering', 'US 14145 View plan directory with KPI tiles and filtering'],
+  ['02-edit-a-plans-attributes-through-the-approval-workflow', 'US 14146 Edit a plan\'s attributes through the approval workflow'],
+  ['03-create-new-insurance-plan-with-bilingual-attributes', 'US 14147 Create new insurance plan with bilingual attributes'],
+  ['04-assign-or-change-a-plans-formulary-through-the-approval', 'US 14148 Assign or change a plan\'s formulary through the approval workflow'],
+  ['05-delete-a-plan-gated-by-approval-once-it-has', 'US 14153 Delete a plan, gated by approval once it has gone live'],
+  ['06-view-version-history-for-a-plan', 'US 14154 View version history for a plan'],
+  ['07-view-plan-detail-with-overview-and-tabs', 'US 14155 View plan detail with overview and tabs'],
+  ['08-view-a-dedicated-audit-trail-for-a-plan', 'US 14157 View a dedicated audit trail for a plan'],
+  ['09-export-plan-directory-to-csv-or-excel', 'US 14158 Export plan directory to CSV or Excel'],
+  ['10-advanced-search-plans-by-name-payer-type-and-status', 'US 14159 Advanced search plans by name, payer, type, and status'],
+  ['11-paginate-and-load-more-plans-in-card-view', 'US 14160 Paginate and load more plans in card view'],
+  ['12-sort-plan-directory-by-attribute', 'US 14161 Sort plan directory by attribute'],
+  ['13-display-localized-plan-names-and-labels', 'US 14162 Display localized plan names and labels'],
+  ['14-warn-before-discarding-unsaved-plan-form-changes', 'US 14165 Warn before discarding unsaved plan form changes'],
+  ['15-guard-against-concurrent-edits-with-optimistic-concurrency', 'US 14166 Guard against concurrent edits with optimistic concurrency'],
+  ['16-display-row-actions-per-plan-and-approval-status', 'US 14168 Display row actions per plan and approval status'],
+  ['17-reject-pending-plan-version-back-to-rejected', 'US 14173 Reject pending plan version back to Rejected'],
+  ['18-approve-pending-plan-version-to-activate', 'US 14174 Approve pending plan version to activate'],
+  ['19-enforce-unique-active-plan-name-at-every-stage-of', 'US 14325 Enforce unique active plan name at every stage of a change'],
+  ['20-formulary-selection-to-active-inactive-formularies-of-the-plans', 'US 14326 Formulary selection to active/inactive formularies of the plan\'s payer'],
+  ['21-view-formulary-assignment-history-for-a-plan', 'US 14327 View formulary assignment history for a plan'],
+  ['22-block-activation-when-the-plans-timing-payer-status-or', 'US 14329 Block activation when the plan\'s timing, payer status, or name is not eligible'],
+  ['23-activate-or-deactivate-a-plan-from-the-list-and', 'US 14331 Activate or deactivate a plan from the list and detail screens with a mandatory reason'],
+  ['24-restrict-plan-visibility-to-a-users-assigned-payer-organizations', 'US 14335 Restrict plan visibility to a user\'s assigned payer organizations'],
+  ['25-support-pending-approval-published-superseded-rejected-and-withdrawn-statuses', 'US 14337 Support Pending Approval, Published, Superseded, Rejected, and Withdrawn statuses for plan changes'],
+  ['26-prevent-a-plan-change-requester-from-approving-their-own', 'US 14340 Prevent a plan change requester from approving their own change'],
+  ['27-prevent-formulary-payer-changes-or-deletion-while-a-plan', 'US 14342 Prevent formulary payer changes or deletion while a plan depends on it'],
+  ['28-manage-conflicting-requests-during-the-approval-workflow', 'US 14343 Manage conflicting requests during the approval workflow'],
+  ['29-revert-a-plan-to-a-prior-version', 'US 14345 Revert a plan to a prior version'],
+  ['30-keep-activation-and-deactivation-changes-isolated-to-the-plan', 'US 16775 Keep activation and deactivation changes isolated to the plan itself'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
@@ -655,15 +688,25 @@ function actualOf(c, status) {
   const notRun = c.steps.filter((s) => s.status === 'NOT EXECUTED').length;
 
   if (!failed.length) {
-    const detail = observed(c.message);
+    const detail = c.message ? narrateActual(c.message) : '';
     return c.steps.length === 0
       ? `The test body never ran — a fixture could not provision its precondition. ${detail}`
       : detail || 'Failed with no detail captured.';
   }
 
-  const parts = failed.map(
-    (s) => `Step ${s.index} (${s.name}): ${observed(s.reason) || clean(s.reason)}`,
-  );
+  // PLAIN LANGUAGE (QA lead, 2026-10-28): every failed step reads as what was
+  // done, what should have happened and what did - the shared narrator, so the
+  // report, the failure sheet and Azure all say the same thing. Re-told from the
+  // raw reason at every build, so a wording fix reaches earlier runs too; the
+  // words a run stored are used only when it kept no reason.
+  const parts = failed.map((s) => {
+    const told = narrateStep(s);
+    const plainWords = (s.reason ? told : s.plain) || told; // re-told from the raw reason, so wording fixes reach old runs
+    const screen = ((s.plain && !s.reason) ? s.plain.screen : told.screen) || [];
+    return `${stepHeading(told)}. Expected: ${plainWords.expected} Actual: ${plainWords.actual}${
+      screen.length ? ` On screen at that moment: ${screen.join('; ')}.` : ''
+    }`;
+  });
   if (notRun) {
     parts.push(
       `${notRun} later step${notRun === 1 ? '' : 's'} not executed, because a step they depend on failed.`,
@@ -830,6 +873,13 @@ function stepsHtml(c) {
               s.screenshot.split(/[\/]/).pop(),
             )}</code></em>`
           : ''
+      }${
+        s.observed && s.observed.events.length
+          ? `<em class="shot">Seen on screen: ${s.observed.events
+              .slice(-8)
+              .map((line) => esc(line.slice(0, 200)))
+              .join('<br>')}</em>`
+          : ''
       }</span>
       </li>`,
     )
@@ -841,6 +891,122 @@ function stepsHtml(c) {
     c.steps.length === 1 ? '' : 's'
   })</summary><ol class="stl">${rows}</ol>${partial}</details>`;
 }
+
+// ---- failure details, as the failure sheet shows them (QA lead, 2026-10-28) ----
+// Every failed case shows, per failed step: what was done, the expected and the
+// actual result in plain words, what the screen showed, the screenshots, the
+// verdict with its explanation, and the re-run result when one is given:
+//   REPORT_VERDICTS       reports/plans/plans-failure-verdicts.json  ({ id: { verdict, note } })
+//   REPORT_RERUN_RESULTS  the re-run's report .json (written by this script)
+const readJson = (file) => (file && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null);
+const VERDICTS = readJson(process.env.REPORT_VERDICTS) || {};
+const RERUN_RESULTS = (() => {
+  const data = readJson(process.env.REPORT_RERUN_RESULTS);
+  const map = new Map();
+  for (const story of (data && data.stories) || []) for (const c of story.cases) map.set(String(c.id), c);
+  return map;
+})();
+const VERDICT_LABEL = {
+  app: 'Application issue',
+  automation: 'Test issue - fixed in the automation',
+  decision: 'Needs a business decision',
+  environment: 'Environment / test data',
+};
+const fileUrl = (p) => `file:///${encodeURI(String(p).replace(/\\/g, '/'))}`;
+
+/** A failed step in plain words: the shared narrator, or the words the run stored. */
+const toldStep = (s) => {
+  const told = narrateStep(s);
+  const words = (s.reason ? told : s.plain) || told;
+  return { heading: stepHeading(told), expected: words.expected, actual: words.actual, screen: ((s.plain && !s.reason) ? s.plain.screen : told.screen) || [] };
+};
+
+function verdictHtml(c) {
+  const v = VERDICTS[String(c.id)];
+  if (!v) return '';
+  return `<p class="verdict verdict--${esc(v.verdict)}"><span class="verdict__tag">${esc(VERDICT_LABEL[v.verdict] || v.verdict)}</span>${
+    v.note ? ` ${codeify(v.note)}` : ''}</p>`;
+}
+
+function rerunHtml(c) {
+  const again = RERUN_RESULTS.get(String(c.id));
+  if (!again) return '';
+  if (again.status === 'PASS') return '<p class="again again--pass"><b>Re-run:</b> PASSED.</p>';
+  const failed = (again.steps || []).filter((s) => s.status === 'FAIL').map(toldStep);
+  return `<p class="again again--${again.status.toLowerCase()}"><b>Re-run:</b> ${esc(again.status)}${
+    failed.length ? ` - ${failed.map((t) => `${esc(t.heading)}: ${codeify(t.actual)}`).join(' ')}` : ''}</p>`;
+}
+
+/** The screenshots of a failed step: the step's own (with its explanation banner) and the message shots. */
+function shotsHtml(s) {
+  const parts = [];
+  if (s.screenshot) {
+    parts.push(`<a class="thumb" href="${fileUrl(s.screenshot)}" target="_blank" rel="noopener"><img loading="lazy" src="${fileUrl(s.screenshot)}" alt="Screenshot of step ${esc(String(s.index))}"><span>Screenshot of the failed step</span></a>`);
+  }
+  const msgs = (s.observed && s.observed.screenshots) || [];
+  msgs.forEach((m, i) => parts.push(`<a class="thumb thumb--msg" href="${fileUrl(m)}" target="_blank" rel="noopener"><img loading="lazy" src="${fileUrl(m)}" alt="Message ${i + 1}"><span>Message ${i + 1} as it appeared</span></a>`));
+  return parts.length ? `<div class="thumbs">${parts.join('')}</div>` : '';
+}
+
+/** The Actual-result cell of a failed case: one clear block per failed step. */
+function failureDetailHtml(c) {
+  const failed = (c.steps || []).filter((s) => s.status === 'FAIL');
+  if (!failed.length) return codeify(c.actual);
+  const notRun = (c.steps || []).filter((s) => s.status === 'NOT EXECUTED').length;
+  return `${verdictHtml(c)}${failed.map((s) => {
+    const t = toldStep(s);
+    return `<div class="fx">
+      <p class="fx__h">${esc(t.heading)}</p>
+      <dl class="fx__dl">
+        <dt>Expected</dt><dd>${codeify(t.expected)}</dd>
+        <dt>Actual</dt><dd class="fx__actual">${codeify(t.actual)}</dd>
+        <dt>On screen</dt><dd>${t.screen.length ? t.screen.map((line) => codeify(line)).join('<br>') : 'No message, pop-up or error was shown.'}</dd>
+      </dl>
+      ${shotsHtml(s)}
+    </div>`;
+  }).join('')}${notRun ? `<p class="fx__more">${notRun} later step${notRun === 1 ? ' was' : 's were'} not run, because they depend on a step that failed.</p>` : ''}${rerunHtml(c)}`;
+}
+
+/** The "Failed test cases" section - the failure sheet's rows, one per failed step. */
+const failedCases = testCases.filter((c) => c.status === 'FAIL');
+const verdictCounts = failedCases.reduce((m, c) => {
+  const k = (VERDICTS[String(c.id)] || {}).verdict || 'unreviewed';
+  return { ...m, [k]: (m[k] || 0) + 1 };
+}, {});
+const failedSection = failedCases.length
+  ? `<section class="story" id="failed-cases">
+  <h2>Failed test cases - what went wrong</h2>
+  <p class="note"><b>How to read this.</b> One row per failed step: what the step did, what should have happened,
+  what actually happened, and what the screen showed at that moment. Each screenshot carries a red banner with
+  the same expected and actual result, and outlines the element the step was checking.${
+    Object.keys(VERDICTS).length
+      ? ` Verdicts: ${Object.entries(verdictCounts).map(([k, n]) => `<b>${n}</b> ${esc(VERDICT_LABEL[k] || 'not reviewed yet')}`).join(', ')}.`
+      : ''}</p>
+  <div class="tw"><table class="ft">
+    <thead><tr><th>Case</th><th>User story</th><th>Failed step</th><th>Expected result</th><th>Actual result</th><th>On screen at that moment</th><th>Verdict</th><th>Screenshots</th></tr></thead>
+    <tbody>${failedCases.map((c) => {
+      const storyName = (grouped.find((g) => g.cases.includes(c)) || {}).name || '';
+      const v = VERDICTS[String(c.id)];
+      const again = RERUN_RESULTS.get(String(c.id));
+      return (c.steps || []).filter((s) => s.status === 'FAIL').map((s) => {
+        const t = toldStep(s);
+        return `<tr class="r r--fail">
+          <td class="c-id">${caseLink(c.id)}</td>
+          <td>${esc(storyName)}</td>
+          <td>${esc(t.heading)}</td>
+          <td>${codeify(t.expected)}</td>
+          <td class="fx__actual">${codeify(t.actual)}</td>
+          <td>${t.screen.length ? t.screen.map((line) => codeify(line)).join('<br>') : '<span class="muted">Nothing shown</span>'}</td>
+          <td>${v ? `<span class="verdict__tag verdict__tag--${esc(v.verdict)}">${esc(VERDICT_LABEL[v.verdict] || v.verdict)}</span><span class="vnote">${codeify(v.note || '')}</span>` : ''}${
+            again ? `<span class="again again--${again.status.toLowerCase()}">Re-run: ${esc(again.status)}</span>` : ''}</td>
+          <td>${s.screenshot ? `<a href="${fileUrl(s.screenshot)}" target="_blank" rel="noopener">Step</a>` : ''}${
+            ((s.observed && s.observed.screenshots) || []).map((m, i) => ` <a href="${fileUrl(m)}" target="_blank" rel="noopener">Msg ${i + 1}</a>`).join('')}</td>
+        </tr>`;
+      }).join('');
+    }).join('')}</tbody>
+  </table></div>
+</section>`
+  : '';
 
 const storySections = grouped
   .map((g) => {
@@ -866,7 +1032,7 @@ const storySections = grouped
                 : ''}`;
             })()
         }</td>
-        <td class="c-act">${codeify(x.actual)}${
+        <td class="c-act">${x.status === 'FAIL' ? failureDetailHtml(x) : codeify(x.actual)}${
           disputed(x)
             ? `<p class="repro">Not reproduced &mdash; the other run of the same day recorded this case as <b>${esc(
                 x.otherRunStatus,
@@ -1058,7 +1224,30 @@ const html = `<title>${MODULE_TITLE} Module Test Results</title>
   footer{border-top:1px solid var(--rule);padding-top:20px;color:var(--muted);font-size:.85rem;
     display:flex;flex-direction:column;gap:11px}
   footer b{color:var(--ink)}
-  @media (max-width:640px){ .wrap{padding:26px 14px 60px} h1{font-size:1.7rem} .c-exp{width:auto} }
+  /* Failure details (2026-10-28): expected / actual / on screen / screenshots / verdict. */
+  .fx{border:1px solid var(--rule);border-left:3px solid var(--fail);border-radius:6px;padding:8px 10px;margin:0 0 8px;background:var(--panel)}
+  .fx__h{margin:0 0 4px;font-weight:600;font-size:.85rem}
+  .fx__dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;margin:0;font-size:.82rem}
+  .fx__dl dt{color:var(--muted);font-weight:600}
+  .fx__dl dd{margin:0}
+  .fx__actual{color:var(--fail)}
+  .fx__more{font-size:.78rem;color:var(--muted);margin:2px 0 6px}
+  .thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .thumb{display:flex;flex-direction:column;gap:2px;width:220px;font-size:.72rem;color:var(--accent);text-decoration:none}
+  .thumb img{width:220px;max-height:124px;object-fit:cover;object-position:bottom;border:1px solid var(--rule);border-radius:4px;background:var(--panel-2)}
+  .thumb--msg img{object-position:top}
+  .verdict{margin:0 0 8px;font-size:.82rem}
+  .verdict__tag{display:inline-block;font-size:.68rem;font-weight:600;letter-spacing:.03em;padding:1px 7px;border-radius:3px;margin-right:4px;
+    background:var(--skip-bg);color:var(--skip)}
+  .verdict--app .verdict__tag,.verdict__tag--app{background:var(--fail-bg);color:var(--fail)}
+  .verdict--automation .verdict__tag,.verdict__tag--automation{background:var(--pass-bg);color:var(--pass)}
+  .verdict--decision .verdict__tag,.verdict__tag--decision{background:var(--blocked-bg);color:var(--blocked)}
+  .vnote{display:block;font-size:.74rem;color:var(--muted);margin-top:3px}
+  .again{display:block;font-size:.78rem;margin-top:4px}
+  .again--pass{color:var(--pass)} .again--fail{color:var(--fail)} .again--blocked{color:var(--blocked)}
+  .ft td{font-size:.8rem;vertical-align:top}
+  .muted{color:var(--muted)}
+  @media (max-width:640px){ .wrap{padding:26px 14px 60px} h1{font-size:1.7rem} .c-exp{width:auto} .thumb,.thumb img{width:100%} }
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
 </style>
 
@@ -1172,6 +1361,8 @@ ${
 </section>`
     : ''
 }
+
+${failedSection}
 
 ${storySections}
 

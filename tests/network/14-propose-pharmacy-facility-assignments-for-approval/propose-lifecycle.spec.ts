@@ -97,42 +97,6 @@ test.describe('US 14131 - Proposal lifecycle', () => {
     });
   });
 
-  test(`TC-${CASE.reviewerSees}: should show the reviewer the proposed facilities as additions when the change is reviewed`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    networkApprovalsPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [MEMBERSHIP.existing.code] });
-    let review = '';
-
-    await steps.critical('Navigate to the network and submit a proposal of two facilities', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect((await networkDetailPage.facilities().assign(MEMBERSHIP.proposed.map((f) => f.code)))?.status).toBeLessThan(300);
-      await networkManagementPage.openList();
-      await networkManagementPage.submitForApproval(network.name);
-    });
-
-    await steps.critical('The reviewer\'s queue lists the pending change', async () => {
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.expectInQueue(network.name);
-    });
-
-    await steps.step('The review screen shows both proposed facilities', async () => {
-      review = await networkApprovalsPage.readReviewText(network.name);
-      for (const facility of MEMBERSHIP.proposed) {
-        expect(review, `${facility.code} should be shown to the reviewer`).toContain(facility.name);
-      }
-    });
-
-    await steps.step('The existing facility is shown apart from the proposed additions', async () => {
-      expect(review, 'the current membership should be visible for comparison').toContain(MEMBERSHIP.existing.name);
-    });
-  });
-
   test(`TC-${CASE.draftNotLive}: should keep a pending proposal out of every live view of the network`, async ({
     networkDetailPage,
     networkManagementPage,

@@ -19,8 +19,15 @@ import { networkStamp } from '../../utils/NetworkProvisioning';
 
 export const SCOPE = { allNetworks: 'all', filteredResults: 'selected' } as const;
 
-/** The scope labels the sheet expects the prompt to offer. */
-export const SHEET_SCOPE_LABELS = ['All Networks', 'Filtered Results'] as const;
+/**
+ * The scopes 17768 walks through end to end. The QA lead (2026-10-27): the
+ * scope NAMES are not what this case checks - only that every scope moves
+ * through the format prompt to a completed download without an issue.
+ */
+export const FLOW_SCOPES = [
+  { scope: SCOPE.allNetworks, name: 'Export All Data', format: 'csv', extension: '.csv' },
+  { scope: SCOPE.filteredResults, name: 'Selected Export', format: 'excel', extension: '.xlsx' },
+] as const;
 
 export const EXPORT_HEADERS = [...NETWORK_EXPORT_HEADERS];
 export const EXPORT_FILE = NETWORK_EXPORT_FILE;

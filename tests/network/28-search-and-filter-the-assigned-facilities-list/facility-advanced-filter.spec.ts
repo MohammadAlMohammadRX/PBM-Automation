@@ -26,7 +26,7 @@ test.describe('US 14306 - Advanced filtering of assigned facilities', () => {
     steps,
   }) => {
     test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [FACILITY.nathealth.code] });
+    const network = await networkIn('Active', { facilityCodes: [FACILITY.pharmacyC.code] });
     const tab = () => networkDetailPage.facilities();
 
     await steps.critical('Navigate to the network and open Advanced Search - status and date range are offered', async () => {
@@ -37,7 +37,7 @@ test.describe('US 14306 - Advanced filtering of assigned facilities', () => {
 
     await steps.step('From = To = the assigned date includes the facility', async () => {
       await tab().advancedSearch({ assignedFrom: RANGE.exactDay.from, assignedTo: RANGE.exactDay.to });
-      expect(await tab().getCodes()).toEqual([FACILITY.nathealth.code]);
+      expect(await tab().getCodes()).toEqual([FACILITY.pharmacyC.code]);
     });
 
     await steps.step('From = the day after excludes it', async () => {
@@ -61,7 +61,7 @@ test.describe('US 14306 - Advanced filtering of assigned facilities', () => {
     steps,
   }) => {
     test.setTimeout(BUDGET.oneLiveNetwork);
-    const members = [FACILITY.nathealth.code, FACILITY.pharmacyA.code];
+    const members = [FACILITY.pharmacyC.code, FACILITY.pharmacyA.code];
     const network = await networkIn('Active', { facilityCodes: members });
     const tab = () => networkDetailPage.facilities();
     const fresh = async () => {
@@ -254,7 +254,7 @@ test.describe('US 14306 - Advanced filtering of assigned facilities', () => {
     steps,
   }) => {
     test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [FACILITY.nathealth.code] });
+    const network = await networkIn('Active', { facilityCodes: [FACILITY.pharmacyC.code] });
     const changed = FACILITY.pharmacyA.code;
 
     await steps.critical('Navigate to the network and move a facility from Pending to approved', async () => {

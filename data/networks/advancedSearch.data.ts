@@ -30,7 +30,8 @@ export const SEARCH_CASES = {
   combined: { azureId: '17733', sheetName: 'MedCare Network', term: 'Med', type: 'PPO', status: 'Active' },
   prepopulated: { azureId: '17731', sheetName: 'MedCare', type: 'PPO', status: 'Active' },
   pagination: { azureId: '17734', startPage: 5, term: 'Automation Network' },
-  debounce: { azureId: '17732', term: 'Alpha', debounceMs: 300 },
+  // The search runs on the Search click, not as the user types (QA lead, 2026-10-27).
+  searchOnClick: { azureId: '17732', term: 'Alpha', settleMs: 1_500 },
   cancelDiscards: { azureId: '17737', applied: 'Automation Network', edited: 'Edited but not applied', type: 'POS', status: 'Expired' },
 } as const;
 

@@ -100,13 +100,46 @@ export const NETWORK_PERMISSION = {
 
 export type NetworkPermissionKey = keyof typeof NETWORK_PERMISSION;
 
+// ---- plan folder 29/30 additions (2026-10-27) ----
+/**
+ * The Plans-section permissions the plan cases shape, as the live catalogue
+ * labels them. VERIFIED 2026-10-27 from the label list the shaping fixture
+ * logged on the full Plans run: unlike the network section, the Plans labels
+ * are plain words ("View plan details", "Edit plan"), not endpoint names. The
+ * first draft guessed the endpoint names (GetPlan, UpdatePlan, ...), which are
+ * not in the tree, so 18959, 18975, 18988 and 19081 BLOCKED on a role that
+ * could in fact be built.
+ */
+export const PLAN_PERMISSION = {
+  revertPlanVersion: 'Revert plan version',
+  inactivatePlan: 'Deactivate plan',
+  activatePlan: 'Activate plan',
+  // ---- plan folder 07 / 08 / 16 additions (2026-10-27) ----
+  viewPlanDetails: 'View plan details',
+  viewPlanAuditTrail: 'View plan audit logs',
+  viewPlanVersions: 'View plan versions',
+  createPlan: 'Create plan',
+  editPlan: 'Edit plan',
+  deletePlan: 'Delete plan',
+  clonePlan: 'Clone plan',
+  submitPlan: 'Send plan change for approval',
+  assignPlanFormulary: 'Assign plan formulary',
+  // ---- plan folders 01 / 09 / 10 / 11 / 12 additions (2026-10-27) ----
+  viewPlansDashboard: 'View plan dashboard',
+  viewPlanList: 'View plan list',
+  exportPlans: 'Export plans',
+} as const;
+
+export type PlanPermissionKey = keyof typeof PLAN_PERMISSION;
+
 /** Any permission the role-shaping fixture can tick or untick. */
-export type RolePermissionKey = PayerPermissionKey | NetworkPermissionKey;
+export type RolePermissionKey = PayerPermissionKey | NetworkPermissionKey | PlanPermissionKey;
 
 /** The catalogue label for any shapeable permission. */
 export const ROLE_PERMISSION: Readonly<Record<RolePermissionKey, string>> = {
   ...PAYER_PERMISSION,
   ...NETWORK_PERMISSION,
+  ...PLAN_PERMISSION,
 };
 
 /** The catalogue label for a permission, by the name a case uses. */

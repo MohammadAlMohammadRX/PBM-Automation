@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { NETWORK_INACTIVATE_DIALOG, TOAST, buttonSelector } from '../../constants/ElementIds';
+import { NETWORK_INACTIVATE_DIALOG, TOAST, buttonSelector, type InactivateDialogIds } from '../../constants/ElementIds';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 
@@ -27,7 +27,15 @@ import { Logger } from '../../utils/Logger';
  * cannot share a component even though they look alike on screen.
  */
 export class NetworkInactivateDialog {
-  constructor(private readonly page: Page) {}
+  /**
+   * The ids default to the network drawer. The Plans module renders the same
+   * component as `plan-inactivate-dialog-*` (2026-10-27), so PlanInactivateDialog
+   * passes PLAN_INACTIVATE instead of copying this class.
+   */
+  constructor(
+    private readonly page: Page,
+    private readonly ids: InactivateDialogIds = NETWORK_INACTIVATE_DIALOG,
+  ) {}
 
   /**
    * The drawer's TITLE is the readiness signal, not its root: the host is a
@@ -35,7 +43,7 @@ export class NetworkInactivateDialog {
    * renders is a child. Same trap as the payer drawer.
    */
   private title(): Locator {
-    return this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.title}`);
+    return this.page.locator(`#${this.ids.title}`);
   }
 
   async waitForOpen(): Promise<void> {
@@ -65,7 +73,7 @@ export class NetworkInactivateDialog {
    */
   async getExplanation(): Promise<string> {
     await this.waitForOpen();
-    return (await this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.root}`).innerText()).trim();
+    return (await this.page.locator(`#${this.ids.root}`).innerText()).trim();
   }
 
   /**
@@ -77,7 +85,7 @@ export class NetworkInactivateDialog {
    * unrelated to what it checks.
    */
   async selectFirstReason(): Promise<void> {
-    const select = this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.reasonSelect}`);
+    const select = this.page.locator(`#${this.ids.reasonSelect}`);
     await expect(select, 'the drawer should ask for a reason').toBeVisible({
       timeout: Timeouts.default,
     });
@@ -88,7 +96,7 @@ export class NetworkInactivateDialog {
   }
 
   async fillDetails(text: string): Promise<void> {
-    const input = this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.detailsInput}`);
+    const input = this.page.locator(`#${this.ids.detailsInput}`);
     if ((await input.count()) === 0) return;
     await input.fill(text);
   }
@@ -101,7 +109,7 @@ export class NetworkInactivateDialog {
    */
   async confirm(): Promise<void> {
     Logger.step('Confirming the network inactivation');
-    await this.page.locator(buttonSelector(NETWORK_INACTIVATE_DIALOG.save)).first().click();
+    await this.page.locator(buttonSelector(this.ids.save)).first().click();
 
     // A refused save leaves the drawer open and reports the reason in a toast -
     // "Only an active network can be inactivated." is the one this suite met,
@@ -121,14 +129,14 @@ export class NetworkInactivateDialog {
         .then((text) => text.trim())
         .catch(() => '');
       throw new Error(
-        '[NetworkInactivateDialog] The drawer stayed open after Save, so the inactivation was '
+        `[${this.ids.root}] The drawer stayed open after Save, so the inactivation was `
         + `refused. The application said: "${toast || '(no message)'}"`,
       );
     }
   }
 
   async cancel(): Promise<void> {
-    await this.page.locator(buttonSelector(NETWORK_INACTIVATE_DIALOG.cancel)).first().click();
+    await this.page.locator(buttonSelector(this.ids.cancel)).first().click();
     await expect(this.title()).toBeHidden({ timeout: Timeouts.default });
   }
 
@@ -143,15 +151,15 @@ export class NetworkInactivateDialog {
   // ---- Added 2026-10-21 for the network module's reason and status stories ----
 
   private reasonSelect(): Locator {
-    return this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.reasonSelect}`);
+    return this.page.locator(`#${this.ids.reasonSelect}`);
   }
 
   private detailsInput(): Locator {
-    return this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.detailsInput}`);
+    return this.page.locator(`#${this.ids.detailsInput}`);
   }
 
   private saveButton(): Locator {
-    return this.page.locator(buttonSelector(NETWORK_INACTIVATE_DIALOG.save)).first();
+    return this.page.locator(buttonSelector(this.ids.save)).first();
   }
 
   /** The reasons the lookup offers, in order, without choosing one. */
@@ -161,7 +169,16 @@ export class NetworkInactivateDialog {
     const options = this.page.getByRole('option').filter({ visible: true });
     await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
     const texts = await options.allInnerTexts();
+    // Escape does not always close the overlay (2026-10-27, 19274): a list
+    // left open makes the next select click CLOSE it. Toggle it shut if so.
+    // Wait for the close first - checking at once catches the closing animation
+    // and the toggle click would reopen the list.
     await this.page.keyboard.press('Escape');
+    const closed = await expect(options).toHaveCount(0, { timeout: 2_000 }).then(() => true).catch(() => false);
+    if (!closed) {
+      await this.reasonSelect().click();
+      await expect(options, 'the reason list should close').toHaveCount(0, { timeout: Timeouts.short });
+    }
     return texts.map((text) => text.trim()).filter((text) => text !== '');
   }
 
@@ -205,7 +222,7 @@ export class NetworkInactivateDialog {
 
   /** The "Needs approval ..." notice the drawer shows. */
   async getApprovalNotice(): Promise<string> {
-    const notice = this.page.locator(`#${NETWORK_INACTIVATE_DIALOG.approvalNotice}`);
+    const notice = this.page.locator(`#${this.ids.approvalNotice}`);
     await expect(notice).toBeVisible({ timeout: Timeouts.default });
     return (await notice.innerText()).trim();
   }
@@ -215,8 +232,8 @@ export class NetworkInactivateDialog {
     const read = async (id: string) =>
       this.page.locator(`#${id}`).innerText({ timeout: Timeouts.short }).then((t) => t.trim()).catch(() => '');
     return {
-      reason: await read(NETWORK_INACTIVATE_DIALOG.reasonError),
-      details: await read(NETWORK_INACTIVATE_DIALOG.detailsError),
+      reason: await read(this.ids.reasonError),
+      details: await read(this.ids.detailsError),
     };
   }
 

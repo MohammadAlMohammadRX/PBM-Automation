@@ -2,6 +2,8 @@ import { test as base, expect } from '@playwright/test';
 import type { TestInfo } from '@playwright/test';
 import { Logger } from '../utils/Logger';
 import { ScreenshotUtils } from '../utils/ScreenshotUtils';
+import { UiEventRecorder } from '../utils/UiEventRecorder';
+import { narrateStep } from '../utils/failureNarrator';
 import {
   ANNOTATION,
   StepStatus,
@@ -106,14 +108,20 @@ export const test = base.extend<TestStatusFixtures>({
     const records: StepRecord[] = [];
     let abortReason: string | null = null;
 
+    // Everything the application shows from here on is recorded, so a failed
+    // step can report the toast or error it raised even after it expired.
+    await UiEventRecorder.watch(testInfo, page);
+
     const add = (
       name: string,
       status: StepRecord['status'],
       reason: string | undefined,
       durationMs: number,
       screenshot?: string,
+      observed?: StepRecord['observed'],
+      plainWords?: StepRecord['plain'],
     ) => {
-      records.push({ index: records.length + 1, name, status, reason, durationMs, screenshot });
+      records.push({ index: records.length + 1, name, status, reason, durationMs, screenshot, observed, plain: plainWords });
     };
 
     async function run(name: string, body: () => Promise<void>, isCritical: boolean) {
@@ -156,23 +164,45 @@ export const test = base.extend<TestStatusFixtures>({
           throw error;
         }
 
+        // The failure in plain words (utils/failureNarrator.js) - worked out
+        // first, because the screenshot prints it on the screen it photographs.
+        const stepIndex = records.length + 1;
+        const told = narrateStep({ index: stepIndex, name, reason });
+        const elementId = (reason.match(/locator\('[^']*#([A-Za-z0-9_-]+)/) ?? [])[1];
+
         // Taken HERE, before anything else runs, so the image shows the screen
         // that produced the failure rather than whatever teardown leaves behind.
-        const shot = await ScreenshotUtils.captureStepFailure(
-          page,
-          testInfo,
-          records.length + 1,
-          name,
-        );
+        const shot = await ScreenshotUtils.captureStepFailure(page, testInfo, stepIndex, name, {
+          expected: told.expected,
+          actual: told.actual,
+          elementId,
+        });
 
-        add(name, StepStatus.FAIL, reason, Date.now() - started, shot);
-        Logger.error(`Step "${name}" FAILED`, reason);
+        // What the application showed during the step - read after the
+        // screenshot so a message that arrived while the screen settled is
+        // included - and the pictures taken the moment each message appeared.
+        const seen = UiEventRecorder.since(testInfo, started);
+        const messageShots = await ScreenshotUtils.captureStepMessages(testInfo, stepIndex, name, seen);
+        const observed = {
+          events: UiEventRecorder.describe(seen, started),
+          screenshots: messageShots,
+        };
+        const plainWords = {
+          expected: told.expected,
+          actual: told.actual,
+          screen: narrateStep({ index: stepIndex, name, reason, observed }).screen,
+        };
+
+        add(name, StepStatus.FAIL, reason, Date.now() - started, shot, observed, plainWords);
+        Logger.error(`Step "${name}" FAILED - expected: ${told.expected} | actual: ${told.actual}`, reason);
+        for (const line of observed.events) Logger.info(`    seen: ${line}`);
 
         // A SOFT failure, so the test continues here but Playwright still ends
         // it as failed. This is what lets the remaining steps run while keeping
         // the overall verdict honest - no separate bookkeeping decides it.
+        // Worded for a reader: it is the error Playwright and Azure show.
         expect
-          .soft(false, `Step ${records.length} "${name}" failed: ${reason.split('\n')[0]}`)
+          .soft(false, `Step ${stepIndex} "${name}" failed. Expected: ${told.expected} Actual: ${told.actual}`)
           .toBe(true);
 
         if (isCritical) {
@@ -228,8 +258,20 @@ export const test = base.extend<TestStatusFixtures>({
       const lines = records.map((r) => {
         const head = `Step ${r.index} -> ${r.status}  (${(r.durationMs / 1000).toFixed(1)}s)  ${r.name}`;
         const parts = [head];
-        if (r.reason) parts.push(`    Reason: ${r.reason.split('\n')[0]}`);
+        if (r.plain) {
+          parts.push(`    Expected: ${r.plain.expected}`);
+          parts.push(`    Actual:   ${r.plain.actual}`);
+          if (r.plain.screen.length) parts.push(`    On screen at that moment: ${r.plain.screen.join('; ')}`);
+          if (r.reason) parts.push(`    Technical detail (for the automation team): ${r.reason.split('\n')[0]}`);
+        } else if (r.reason) parts.push(`    Reason: ${r.reason.split('\n')[0]}`);
         if (r.screenshot) parts.push(`    Screenshot: ${r.screenshot}`);
+        if (r.observed) {
+          parts.push(r.observed.events.length > 0
+            ? '    Seen on screen during the step:'
+            : '    Seen on screen during the step: no message, dialog, API error or console error');
+          for (const line of r.observed.events) parts.push(`      ${line}`);
+          for (const file of r.observed.screenshots) parts.push(`    Message screenshot: ${file}`);
+        }
         return parts.join('\n');
       });
 

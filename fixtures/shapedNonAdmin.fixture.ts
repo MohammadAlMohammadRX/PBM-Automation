@@ -6,12 +6,15 @@ import { PayerMetricsPanel } from '../pages/payer/PayerMetricsPanel';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
+import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
+import { PlanDetailPage } from '../pages/plan/PlanDetailPage';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 import { ExportMenu } from '../pages/components/ExportMenu';
 import { PayerScopeDialog } from '../pages/components/PayerScopeDialog';
 import { DEFAULT_VIEWPORT } from '../constants/BrowserConfig';
 import { env } from '../constants/EnvironmentConfig';
 import { Logger } from '../utils/Logger';
+import { ScreenshotUtils } from '../utils/ScreenshotUtils';
 import {
   PAYER_ADMIN_ROLE,
   ROLE_PERMISSION,
@@ -40,6 +43,10 @@ export interface ShapedSession {
   /** Added 2026-10-21 for the network module's permission stories. */
   networkDetail: NetworkDetailPage;
   networkApprovals: ApprovalManagementPage;
+  /** The Plans module as this session sees it (2026-10-27). */
+  plans: PlanManagementPage;
+  planDetail: PlanDetailPage;
+  planApprovals: ApprovalManagementPage;
   exportMenu: ExportMenu;
   /** What was actually changed, so a case can say so in its message. */
   removed: string[];
@@ -207,6 +214,7 @@ export const test = base.extend<ShapedNonAdminFixtures>({
         // unanswered question. The administrator never sees it.
         const payerName = await new PayerScopeDialog(shaped).chooseIfAsked();
         if (payerName !== null) Logger.step(`[fixture] Scoped session working on "${payerName}"`);
+        ScreenshotUtils.registerSession(testInfo, shaped);
 
         // THE SHAPING IS VERIFIED HERE, against the application's own answer -
         // and the answer is ATTACHED, not acted on. The case's expectation is a
@@ -229,6 +237,9 @@ export const test = base.extend<ShapedNonAdminFixtures>({
           networks: new NetworkManagementPage(shaped),
           networkDetail: new NetworkDetailPage(shaped),
           networkApprovals: new ApprovalManagementPage(shaped, 'network'),
+          plans: new PlanManagementPage(shaped),
+          planDetail: new PlanDetailPage(shaped),
+          planApprovals: new ApprovalManagementPage(shaped, 'plan'),
           exportMenu: new ExportMenu(shaped),
           removed: (shape.without ?? []).map((key) => ROLE_PERMISSION[key]),
           granted: (shape.with ?? []).map((key) => ROLE_PERMISSION[key]),

@@ -32,7 +32,7 @@ export const ALL = ALL_FACILITY_CODES;
 /** Keyword classes over the three facilities' names. */
 export const KEYWORD = {
   /** "Sunrise" -> "Sunrise Pharmacy": a word of one facility's name. */
-  single: { term: 'Nathe', expected: [FACILITY.nathealth.code] },
+  single: { term: 'Nathe', expected: [FACILITY.pharmacyC.code] },
   exact: { term: FACILITY.pharmacyA.name, expected: [FACILITY.pharmacyA.code] },
   /** A substring several names contain: the two "QA Automation Pharmac-y" records, not "Nathealth". */
   partial: { term: 'y', expected: [FACILITY.pharmacyB.code, FACILITY.pharmacyA.code] },
@@ -62,7 +62,7 @@ export const CHECKLIST_KEYS = ['facilitystatusid', 'assignedon'] as const;
 
 /** The two networks of the scoping case and the facility only B holds. */
 export const SCOPING = {
-  networkA: [FACILITY.nathealth.code],
+  networkA: [FACILITY.pharmacyC.code],
   networkB: [FACILITY.pharmacyA.code],
   term: FACILITY.pharmacyA.name,
 } as const;

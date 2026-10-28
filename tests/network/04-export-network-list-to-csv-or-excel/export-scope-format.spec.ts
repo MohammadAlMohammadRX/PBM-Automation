@@ -105,7 +105,8 @@ test.describe('US 14121 - Export scope and format', () => {
       const file = await networkManagementPage.exportAndParse(SCOPE.filteredResults, 'excel');
       expect(file.bytes.subarray(0, 2).toString('utf8')).toBe(XLSX_SIGNATURE);
       expect(file.parsed.rows.length, `every ${data.type} network and nothing else`).toBe(filtered);
-      expect(file.parsed.rows.filter((row) => row[EXPORT_HEADERS[3]] !== data.type), `rows typed other than ${data.type}`).toEqual([]);
+      const others = file.parsed.rows.filter((row) => row[EXPORT_HEADERS[3]] !== data.type);
+      expect(others.length, `rows typed other than ${data.type}: ${others.map((row) => `${row[EXPORT_HEADERS[0]]} ${row[EXPORT_HEADERS[1]]} (${row[EXPORT_HEADERS[3]]})`).join('; ')}`).toBe(0);
     });
   });
 
@@ -195,9 +196,10 @@ test.describe('US 14121 - Export scope and format', () => {
     await steps.step('The Filtered Results workbook opens and holds exactly that data', async () => {
       const file = await networkManagementPage.exportAndParse(SCOPE.filteredResults, 'excel');
       expect(file.bytes.subarray(0, 2).toString('utf8')).toBe(XLSX_SIGNATURE);
-      expect(file.parsed.headers).toEqual(EXPORT_HEADERS);
-      expect(file.parsed.rows.length).toBe(filtered);
-      expect(file.parsed.rows.filter((row) => row[EXPORT_HEADERS[3]] !== data.type)).toEqual([]);
+      expect(file.parsed.headers, 'the workbook should carry the export headers').toEqual(EXPORT_HEADERS);
+      expect(file.parsed.rows.length, 'one row per filtered network').toBe(filtered);
+      const others = file.parsed.rows.filter((row) => row[EXPORT_HEADERS[3]] !== data.type);
+      expect(others.length, `rows typed other than ${data.type}: ${others.map((row) => `${row[EXPORT_HEADERS[0]]} ${row[EXPORT_HEADERS[1]]} (${row[EXPORT_HEADERS[3]]})`).join('; ')}`).toBe(0);
     });
   });
 });

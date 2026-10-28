@@ -46,6 +46,10 @@ export const AppRoutes = {
    * left an audit record outside the payer's own Audit History tab.
    */
   auditLogs: '/system-settings/audit-logs',
+
+  // ---- plan folder 27 additions (2026-10-27) ----
+  /** Formulary Mgmt - the list; a formulary's detail is `/formulary-pricing/{id}`. */
+  formularyManagement: '/formulary-pricing',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

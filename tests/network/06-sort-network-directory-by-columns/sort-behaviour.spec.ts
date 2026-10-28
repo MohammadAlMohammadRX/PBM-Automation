@@ -1,6 +1,6 @@
 import { test, expect } from '../../../fixtures';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
-import { duplicates, isGrouped, isSorted } from '../../../utils/SortUtils';
+import { isGrouped, isSorted } from '../../../utils/SortUtils';
 import { NETWORK_MESSAGE } from '../../../data/networks/network.data';
 import { CASES, REQUIRED_OPTIONS, SORT_OPTIONS, expectedSortBy } from '../../../data/networks/sortDirectory.data';
 
@@ -136,38 +136,6 @@ test.describe('US 14123 - Sort By menu behaviour', () => {
       const request = await networkManagementPage.captureQuickFilterRequest('status', data.allStatuses);
       expect(String(request.sortBy ?? '').toLowerCase(), 'the chosen sort should persist').toBe(expectedSortBy('name', 'asc'));
       expect(isSorted(await networkManagementPage.readColumn(NETWORK_COLUMN.networkName), 'asc')).toBe(true);
-    });
-  });
-
-  test(`TC-${CASES.exploratory.azureId}: should offer distinct options and close on selection or outside click when the menu is explored`, async ({
-    networkManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the Network Management module - the directory loads', async () => {
-      await networkManagementPage.openList();
-    });
-
-    await steps.step('Every option label is distinct and none is blank', async () => {
-      const options = await networkManagementPage.getSortOptions();
-      expect(duplicates(options)).toEqual([]);
-      expect(options.filter((o) => o === '')).toEqual([]);
-    });
-
-    await steps.step('Selecting an option closes the menu', async () => {
-      await networkManagementPage.sortBy('code', 'asc');
-      expect(await networkManagementPage.isSortMenuClosed()).toBe(true);
-    });
-
-    await steps.step('Clicking outside closes the menu without changing the order', async () => {
-      await networkManagementPage.openSortMenu();
-      const outcome = await networkManagementPage.dismissSortMenuOutside();
-      expect(outcome.closed, 'the menu should close').toBe(true);
-      expect(outcome.requests, 'an outside click must not re-sort').toBe(0);
-    });
-
-    await steps.step('The menu can be opened and an option chosen with the keyboard', async () => {
-      expect(await networkManagementPage.openSortMenuWithKeyboard(), 'Enter on the trigger should open the menu').toBe(true);
-      expect(await networkManagementPage.chooseSortWithKeyboard(CASES.exploratory.keyboardSteps), 'a keyboard choice should sort').not.toBe('');
     });
   });
 

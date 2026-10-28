@@ -59,7 +59,12 @@ export const pagerDataset = (): { prefix: string; ten: string; names: string[]; 
 export const CASES = {
   defaultView: { azureId: '17751' },
   partitions: { azureId: '17749' },
-  pagination: { azureId: '17750' },
+  pagination: {
+    azureId: '17750',
+    // QA lead, 2026-10-27: steps 2 and 3 need test data, so the case is reported Skipped.
+    skipReason: 'Skipped by the QA lead (2026-10-27): steps 2 and 3 need test data - exactly 10 and exactly 11 '
+      + 'networks matching one search - which this environment does not have.',
+  },
   filterIndependence: { azureId: '17752', type: 'HMO' },
   viewToggle: { azureId: '17753', status: NETWORK_LIFECYCLE.active },
   columns: { azureId: '17754' },

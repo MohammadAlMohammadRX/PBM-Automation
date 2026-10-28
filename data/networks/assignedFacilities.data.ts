@@ -27,7 +27,7 @@ export const CASE = {
 } as const;
 
 /** The facility a single-facility network holds (the sheet's "Riverside Pharmacy"). */
-export const SHOWN = FACILITY.nathealth;
+export const SHOWN = FACILITY.pharmacyC;
 
 /** A second facility, for the two-facility networks. */
 export const SECOND = FACILITY.pharmacyB;

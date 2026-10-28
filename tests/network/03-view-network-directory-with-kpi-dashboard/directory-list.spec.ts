@@ -69,6 +69,7 @@ test.describe('US 14120 - Network directory list', () => {
     networkIn,
     steps,
   }) => {
+    test.skip(true, CASES.pagination.skipReason);
     test.setTimeout(15 * 60_000);
     const dataset = pagerDataset();
     for (const name of dataset.names) await networkIn('Draft', { nameEn: name, facilities: 0 });

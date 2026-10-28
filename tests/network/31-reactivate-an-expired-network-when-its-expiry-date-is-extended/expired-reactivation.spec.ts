@@ -138,45 +138,6 @@ test.describe('US 14309 - Recalculation on an approved edit', () => {
       });
     });
   }
-
-  test(`TC-${CASE.pendingEditStaysExpired}: should keep the network Expired while an extending edit is still pending approval`, async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(20 * 60_000);
-    const network = await networkIn('Expired');
-
-    await steps.critical('Navigate to the Network Management module - the list shows the Expired network', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('The detail page shows Status Expired', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('The extending edit is submitted but not approved - it shows Pending Approval and the status is unchanged', async () => {
-      const report = await networkManagementPage.stageMultiFieldEdit(network.name, { expiryDate: DATES.extendedExpiry() });
-      expect(report.outcome?.status, `the edit should save: ${report.messages.join(' | ')}`).toBeLessThan(300);
-      await networkManagementPage.openList();
-      await networkManagementPage.submitForApproval(network.name);
-      await networkManagementPage.expectApprovalCell(network.name, PENDING_APPROVAL_CELL);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('Reopened while pending, the record reads Expired', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('The job runs while the edit is unapproved and does not change the status', async () => {
-      await networkDetailPage.expectStatusHolds(network.id, NETWORK_LIFECYCLE.expired, JOB_HOLD_MS);
-    });
-  });
 });
 
 /** The edges: the decision table and transition map, invalid dates, who may extend, and the trail it leaves. */

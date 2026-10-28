@@ -51,7 +51,6 @@ export const CASE = {
   effectiveTomorrowPending: '18128',
   expiryTodayStaysExpired: '18129',
   noExtensionStaysExpired: '18130',
-  pendingEditStaysExpired: '18131',
   decisionTable: '18132',
   stateMap: '18133',
   expiryBeforeEffectiveRejected: '18134',

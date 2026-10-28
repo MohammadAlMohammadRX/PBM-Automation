@@ -29,7 +29,7 @@ export const CASE = {
 } as const;
 
 /** Pharmacy X (kept last) and Pharmacy Y (the second / replacement). */
-export const PHARMACY_X = FACILITY.nathealth;
+export const PHARMACY_X = FACILITY.pharmacyC;
 export const PHARMACY_Y = FACILITY.pharmacyA;
 
 /** What the refusal must say: the network keeps at least one pharmacy while active. */

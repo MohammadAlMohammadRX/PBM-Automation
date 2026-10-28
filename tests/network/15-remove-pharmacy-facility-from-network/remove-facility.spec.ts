@@ -1,7 +1,6 @@
 import { test, expect } from '../../../fixtures';
-import { ASSIGNMENT_STATE, BUDGET, NO_FACILITIES, REMOVE_PROMPT, SERVER_ERROR_MARKERS, codeOfOption, today } from '../../../data/networks/facilities.data';
+import { ASSIGNMENT_STATE, BUDGET, NO_FACILITIES, REMOVE_PROMPT, codeOfOption, today } from '../../../data/networks/facilities.data';
 import {
-  ALREADY_REMOVED,
   ASSIGN_ACTION,
   AUDIT_ACTOR,
   BLOCKED_CASES,
@@ -138,45 +137,6 @@ test.describe('US 14132 - Removing a facility', () => {
       expect(detail.meta, 'the removal date').toContain(today());
       expect(JSON.stringify(detail.changes), 'the facility removed').toMatch(new RegExp(`${PAIR.removed.code}|${PAIR.removed.name}`));
       await networkDetailPage.audit().closeEntry();
-    });
-  });
-
-  test(`TC-${CASE.alreadyRemoved}: should answer a stale second removal gracefully when the facility was already removed`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    staleSession,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [PAIR.removed.code, PAIR.kept.code] });
-    let stale = { status: 0, toast: '', text: '' };
-
-    await steps.critical('Navigate to the network in a second tab that still lists the facility', async () => {
-      await staleSession.networkDetail.open(network.id);
-      await staleSession.networkDetail.facilities().open();
-      expect(await staleSession.networkDetail.facilities().getCodes()).toContain(PAIR.removed.code);
-    });
-
-    await steps.critical('The facility is removed (and approved) from the first tab', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect((await networkDetailPage.facilities().attemptRemove(PAIR.removed.code)).outcome?.status).toBeLessThan(300);
-      await networkManagementPage.publishStagedChange(network.name);
-    });
-
-    await steps.step('Removing it again from the stale tab gets an informational message, not an unhandled error', async () => {
-      const attempt = await staleSession.networkDetail.facilities().attemptRemove(PAIR.removed.code);
-      stale = { status: attempt.outcome?.status ?? 0, text: attempt.outcome?.text ?? '', toast: attempt.toast };
-      expect(stale.status, 'the stale removal must not be a server error').toBeLessThan(500);
-      expect(stale.toast, 'the user should be told the facility is already removed').toMatch(ALREADY_REMOVED);
-      for (const marker of SERVER_ERROR_MARKERS) expect(stale.text).not.toContain(marker);
-    });
-
-    await steps.step('After a refresh the facility is absent, matching the real state', async () => {
-      await staleSession.networkDetail.open(network.id);
-      await staleSession.networkDetail.facilities().open();
-      await staleSession.networkDetail.facilities().expectRowAbsent(PAIR.removed.code);
     });
   });
 

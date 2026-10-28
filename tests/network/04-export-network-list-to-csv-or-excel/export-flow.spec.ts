@@ -2,8 +2,8 @@ import { test, expect } from '../../../fixtures';
 import {
   CASES,
   EXPORT_HEADERS,
+  FLOW_SCOPES,
   SCOPE,
-  SHEET_SCOPE_LABELS,
   exportDateToList,
   integrityArabicName,
 } from '../../../data/networks/exportNetworkList.data';
@@ -14,7 +14,7 @@ import {
  * file's structure and bilingual integrity, and who may export at all.
  */
 test.describe('US 14121 - Export flow and file integrity', () => {
-  test(`TC-${CASES.states.azureId}: should move from the scope prompt to the format prompt to a completed download when an export is run`, async ({
+  test(`TC-${CASES.states.azureId}: should move from the scope prompt to the format prompt to a completed download for every scope`, async ({
     networkManagementPage,
     steps,
   }) => {
@@ -23,28 +23,25 @@ test.describe('US 14121 - Export flow and file integrity', () => {
       await networkManagementPage.exportMenu().expectAvailable();
     });
 
-    await steps.step('Clicking Export shows the scope prompt with All Networks and Filtered Results', async () => {
-      const menu = networkManagementPage.exportMenu();
-      await menu.open();
-      expect(await menu.isMenuOpen()).toBe(true);
-      expect(await menu.getScopeLabels(), 'the prompt should name the two scopes as the story does').toEqual(
-        expect.arrayContaining([...SHEET_SCOPE_LABELS]),
-      );
-    });
+    // One pass per scope: open the menu, choose the scope, choose a format, get
+    // the file. The scope names themselves are not checked (QA lead, 2026-10-27).
+    for (const flow of FLOW_SCOPES) {
+      await steps.step(`Clicking Export and choosing "${flow.name}" moves to the format prompt offering CSV and Excel`, async () => {
+        const menu = networkManagementPage.exportMenu();
+        await menu.open();
+        expect(await menu.isMenuOpen(), 'clicking Export should open the scope menu').toBe(true);
+        await menu.chooseScope(flow.scope);
+        expect(await menu.isFormatDialogOpen(), 'choosing a scope should open the format prompt').toBe(true);
+        await menu.expectFormatChoiceOffered();
+      });
 
-    await steps.step('Choosing a scope moves to the format prompt offering CSV and Excel', async () => {
-      const menu = networkManagementPage.exportMenu();
-      await menu.chooseScope(SCOPE.allNetworks);
-      expect(await menu.isFormatDialogOpen()).toBe(true);
-      await menu.expectFormatChoiceOffered();
-    });
-
-    await steps.step('Choosing a format completes with a downloaded file', async () => {
-      const file = await networkManagementPage.exportMenu().chooseFormatAndRead('csv');
-      expect(file.filename.endsWith('.csv')).toBe(true);
-      expect(file.bytes.length, 'the completed file should not be empty').toBeGreaterThan(0);
-      expect(await networkManagementPage.exportMenu().isFormatDialogOpen(), 'the prompt should close on completion').toBe(false);
-    });
+      await steps.step(`Choosing ${flow.extension} completes the "${flow.name}" export with a downloaded file`, async () => {
+        const file = await networkManagementPage.exportMenu().chooseFormatAndRead(flow.format);
+        expect(file.filename.endsWith(flow.extension)).toBe(true);
+        expect(file.bytes.length, 'the completed file should not be empty').toBeGreaterThan(0);
+        expect(await networkManagementPage.exportMenu().isFormatDialogOpen(), 'the prompt should close on completion').toBe(false);
+      });
+    }
   });
 
   test(`TC-${CASES.cancel.azureId}: should abort cleanly without a file when the export is cancelled at the scope or the format prompt`, async ({

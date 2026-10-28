@@ -26,11 +26,13 @@ import type { RejectionReason } from '../../data/payers/payerTypes';
  * network-activation story needed to approve a NETWORK status change; without
  * it that story would have needed a second, near-identical Page Object.
  */
-export type ApprovalScope = 'payer' | 'network';
+export type ApprovalScope = 'payer' | 'network' | 'plan';
 
 const APPROVAL_SCREEN: Record<ApprovalScope, string> = {
   payer: SCREEN.approvalsPayer,
   network: SCREEN.approvalsNetwork,
+  /** The Plans module's tab (2026-10-27): `approvals-plan-*`, the same component. */
+  plan: SCREEN.approvalsPlan,
 };
 
 /**
@@ -780,5 +782,49 @@ export class ApprovalManagementPage extends BasePage {
       return (await button.count()) > 0 && (await button.isEnabled());
     };
     return { inQueue, approve: await usable('approve'), reject: await usable('reject') };
+  }
+
+  // ---- plan folder 17 / 18 / 25 additions (2026-10-27) ----
+
+  /**
+   * Decides a queued request through its dialog with a TYPED comment, and
+   * reports what happened instead of insisting the decision went through.
+   *
+   * `approve()` / `reject()` decide with no comment at all (Reject picks only
+   * the managed reason). The plan approval stories are about the comment
+   * itself - optional on Approve, mandatory on Reject, length limits, special
+   * characters - so the comment is typed into the dialog's free-text field,
+   * the managed reason is chosen for a rejection, and the confirm is clicked.
+   *
+   * Returns what the comment field held when confirmed ('' when the dialog
+   * offers nowhere to type - see ConfirmDialog.hasFreeTextInput), the server's
+   * answer, the toast shown, and whether the request is still queued. An
+   * accepted decision is given time to leave the queue (see attemptApprove).
+   * A dialog left open by a refusal is dismissed.
+   */
+  async decideWithComment(
+    entityName: string,
+    decision: 'approve' | 'reject',
+    comment: string,
+    reason: RejectionReason = 'Other',
+  ): Promise<{ typed: string; answer: string; toast: string; stillQueued: boolean }> {
+    Logger.step(`Deciding "${entityName}" (${decision}) with a ${comment.length}-character comment`);
+    await this.expectInQueue(entityName);
+    await (await this.rowAction(entityName, decision)).click();
+    const dialog = new ConfirmDialog(this.page);
+    await dialog.waitForVisible();
+    const typed = comment === '' ? '' : await dialog.typeReasonText(comment);
+    if (decision === 'reject') await dialog.selectReasonIfPresent(reason);
+    await dialog.acknowledgeIfPresent();
+    const answer = this.watchDecisionAnswer();
+    await dialog.clickAction('confirm');
+    this.lastDecisionAnswer = await answer;
+    const toast = await this.getToastMessage(Timeouts.toast).catch(() => '');
+    if (await dialog.isVisible()) await dialog.cancel().catch(() => undefined);
+    const accepted = /answered 2\d\d/.test(this.lastDecisionAnswer);
+    const stillQueued = accepted
+      ? await this.waitForDecisionProcessed(entityName).then(() => false, () => true)
+      : await this.isInQueue(entityName);
+    return { typed, answer: this.lastDecisionAnswer, toast, stillQueued };
   }
 }

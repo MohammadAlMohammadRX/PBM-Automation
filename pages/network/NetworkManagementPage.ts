@@ -490,9 +490,21 @@ export class NetworkManagementPage extends ListPageBase {
     Logger.step(`Sending "${networkName}" for approval`);
     await this.search(networkName);
     await this.waitForRowVisible(networkName);
+    const before = await this.getApprovalCell(networkName);
     await this.sendRowForApproval(networkName);
     await this.dialog().confirm('Send for Approval');
     await this.waitForPageReady();
+    // The row refreshes a moment after the confirm. Read at once it still said
+    // "v0 · Draft" although the network was already pending (17778, 2026-10-25),
+    // so wait for the cell to move on. Not fatal: a refused submission leaves it
+    // unchanged, and the case asserts the outcome itself.
+    await expect
+      .poll(async () => {
+        await this.search(networkName);
+        return this.getApprovalCell(networkName).catch(() => before);
+      }, { timeout: Timeouts.default })
+      .not.toBe(before)
+      .catch(() => Logger.warn(`The approval cell of "${networkName}" still reads "${before}" after sending`));
   }
 
   /**
@@ -1535,6 +1547,46 @@ export class NetworkManagementPage extends ListPageBase {
     return this.sendListRequest({ ...filtered, ...Object.fromEntries(keys.map((key) => [key, value])) });
   }
 
+  /**
+   * Applies a quick filter through the interface while the list's own request
+   * is rewritten to carry `value` instead - the manipulated request as the
+   * screen experiences it. The field is learned as in sendManipulatedQuickFilter.
+   * Returns the status the server answered the rewritten request with, and the
+   * list's text read WHILE the rewrite is still in place - the list re-queries
+   * once more after the filter applies, and with the rewrite removed first
+   * that second, ordinary answer was what got read (17746, 2026-10-27).
+   */
+  async applyManipulatedQuickFilter(
+    which: 'type' | 'status',
+    probeOption: string,
+    value: string,
+  ): Promise<{ answered: number; screen: string }> {
+    const plain = await this.captureListRequest(() => this.openList());
+    const filtered = await this.captureQuickFilterRequest(which, probeOption);
+    const keys = Object.keys(filtered).filter((key) => JSON.stringify(filtered[key]) !== JSON.stringify(plain[key]));
+    expect(keys.length, `the ${which} filter should add a field to the list request`).toBeGreaterThan(0);
+    await this.openList();
+    Logger.step(`Filtering by ${which} with the request rewritten to ${keys.join(', ')} = "${value}"`);
+    let answered = 0;
+    let screen = '';
+    await this.page.route(LIST_URL, async (route) => {
+      const body = JSON.parse(route.request().postData() || '{}') as Record<string, unknown>;
+      const response = await route.fetch({ postData: JSON.stringify({ ...body, ...Object.fromEntries(keys.map((key) => [key, value])) }) });
+      answered = response.status();
+      await route.fulfill({ response });
+    });
+    try {
+      await this.applyQuickFilter(which, probeOption);
+      await this.waitForPageReady();
+      await this.page.waitForLoadState('networkidle', { timeout: Timeouts.default }).catch(() => undefined);
+      screen = await this.getTableBodyText();
+    } finally {
+      await this.page.unroute(LIST_URL);
+    }
+    Logger.info(`The manipulated list request was answered with ${answered}`);
+    return { answered, screen };
+  }
+
   // -- Sort menu state --
 
   private sortTriggerButton(): Locator {
@@ -1549,50 +1601,6 @@ export class NetworkManagementPage extends ListPageBase {
   async openSortMenu(): Promise<void> {
     await this.sortTriggerButton().click();
     await expect(this.sortMenuPanel(), 'the Sort By menu should open').toBeVisible({ timeout: Timeouts.default });
-  }
-
-  /** Opens the Sort By menu from the keyboard (focus the trigger, press Enter); true when it opened. */
-  async openSortMenuWithKeyboard(): Promise<boolean> {
-    await this.sortTriggerButton().focus();
-    await this.page.keyboard.press('Enter');
-    return this.sortMenuPanel()
-      .waitFor({ state: 'visible', timeout: Timeouts.short })
-      .then(() => true)
-      .catch(() => false);
-  }
-
-  /** In the open menu, moves down `steps` options and selects with Enter; returns the sortBy requested. */
-  async chooseSortWithKeyboard(steps: number): Promise<string> {
-    const request = await this.captureListRequest(async () => {
-      for (let i = 0; i < steps; i += 1) await this.page.keyboard.press('ArrowDown');
-      await this.page.keyboard.press('Enter');
-    });
-    await this.waitForPageReady();
-    return String(request.sortBy ?? '');
-  }
-
-  /**
-   * Clicks outside the open menu (the KPI band) and reports whether it closed
-   * and how many list requests that click fired - it must fire none.
-   */
-  async dismissSortMenuOutside(): Promise<{ closed: boolean; requests: number }> {
-    const requests = await this.countListRequests(
-      () => this.page.locator(`#${NETWORK_LIST.kpiBand}`).click({ position: { x: 5, y: 5 } }),
-      1_500,
-    );
-    const closed = await this.sortMenuPanel()
-      .waitFor({ state: 'hidden', timeout: Timeouts.short })
-      .then(() => true)
-      .catch(() => false);
-    return { closed, requests };
-  }
-
-  /** Whether the Sort By menu has closed (waits briefly). */
-  async isSortMenuClosed(): Promise<boolean> {
-    return this.sortMenuPanel()
-      .waitFor({ state: 'hidden', timeout: Timeouts.short })
-      .then(() => true)
-      .catch(() => false);
   }
 
   /** The option the menu marks as active (`aria-checked="true"`), '' when none is marked. */

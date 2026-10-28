@@ -44,6 +44,14 @@ export class LanguageSwitcher {
 
   /** Switches to the requested language (no-op when already active). */
   async switchTo(language: AppLanguage): Promise<void> {
+    // The toggle lives in the application's top bar. A case that switches
+    // language as its first act still has a blank page, so the click waited
+    // on a button that was never there: 19114, 19135 and 19136 timed out
+    // (2026-10-27). Open the application first.
+    if (this.page.url() === 'about:blank') {
+      await this.page.goto('/');
+      await this.toggleButton().waitFor({ state: 'visible', timeout: Timeouts.default }).catch(() => undefined);
+    }
     if ((await this.currentLanguage()) === language) return;
     Logger.step(`Switching UI language to "${language}"`);
     await this.toggleButton().click();

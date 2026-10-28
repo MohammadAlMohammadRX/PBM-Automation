@@ -28,6 +28,8 @@ const path = require('path');
 const TEST_ROOT = path.join('tests', 'payer');
 // The network module (2026-10-21) is enforced in full from its first file.
 const NETWORK_ROOT = path.join('tests', 'network');
+// The plans module (2026-10-27) likewise.
+const PLAN_ROOT = path.join('tests', 'plan');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -198,8 +200,9 @@ function walk(dir) {
 }
 walk(TEST_ROOT);
 if (fs.existsSync(NETWORK_ROOT)) walk(NETWORK_ROOT);
+if (fs.existsSync(PLAN_ROOT)) walk(PLAN_ROOT);
 
-const isEnforced = (file) => file.includes(NETWORK_ROOT) || ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

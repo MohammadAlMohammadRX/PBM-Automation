@@ -99,12 +99,12 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
     await steps.critical("Open the payer's record for editing", async () => {
       form = await payerManagementPage.openEditForm(uniquePayer.nameEn);
       await form.goToStep('Effective Period');
-      await form.expectFieldValue('Expiry Date', uniquePayer.expiryDate);
+      await form.expectDateFieldValue('Expiry Date', uniquePayer.expiryDate);
     });
 
     await steps.step('The Expiry Date is changed to a past date', async () => {
       await form.fillDateField('Expiry Date', expiryDate(-1));
-      await form.expectFieldValue('Expiry Date', expiryDate(-1));
+      await form.expectDateFieldValue('Expiry Date', expiryDate(-1));
     });
 
     await steps.step('The save is blocked with the boundary message', () =>
@@ -115,7 +115,7 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
       await payerManagementPage.open();
       const reopened = await payerManagementPage.openEditForm(uniquePayer.nameEn);
       await reopened.goToStep('Effective Period');
-      await reopened.expectFieldValue('Expiry Date', uniquePayer.expiryDate);
+      await reopened.expectDateFieldValue('Expiry Date', uniquePayer.expiryDate);
       await reopened.closeAndDiscard();
     });
   });
@@ -139,7 +139,7 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
       await form.fillContactInformation(payer);
       await form.clickNext();
       await form.fillEffectivePeriod(payer);
-      await form.expectFieldValue('Expiry Date', chosen);
+      await form.expectDateFieldValue('Expiry Date', chosen);
       await form.expectNoFieldError('Expiry Date');
     });
 
@@ -151,7 +151,7 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
 
     await steps.step('Reopening the record shows the expiry date it was saved with', async () => {
       const detail = await payerManagementPage.openDetails(payer.nameEn);
-      expect(await detail.getFieldValue('Expiry Date')).toBe(DateUtils.toIsoDate(chosen));
+      expect(DateUtils.toDisplayDate(await detail.getFieldValue('Expiry Date')), 'the stored expiry day').toBe(chosen);
     });
   });
 
@@ -178,7 +178,7 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
       await form.fillContactInformation(payer);
       await form.clickNext();
       await form.fillEffectivePeriod(payer);
-      await form.expectFieldValue('Expiry Date', chosen);
+      await form.expectDateFieldValue('Expiry Date', chosen);
       const outcome = await form.saveNewAndCaptureOutcome();
       expect(outcome!.status).toBe(200);
     });
@@ -187,7 +187,7 @@ test.describe('Restrict Expiry Date to Today or Later - Rules and persistence', 
       const detail = await payerManagementPage.openDetails(payer.nameEn);
       // An off-by-one from a timezone conversion would show as the day either
       // side of the one submitted, which this exact comparison catches.
-      expect(await detail.getFieldValue('Expiry Date')).toBe(DateUtils.toIsoDate(chosen));
+      expect(DateUtils.toDisplayDate(await detail.getFieldValue('Expiry Date')), 'the stored expiry day').toBe(chosen);
     });
   });
 

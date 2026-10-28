@@ -5,6 +5,8 @@ import { PayerMetricsPanel } from '../pages/payer/PayerMetricsPanel';
 import { ApprovalManagementPage } from '../pages/approval/ApprovalManagementPage';
 import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
+import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
+import { PlanDetailPage } from '../pages/plan/PlanDetailPage';
 import { SettingsPage } from '../pages/system/SettingsPage';
 import { AuditLogsPage } from '../pages/system/AuditLogsPage';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
@@ -16,6 +18,7 @@ import { env } from '../constants/EnvironmentConfig';
 import { nonAdminUnfit, type NonAdminRequirement } from '../data/accounts/nonAdminAccount.data';
 import { blockedByPrecondition } from './testStatus.fixture';
 import { Logger } from '../utils/Logger';
+import { ScreenshotUtils } from '../utils/ScreenshotUtils';
 
 /**
  * A SECOND browser session signed in as the configured non-admin account, with
@@ -35,6 +38,10 @@ export interface NonAdminSession {
   /** Added 2026-10-21 for the network module's access cases. */
   networkDetail: NetworkDetailPage;
   networkApprovals: ApprovalManagementPage;
+  /** The Plans module as this session sees it (2026-10-27). */
+  plans: PlanManagementPage;
+  planDetail: PlanDetailPage;
+  planApprovals: ApprovalManagementPage;
   settings: SettingsPage;
   /** System Settings > Audit Logs - added 2026-10-21 for story 23 (18029). */
   auditLogs: AuditLogsPage;
@@ -91,6 +98,7 @@ export const test = base.extend<NonAdminSessionFixtures>({
       // it only appears on sessions like this one.
       const payerName = await new PayerScopeDialog(page).chooseIfAsked();
       if (payerName !== null) Logger.step(`[fixture] Scoped session working on "${payerName}"`);
+      ScreenshotUtils.registerSession(testInfo, page);
     } catch (error) {
       await context.close();
       blockedByPrecondition(testInfo, 'a non-administrator session', error);
@@ -104,6 +112,9 @@ export const test = base.extend<NonAdminSessionFixtures>({
       networks: new NetworkManagementPage(page),
       networkDetail: new NetworkDetailPage(page),
       networkApprovals: new ApprovalManagementPage(page, 'network'),
+      plans: new PlanManagementPage(page),
+      planDetail: new PlanDetailPage(page),
+      planApprovals: new ApprovalManagementPage(page, 'plan'),
       settings: new SettingsPage(page),
       auditLogs: new AuditLogsPage(page),
       exportMenu: new ExportMenu(page),

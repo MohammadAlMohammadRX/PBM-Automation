@@ -20,7 +20,6 @@ export const CASE = {
   decisionCancelConfirm: '17922',
   cancelKeeps: '17923',
   auditCaptures: '17926',
-  alreadyRemoved: '17927',
   roleRestricted: '17928',
   lastFacility: '17929',
   reAdd: '17930',
@@ -29,7 +28,7 @@ export const CASE = {
 } as const;
 
 /** The pair a case's network holds: the facility removed and the one kept. */
-export const PAIR = { removed: FACILITY.nathealth, kept: FACILITY.pharmacyB } as const;
+export const PAIR = { removed: FACILITY.pharmacyC, kept: FACILITY.pharmacyB } as const;
 
 /** The facility an unrelated pending proposal adds (17931). */
 export const UNRELATED_ADDITION = FACILITY.pharmacyA;
@@ -42,9 +41,6 @@ export const REMOVAL_ACTION = /unassign|remov/i;
 
 /** An audit action about a facility joining OR leaving (matches "Facility Assigned" and "Facility Unassigned"). */
 export const ASSIGN_ACTION = /assign/i;
-
-/** What an already-removed facility's second removal should say. */
-export const ALREADY_REMOVED = /already|no longer|not assigned|not found/i;
 
 export const BLOCKED_CASES: NetworkBlockedCase[] = [
   {

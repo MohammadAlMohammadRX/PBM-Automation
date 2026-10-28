@@ -8,6 +8,9 @@ import { test as statusSeedTest } from './statusSeed.fixture';
 import { test as concurrentEditTest } from './concurrentEdit.fixture';
 import { test as networkStateTest } from './networkState.fixture';
 import { test as networkModuleTest } from './networkModule.fixture';
+import { test as planModuleTest } from './planModule.fixture';
+import { test as planPreconditionsTest } from './planPreconditions.fixture';
+import { test as planFormularyStateTest } from './planFormularyState.fixture';
 import { test as networkHistoryTest } from './networkHistory.fixture';
 import { test as facilityDirectoryTest } from './facilityDirectory.fixture';
 import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
@@ -43,6 +46,9 @@ export const test = mergeTests(
   concurrentEditTest,
   networkStateTest,
   networkModuleTest,
+  planModuleTest,
+  planPreconditionsTest,
+  planFormularyStateTest,
   networkHistoryTest,
   facilityDirectoryTest,
   cascadeDependentsTest,

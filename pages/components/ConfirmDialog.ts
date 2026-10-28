@@ -221,6 +221,34 @@ export class ConfirmDialog {
   }
 
   /**
+   * Confirms, then confirms each follow-up prompt the application raises in the
+   * SAME dialog - "Delete Plan" on a plan awaiting approval is followed by
+   * "Return this plan to draft?" (19009, 2026-10-27), which plain confirm()
+   * read as a refusal because the dialog never closed. Returns the titles
+   * answered, in order; at most `maxFollowUps` follow-ups are confirmed.
+   */
+  async confirmWithFollowUps(maxFollowUps = 2): Promise<string[]> {
+    await this.waitForVisible();
+    const answered: string[] = [];
+    for (let round = 0; round <= maxFollowUps; round += 1) {
+      const title = await this.getTitle().catch(() => '');
+      answered.push(title);
+      Logger.step(`Confirming dialog "${title}"`);
+      await this.acknowledgeIfPresent();
+      await (await this.affirmativeAction()).click();
+      // Either the dialog closes, or it re-titles itself with the next prompt.
+      const next = await expect
+        .poll(async () => ((await this.root().isVisible()) ? await this.getTitle().catch(() => title) : ''), { timeout: Timeouts.default })
+        .not.toBe(title)
+        .then(() => true)
+        .catch(() => false);
+      if (!next || !(await this.root().isVisible())) break;
+    }
+    await this.waitForHidden();
+    return answered;
+  }
+
+  /**
    * Clicks the affirmative action several times as fast as the browser will
    * dispatch them.
    *
@@ -427,5 +455,28 @@ export class ConfirmDialog {
     await typable.fill(text);
     await typable.blur();
     return typable.inputValue();
+  }
+
+  // ---- plan folder 28 additions (2026-10-27) ----
+
+  /**
+   * Whether the dialog marks its reason as REQUIRED - an asterisk on a
+   * "Reason" label, or a reason control flagged required - for the cases that
+   * ask whether the requirement is visible before anything is submitted.
+   *
+   * locator-exception: the reason's label carries no id; the required flag is
+   * read on any control inside the dialog root (an id), and the label from the
+   * dialog's own text, the way NetworkInactivateDialog.isReasonMarkedRequired does.
+   */
+  async isReasonMarkedRequired(): Promise<boolean> {
+    await this.waitForVisible();
+    const flagged = await this.root().locator('[aria-required="true"], [required]').count();
+    const text = await this.root().innerText().catch(() => '');
+    // The "*" is drawn by CSS on `label.pbm-dialog__field-label--required`
+    // (::after content " *"), so it is not in innerText - 19295 read a marked
+    // reason as unmarked (verified live 2026-10-27).
+    // locator-exception: the field labels carry no ids; the required modifier class is the marker.
+    const styled = await this.root().locator('label[class*="--required"]').filter({ hasText: /Reason/i }).count();
+    return flagged > 0 || styled > 0 || /Reason[^\n]*\*|\*[^\n]*Reason/i.test(text);
   }
 }

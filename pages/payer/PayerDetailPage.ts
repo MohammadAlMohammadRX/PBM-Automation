@@ -431,6 +431,20 @@ export class PayerDetailPage extends BasePage {
    * A case that only needs to LOOK at a linked network should not be blocked by
    * that; it can use a link that already exists.
    */
+  /**
+   * The names of every network linked to the payer.
+   *
+   * For checks of the form "the payer now holds network X". The suite's own
+   * payers are created WITH a network (approval requires one), so after an
+   * assignment the payer holds two, and the first row is the creation network,
+   * not the one under test - which is how folder 32 reported "the approved
+   * network is not the one submitted" for a network that was in fact linked
+   * (bug 17700, re-checked 2026-10-25).
+   */
+  async getLinkedNetworkNames(): Promise<string[]> {
+    return (await this.getLinkedNetworkRows()).map((row) => row.name.trim());
+  }
+
   async getFirstLinkedNetwork(): Promise<{ name: string; status: string; actions: string[] }> {
     await this.openLinkedNetworks();
     const row = this.networkRows().first();
@@ -638,6 +652,22 @@ export class PayerDetailPage extends BasePage {
       .catch(() => false);
     if (confirmNeeded) await new ConfirmDialog(this.page).confirm();
     await this.waitForPageReady();
+    // Staging is saved in the background: a caller that sends the change for
+    // approval at once finds nothing staged, so no dialog opens and the payer
+    // stays Published (15591, 2026-10-25). Wait until the row reads as a removal,
+    // or is gone (a draft assignment is simply dropped).
+    await expect
+      .poll(
+        async () => {
+          const staged = this.linkedNetworkRow(networkName);
+          if ((await staged.count()) === 0) return true;
+          const stagedId = await staged.getAttribute('id');
+          const state = this.byId(`${stagedId}-cell-${PAYER_LINKED_NETWORKS.assignmentStateCell}`);
+          return /removal/i.test(await state.innerText().catch(() => ''));
+        },
+        { message: `the removal of "${networkName}" should be staged`, timeout: Timeouts.default },
+      )
+      .toBe(true);
   }
 
   /**

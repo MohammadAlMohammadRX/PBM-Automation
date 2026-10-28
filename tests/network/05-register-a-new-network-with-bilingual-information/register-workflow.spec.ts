@@ -302,32 +302,60 @@ test.describe('US 14122 - Registration workflow', () => {
     });
   });
 
-  test(`TC-${REGISTER.privateDraft.azureId}: should hide a private draft from every user but its author`, async ({
+  test(`TC-${REGISTER.creatorVisibility.azureId}: should show an administrator's network to every user and a Payer Admin's network only to its payer`, async ({
     networkManagementPage,
-    networkIn,
     nonAdminSession,
     steps,
+    cleanup,
   }) => {
-    const draft = await networkIn('Draft');
+    test.setTimeout(15 * 60_000);
+    const byAdmin = REGISTER.creatorVisibility.byAdmin();
+    const byPayerAdmin = REGISTER.creatorVisibility.byPayerAdmin();
+    cleanup.register(() => networkManagementPage.discardDraftNetwork(byAdmin.nameEn));
+    cleanup.register(() => networkManagementPage.discardDraftNetwork(byPayerAdmin.nameEn));
+    let adminPayer = '';
+    let payerAdminPayer = '';
 
-    await steps.critical('Navigate to the module as the author - the draft is in the author\'s list', async () => {
+    await steps.critical('As the System Administrator, create a network - it is in the administrator\'s list', async () => {
       await networkManagementPage.openList();
-      await networkManagementPage.search(draft.name);
-      expect(await networkManagementPage.isRowVisible(draft.name), 'the author should see the draft').toBe(true);
+      const form = await networkManagementPage.openAddForm();
+      await form.fill(byAdmin);
+      adminPayer = await form.getOwningPayer();
+      const report = await form.saveNewAndReport();
+      expect(report.created, report.text).toBe(true);
+      await networkManagementPage.openList();
+      await networkManagementPage.search(byAdmin.nameEn);
+      expect(await networkManagementPage.isRowVisible(byAdmin.nameEn), 'the administrator should see the network').toBe(true);
     });
 
-    await steps.critical('A second user\'s network list loads', async () => {
+    await steps.step('The Payer Admin sees the administrator\'s network too - it is visible to every user', async () => {
       await nonAdminSession.networks.openList();
+      await nonAdminSession.networks.search(byAdmin.nameEn);
+      expect(await nonAdminSession.networks.isRowVisible(byAdmin.nameEn), 'a network the System Administrator created should appear for every user').toBe(true);
     });
 
-    await steps.step('The second user cannot find the author\'s draft', async () => {
-      await nonAdminSession.networks.search(draft.name);
-      expect(await nonAdminSession.networks.isRowVisible(draft.name), 'another user must not see a private draft').toBe(false);
+    await steps.critical('As the Payer Admin, create a network for the payer chosen in the payer dropdown - it is in the Payer Admin\'s list', async () => {
+      await nonAdminSession.networks.openList();
+      const form = await nonAdminSession.networks.openAddForm();
+      // The payer first: step 1 does not let this user move on without one.
+      payerAdminPayer = await form.chooseOwningPayer();
+      await form.fill(byPayerAdmin);
+      expect(payerAdminPayer, 'the form should name the payer chosen in the payer dropdown').not.toBe('');
+      const report = await form.saveNewAndReport();
+      expect(report.created, report.text).toBe(true);
+      await nonAdminSession.networks.openList();
+      await nonAdminSession.networks.search(byPayerAdmin.nameEn);
+      expect(await nonAdminSession.networks.isRowVisible(byPayerAdmin.nameEn), 'the Payer Admin should see the network').toBe(true);
     });
 
-    await steps.step('The second user cannot open the draft by its address either', async () => {
-      await nonAdminSession.networkDetail.openExpectingFailure(draft.id);
-      expect(await nonAdminSession.networkDetail.isLoaded(), 'the draft must not load for another user').toBe(false);
+    await steps.step('The administrator, working on another payer, does not see the Payer Admin\'s network', async () => {
+      expect(adminPayer, 'the administrator should be working on a different payer than the Payer Admin').not.toBe(payerAdminPayer);
+      await networkManagementPage.openListFor(REGISTER.creatorVisibility.adminWorkingPayer());
+      await networkManagementPage.search(byPayerAdmin.nameEn);
+      expect(
+        await networkManagementPage.isRowVisible(byPayerAdmin.nameEn),
+        `a Payer Admin's network belongs to "${payerAdminPayer}" and should not appear under "${adminPayer}"`,
+      ).toBe(false);
     });
   });
 

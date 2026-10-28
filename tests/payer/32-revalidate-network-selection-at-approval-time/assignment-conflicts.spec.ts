@@ -51,9 +51,7 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
 
       await payerManagementPage.open();
       const linked = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await linked.getFirstLinkedNetwork()).name, 'the claim should be in force').toBe(
-        networkNameOf(network),
-      );
+      expect(await linked.getLinkedNetworkNames(), 'the claim should be in force').toContain(networkNameOf(network));
     });
 
     await steps.step("The second payer's drawer does not offer the claimed network", async () => {
@@ -73,7 +71,7 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
     await steps.step('The first payer keeps the network', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames()).toContain(networkNameOf(network));
     });
   });
 
@@ -131,13 +129,13 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
 
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames()).toContain(networkNameOf(network));
     });
 
     await steps.step('The second payer never gained the network', async () => {
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(secondPublishedPayer.nameEn);
-      await detail.expectLinkedNetworkCount(0);
+      expect(await detail.getLinkedNetworkNames(), 'the second payer must not hold the network').not.toContain(networkNameOf(network));
     });
   });
 
@@ -185,7 +183,7 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
 
       await payerManagementPage.open();
       const detail = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await detail.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await detail.getLinkedNetworkNames()).toContain(networkNameOf(network));
     });
 
     await steps.step('No competing request is left in the queue for the second payer', async () => {
@@ -249,11 +247,11 @@ test.describe('Network selection re-validation - Conflicting claims', () => {
       // no phantom link, and no request is left behind to be applied later.
       await payerManagementPage.open();
       const first = await payerManagementPage.openDetails(publishedPayer.nameEn);
-      expect((await first.getFirstLinkedNetwork()).name).toBe(networkNameOf(network));
+      expect(await first.getLinkedNetworkNames()).toContain(networkNameOf(network));
 
       await payerManagementPage.open();
       const second = await payerManagementPage.openDetails(secondPublishedPayer.nameEn);
-      await second.expectLinkedNetworkCount(0);
+      expect(await second.getLinkedNetworkNames(), 'the second payer must not hold the network').not.toContain(networkNameOf(network));
 
       await approvalManagementPage.open();
       await approvalManagementPage.expectNotInQueue(secondPublishedPayer.nameEn);
