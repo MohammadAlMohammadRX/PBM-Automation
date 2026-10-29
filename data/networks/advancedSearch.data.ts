@@ -25,7 +25,6 @@ export const sheetNamed = (sheetName: string): string => `${sheetName} ${network
 
 export const SEARCH_CASES = {
   englishName: { azureId: '17730', sheetName: 'Alpha Health Network', term: 'Alpha Health' },
-  arabicName: { azureId: '17729', sheetName: 'Alpha Health Network', nameAr: 'شبكة ألفا الصحية' },
   code: { azureId: '17728' },
   combined: { azureId: '17733', sheetName: 'MedCare Network', term: 'Med', type: 'PPO', status: 'Active' },
   prepopulated: { azureId: '17731', sheetName: 'MedCare', type: 'PPO', status: 'Active' },

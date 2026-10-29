@@ -19,13 +19,10 @@ export const CASE = {
   facilitiesCountLive: '17880',
   zeroCounts: '17884',
   tabChecklist: '17883',
-  emptyAudit: '17882',
   statusMatches: '17885',
   accessRestricted: '17886',
   countMatrix: '17887',
-  editWorkflowAudit: '17891',
   rapidTabs: '17888',
-  notFound: '17889',
 } as const;
 
 /** The sheet's audit metadata on the Overview (Created By/At, Modified By/At). */
@@ -39,18 +36,6 @@ export const OVERVIEW_DATE_PATTERN = /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/;
 
 /** The facilities a 17880 network starts with, and its count after one more. */
 export const LIVE_COUNT = { initial: 2, afterAssign: 3 } as const;
-
-/** What an empty Audit History should say (17882). */
-export const EMPTY_AUDIT_MESSAGE = /no (audit )?(history|records?|entries|changes|events)/i;
-
-/** The sheet's "Network not found" (17889). */
-export const NOT_FOUND_MESSAGE = /not found/i;
-
-/** A network id that has never existed. */
-export const NONEXISTENT_NETWORK_ID = '00000000-0000-4000-8000-000000000000';
-
-/** Audit entries an edit-approval cycle must leave (17891): the edit, the submission, the approval. */
-export const EDIT_WORKFLOW_ACTIONS = [/Update/i, /Submit|Send for Approval/i, /Approv/i] as const;
 
 /** How many times 17888 cycles through the tabs, before and after a reload. */
 export const TAB_SWITCH_ROUNDS = 3;

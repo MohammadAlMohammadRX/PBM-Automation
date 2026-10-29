@@ -1,4 +1,4 @@
-import { toDisplayDate, type NetworkBlockedCase } from './network.data';
+import type { NetworkBlockedCase } from './network.data';
 
 /**
  * Test data for US 14139 "View network audit history".
@@ -17,15 +17,8 @@ import { toDisplayDate, type NetworkBlockedCase } from './network.data';
 export const CASE = {
   eventList: '17983',
   noPermission: '17984',
-  dateBoundaries: '17985',
-  filterMatrix: '17986',
   lifecycleSequence: '17987',
-  complianceReview: '17989',
-  invalidRange: '17988',
-  pdplChecklist: '17991',
-  facilityEvents: '17993',
   actionTypeOnly: '17995',
-  newNetwork: '17992',
   statusChange: '17994',
 } as const;
 
@@ -35,27 +28,7 @@ export const ACTION = {
   update: 'Update',
   statusChange: 'Status Change',
   delete: 'Delete',
-  facilityAssigned: 'Facility Assigned',
-  facilityUnassigned: 'Facility Unassigned',
 } as const;
-
-export const ALL_ACTIONS: readonly string[] = Object.values(ACTION);
-
-/** An entry's timestamp as the timeline prints it. */
-export const ENTRY_TIME_PATTERN = /^\d{2}\/\d{2}\/\d{4} \d{1,2}:\d{2}\s?(AM|PM)$/i;
-
-/** DD/MM/YYYY for today plus `days`. */
-export const auditDay = (days = 0): string => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return toDisplayDate(date);
-};
-
-/** The day part of an entry's timestamp. */
-export const entryDay = (when: string): string => when.slice(0, 10);
-
-/** What an inverted date range should be told (17985 / 17988). */
-export const INVALID_RANGE_MESSAGE = /invalid|before|after|earlier|later|range/i;
 
 /** The status change 17994 makes, as the drawer's before/after should read. */
 export const STATUS_CHANGE = { field: /status/i, before: 'Active', after: 'Inactive' } as const;

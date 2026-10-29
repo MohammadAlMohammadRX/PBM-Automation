@@ -69,6 +69,20 @@ export const FILTER_A = NETWORK_LIFECYCLE.active;
 export const FILTER_B = NETWORK_LIFECYCLE.inactive;
 export const NO_MATCH_TERM = `NONEXISTENT999 ${networkStamp()}`;
 
+/**
+ * Bug 20021 (network bug report 29 Oct 2026, bug 25): the export writes the
+ * owning payer as a payer CODE column ("PAY-003569"); the QA lead's expected
+ * result is that the payer column does not appear in the export at all. A
+ * column counts as a payer column by its header or by holding payer codes.
+ */
+export const PAYER_COLUMN_BUG = { type: 'issue', description: 'Azure bug 20021: Network list exported writes the payer code' } as const;
+export const PAYER_HEADER = /payer|الدافع|جهة الدفع|الجهة الدافعة/i;
+export const PAYER_CODE = /^PAY(-D)?-\d{3,}$/;
+
+/** The headers of the columns that carry the owning payer: by name, or by holding payer codes. */
+export const payerColumns = (file: ParsedCsv): string[] =>
+  file.headers.filter((header) => PAYER_HEADER.test(header) || file.rows.some((row) => PAYER_CODE.test((row[header] ?? '').trim())));
+
 export const CASES = {
   csvColumns: { azureId: '18057' },
   excelColumns: { azureId: '18059' },

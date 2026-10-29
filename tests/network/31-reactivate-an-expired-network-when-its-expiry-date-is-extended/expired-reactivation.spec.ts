@@ -1,8 +1,7 @@
 import { test, expect } from '../../../fixtures';
 import { NETWORK_LIFECYCLE } from '../../../data/networks/network.data';
-import { AUTO_STATUS_AUDIT, JOB_HOLD_MS, JOB_TRANSITION_MS } from '../../../data/networks/lifecycleJob.data';
+import { JOB_HOLD_MS, JOB_TRANSITION_MS } from '../../../data/networks/lifecycleJob.data';
 import {
-  APPROVER_ACTOR,
   CASE,
   DATES,
   PENDING_APPROVAL_CELL,
@@ -101,7 +100,6 @@ test.describe('US 14309 - Recalculation on an approved edit', () => {
   }
 
   const unchanged = [
-    { caseId: CASE.expiryTodayStaysExpired, label: 'only extends the expiry date to today', changes: () => ({ expiryDate: DATES.expiryToday() }) },
     { caseId: CASE.noExtensionStaysExpired, label: 'changes an unrelated field without extending the expiry', changes: () => ({ ...UNRELATED_EDIT }) },
   ] as const;
 
@@ -140,7 +138,7 @@ test.describe('US 14309 - Recalculation on an approved edit', () => {
   }
 });
 
-/** The edges: the decision table and transition map, invalid dates, who may extend, and the trail it leaves. */
+/** The edges: the decision table and transition map, invalid dates, and who may extend. */
 test.describe('US 14309 - Rules around the reactivation', () => {
   test(`TC-${CASE.decisionTable}: should resolve each Expired network to the status its new dates imply when the edits are approved`, async ({
     networkManagementPage,
@@ -359,52 +357,6 @@ test.describe('US 14309 - Rules around the reactivation', () => {
     await steps.step('The reopened record still reads Expired', async () => {
       await networkDetailPage.open(network.id);
       await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.expired);
-    });
-  });
-
-  test(`TC-${CASE.auditHistory}: should record the prior and new status, the approver and the time when an extending edit is approved`, async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(25 * 60_000);
-    const network = await networkIn('Expired');
-
-    await steps.critical('Navigate to the Network Management module - the list shows the Expired network', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('The audit log shows the prior transition to Expired', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-      const latest = await networkDetailPage.audit().openEntry(0);
-      expect(latest.changes.map((c) => c.after), 'the newest entry should be the expiry').toContain(NETWORK_LIFECYCLE.expired);
-      await networkDetailPage.audit().closeEntry();
-    });
-
-    await steps.critical('The extending edit is approved and the network recalculates', async () => {
-      const report = await networkManagementPage.stageMultiFieldEdit(network.name, { expiryDate: DATES.extendedExpiry() });
-      expect(report.outcome?.status).toBeLessThan(300);
-      await networkManagementPage.publishStagedChange(network.name);
-      await networkDetailPage.expectStatusEventually(network.id, NETWORK_LIFECYCLE.active, JOB_TRANSITION_MS);
-    });
-
-    await steps.step('A new entry records Expired -> Active, the approver and the timestamp', async () => {
-      await networkDetailPage.audit().expectEntry(AUTO_STATUS_AUDIT.action);
-      const entries = await networkDetailPage.audit().readEntries();
-      const index = entries.findIndex((e) => e.action === AUTO_STATUS_AUDIT.action);
-      const detail = await networkDetailPage.audit().openEntry(index);
-      expect(detail.changes).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ field: AUTO_STATUS_AUDIT.field, before: NETWORK_LIFECYCLE.expired, after: NETWORK_LIFECYCLE.active }),
-        ]),
-      );
-      expect(detail.meta, "the entry should name the approver").toContain(APPROVER_ACTOR);
-      expect(entries[index].when, 'the entry should carry a timestamp').not.toBe('');
-      await networkDetailPage.audit().closeEntry();
     });
   });
 

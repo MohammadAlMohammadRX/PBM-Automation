@@ -81,7 +81,7 @@ export class ScreenshotUtils {
   /**
    * Lets the screen finish drawing before the shot. Audit and list checks fail
    * while a reload is still in flight, so the image showed a blank page or
-   * "Loading..." instead of the screen that was checked (17820, 17836, 17926).
+   * "Loading..." instead of the screen that was checked.
    * Bounded, and never fatal: a screen that will not settle is still captured.
    */
   private static async settle(page: Page): Promise<void> {

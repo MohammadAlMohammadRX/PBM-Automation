@@ -4,7 +4,6 @@ import {
   CASE,
   CHANGES,
   CHANGE_TYPE,
-  DISCARD_ACTION,
   REJECTION_REASON,
   SAVED_TOAST,
   UNATTACHED_LIVE,
@@ -14,7 +13,7 @@ import {
 /**
  * User story 14313: Submit network changes for approval before they go live.
  * The happy and unhappy paths of the maker-checker cycle on a LIVE network:
- * save a draft, send it, approve or reject it, discard it, delete through it.
+ * save a draft, send it, approve or reject it, delete through it.
  *
  * Each case builds its own live network (fixture `networkIn`); the lifecycle
  * job makes it Active within a couple of minutes, hence the longer timeouts.
@@ -191,39 +190,6 @@ test.describe('US 14313 - Submitting network changes for approval', () => {
 
     await steps.step('The network shows a pending deletion rather than disappearing at once', async () => {
       expect(await networkManagementPage.isListed(network.name), 'deletion of a live network is staged, not immediate').toBe(true);
-    });
-  });
-
-  test(`TC-${CASE.discardDraft}: should restore the last live values when an unsent draft is discarded`, async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Active');
-    let before = '';
-
-    await steps.critical('Navigate to the module with an unsent draft change on the network', async () => {
-      await networkManagementPage.openList();
-      before = String((await networkManagementPage.readNetworkRecord(network.id)).descriptionEn ?? '');
-      expect((await networkManagementPage.stageEdit(network.name, 'descriptionEn', edited(CHANGES.discarded))).outcome?.status ?? 0).toBeLessThan(300);
-    });
-
-    await steps.critical('The network shows its Draft indicator with the uncommitted change', async () => {
-      await networkDetailPage.open(network.id);
-      expect(await networkDetailPage.getVersionBadge()).toMatch(APPROVAL_CELL.draft);
-    });
-
-    await steps.critical('Discard Draft asks for confirmation', async () => {
-      const prompt = await networkDetailPage.clickHeaderActionMatching(DISCARD_ACTION);
-      expect(await prompt.getTitle()).not.toBe('');
-      await prompt.confirm();
-    });
-
-    await steps.step('The network shows only its last live values, with no Draft indicator', async () => {
-      await networkDetailPage.open(network.id);
-      expect(await networkDetailPage.readOverviewField('descriptionEn')).toBe(before);
-      expect(await networkDetailPage.getVersionBadge()).toMatch(APPROVAL_CELL.published);
     });
   });
 

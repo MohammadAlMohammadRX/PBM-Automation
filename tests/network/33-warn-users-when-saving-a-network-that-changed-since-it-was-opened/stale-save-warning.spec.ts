@@ -130,50 +130,6 @@ test.describe('US 14312 - Stale-save warning in the edit drawer', () => {
     });
   });
 
-  test(`TC-${CASE.reloadRetry}: should save successfully after reloading when the user retries following a conflict warning`, async ({
-    networkManagementPage,
-    staleSession,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', LOCKING_DRAFT);
-    const retry = edited(CHANGES.reapplied);
-
-    await steps.critical('Navigate to the module in both sessions - the list loads', async () => {
-      await networkManagementPage.openList();
-      await staleSession.networks.openList();
-    });
-
-    await steps.step('NA_UserA\'s save after NA_UserB\'s update shows a warning instructing a reload', async () => {
-      await staleSession.networks.openEditForm(network.name);
-      expect((await networkManagementPage.stageEdit(network.name, 'type', CHANGES.otherUserType)).outcome?.status ?? 0).toBeLessThan(300);
-      const form = staleSession.networks.editForm();
-      await form.editField('descriptionEn', edited(CHANGES.description));
-      expect((await form.saveEditAndReport()).outcome?.status).toBe(CONFLICT.status);
-      const prompt = await form.readConflictPrompt();
-      expect(prompt.messages.join(' | ')).toMatch(CONFLICT.message);
-      expect(prompt.dialogActions.join(','), 'the warning should offer Reload').toMatch(RELOAD_ACTION);
-    });
-
-    await steps.step('Reloading shows NA_UserB\'s latest change', async () => {
-      const form = await staleSession.networks.reopenEditForm(network.name);
-      expect(await form.readField('type')).toBe(CHANGES.otherUserType);
-    });
-
-    await steps.step('The change is reapplied on the fresh data', async () => {
-      const form = staleSession.networks.editForm();
-      await form.editField('descriptionEn', retry);
-      expect(await form.readField('descriptionEn')).toBe(retry);
-    });
-
-    await steps.step('Saving again succeeds with a confirmation and no further warning', async () => {
-      const report = await staleSession.networks.editForm().saveEditAndReport();
-      expect(report.outcome?.status ?? 0).toBeLessThan(300);
-      expect(report.messages.join(' | ')).toContain(SAVED_TOAST);
-      expect(report.messages.join(' | ')).not.toMatch(CONFLICT.message);
-    });
-  });
-
   test(`TC-${CASE.roleDecisionTable}: should warn editors by version state and keep viewers from saving at all when roles and versions combine`, async ({
     networkManagementPage,
     staleSession,

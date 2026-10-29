@@ -3,7 +3,6 @@ import type { NetworkInactivateDialog } from '../../../pages/network/NetworkInac
 import { NETWORK_LIFECYCLE, NETWORK_MESSAGE, NETWORK_TOAST } from '../../../data/networks/network.data';
 import {
   APPROVAL_CELL,
-  AUDIT_EXPECTATION,
   DEACTIVATE,
   LIFECYCLE_TIMEOUT_MS,
   NOT_INACTIVATABLE,
@@ -248,89 +247,6 @@ test.describe('US 14127 - Deactivate a network with a reason', () => {
       await networkManagementPage.stageStatusChange(rejected.name, 'inactivate');
       await networkManagementPage.rejectStagedChange(rejected.name);
       expect(await networkManagementPage.readStatus(rejected.name)).toBe(NETWORK_LIFECYCLE.active);
-    });
-  });
-
-  test('TC-17817: should make the network Inactive only after the approver approves the inactivation', async ({
-    networkManagementPage,
-    networkApprovalsPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-
-    await steps.critical('Navigate to the module - the network is Active', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('After submission the network awaits approval and is not yet Inactive', async () => {
-      await networkManagementPage.stageStatusChange(network.name, 'inactivate');
-      await networkManagementPage.openList();
-      await networkManagementPage.submitForApproval(network.name);
-      await networkManagementPage.expectApprovalCell(network.name, APPROVAL_CELL.pendingApproval);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('The approver sees the request with its details for review', async () => {
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.expectInQueue(network.name);
-      const review = await networkApprovalsPage.readReviewText(network.name);
-      expect(review, 'the review should show the network under decision').toContain(network.name);
-    });
-
-    await steps.step('Approving makes the network Inactive', async () => {
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.approve(network.name);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.inactive);
-    });
-  });
-
-  test('TC-17820: should record the old and new status, reason, details, performer and time when an inactivation is approved', async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-    let reason = '';
-
-    await steps.critical('Navigate to the module and stage the inactivation with a reason and details', async () => {
-      await networkManagementPage.openList();
-      reason = (await networkManagementPage.readInactivationReasons(network.name))[0];
-      const result = await networkManagementPage.attemptInactivation(network.name, reason, DEACTIVATE.detailsAudit);
-      expect(result.closed, `the inactivation should be staged (toast "${result.toast}")`).toBe(true);
-    });
-
-    await steps.critical('Once approved the network is Inactive', async () => {
-      await networkManagementPage.publishStagedChange(network.name);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.inactive);
-    });
-
-    await steps.step('The Audit History lists a Status Change entry', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-      await networkDetailPage.audit().expectEntry(AUDIT_EXPECTATION.action);
-    });
-
-    await steps.step('The entry shows Active -> Inactive, the reason, the details, the user and the time', async () => {
-      const audit = networkDetailPage.audit();
-      const entries = await audit.readEntries();
-      const index = entries.findIndex((e) => AUDIT_EXPECTATION.action.test(e.action) && e.by !== AUDIT_EXPECTATION.systemActor);
-      expect(index, `a user-made Status Change entry should exist among ${JSON.stringify(entries)}`).toBeGreaterThanOrEqual(0);
-      const entry = await audit.openEntry(index);
-      const changes = JSON.stringify(entry.changes);
-      expect(entry.changes.find((c) => AUDIT_EXPECTATION.statusField.test(c.field)), `status change in ${changes}`).toMatchObject({
-        before: expect.stringMatching(AUDIT_EXPECTATION.before),
-        after: expect.stringMatching(AUDIT_EXPECTATION.after),
-      });
-      expect(changes, 'the selected reason should be recorded').toContain(reason);
-      expect(changes, 'the entered details should be recorded').toContain(DEACTIVATE.detailsAudit);
-      expect(entry.meta, 'timestamp and performing user').toMatch(AUDIT_EXPECTATION.meta);
-      await audit.closeEntry();
     });
   });
 

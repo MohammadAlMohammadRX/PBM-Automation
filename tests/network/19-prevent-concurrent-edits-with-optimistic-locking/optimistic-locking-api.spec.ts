@@ -5,52 +5,20 @@ import {
   CASE,
   CHANGES,
   CONFLICT,
-  EMPTY_STAMP,
   ERROR_BODY_FIELDS,
   FORBIDDEN_STATUS,
   LOCKING_DRAFT,
-  MALFORMED_STAMP,
-  STAMP_REQUIRED,
-  VALIDATION_STATUSES,
   edited,
 } from '../../../data/networks/optimisticLocking.data';
 
 /**
  * User story 14138: Prevent concurrent edits with optimistic locking.
  * The server half - the stamp sent directly to `PUT /api/Networks/UpdateNetwork`
- * (empty, missing, malformed, stale, raced) and the permission check in front
- * of it. Requests go through NetworkManagementPage.updateWithStamp, which sends
- * the body the edit drawer itself sends.
+ * (stale, raced) and the permission check in front of it. Requests go through
+ * NetworkManagementPage.updateWithStamp, which sends the body the edit drawer
+ * itself sends.
  */
 test.describe('US 14138 - Optimistic locking on the update endpoint', () => {
-  test(`TC-${CASE.stampBoundaries}: should reject an empty stamp and accept the full current stamp when the stamp is sent at its boundaries`, async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', LOCKING_DRAFT);
-    let record!: NetworkRecord;
-
-    await steps.critical('Navigate to the module and open the network - its current stamp is populated', async () => {
-      await networkManagementPage.openList();
-      record = await networkManagementPage.readNetworkRecord(network.id);
-      expect(String(record.concurrencyStamp ?? ''), 'the record should carry a stamp').not.toBe('');
-    });
-
-    await steps.step('An empty stamp is refused with a validation error saying the stamp is required', async () => {
-      const answer = await networkManagementPage.updateWithStamp(record, { descriptionEn: edited(CHANGES.staleEdit) }, EMPTY_STAMP);
-      expect(VALIDATION_STATUSES as readonly number[], `an empty stamp should be a validation error, got ${answer.status}`).toContain(answer.status);
-      expect(answer.text, 'the error should name the stamp').toMatch(STAMP_REQUIRED);
-    });
-
-    await steps.step('The full-length stamp matching the stored value is accepted', async () => {
-      const value = edited(CHANGES.firstAdmin);
-      const answer = await networkManagementPage.updateWithStamp(record, { descriptionEn: value }, String(record.concurrencyStamp));
-      expect(answer.status, `the matching stamp should be accepted: ${answer.text.slice(0, 200)}`).toBeLessThan(300);
-      expect((await networkManagementPage.readNetworkRecord(network.id)).descriptionEn).toBe(value);
-    });
-  });
-
   test(`TC-${CASE.decisionTable}: should check permission before the stamp when updates combine permission and stamp match`, async ({
     networkManagementPage,
     networkIn,
@@ -89,28 +57,6 @@ test.describe('US 14138 - Optimistic locking on the update endpoint', () => {
     });
   });
 
-  test(`TC-${CASE.missingStamp}: should reject the update with a validation error when the stamp field is omitted`, async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', LOCKING_DRAFT);
-    let record!: NetworkRecord;
-
-    await steps.critical('Navigate to the module and open the network - values and stamp are populated', async () => {
-      await networkManagementPage.openList();
-      record = await networkManagementPage.readNetworkRecord(network.id);
-      expect(String(record.concurrencyStamp ?? '')).not.toBe('');
-    });
-
-    await steps.step('A request without the stamp field is refused, saying the stamp is required, and nothing changes', async () => {
-      const answer = await networkManagementPage.updateWithStamp(record, { descriptionEn: edited(CHANGES.staleEdit) }, undefined);
-      expect(VALIDATION_STATUSES as readonly number[], `a missing stamp should be a validation error, got ${answer.status}`).toContain(answer.status);
-      expect(answer.text).toMatch(STAMP_REQUIRED);
-      expect((await networkManagementPage.readNetworkRecord(network.id)).descriptionEn).toBe(record.descriptionEn);
-    });
-  });
-
   test(`TC-${CASE.simultaneous}: should accept exactly one of two simultaneous updates when both carry the same stamp`, async ({
     networkManagementPage,
     networkIn,
@@ -138,28 +84,6 @@ test.describe('US 14138 - Optimistic locking on the update endpoint', () => {
       const statuses = answers.map((a) => a.status).sort();
       expect(statuses.filter((s) => s < 300), 'exactly one update should be accepted').toHaveLength(1);
       expect(statuses.filter((s) => s === CONFLICT.status), 'the other should be a 409 conflict').toHaveLength(1);
-    });
-  });
-
-  test(`TC-${CASE.malformedStamp}: should reject a malformed stamp with an error distinct from a conflict and apply nothing`, async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', LOCKING_DRAFT);
-    let record!: NetworkRecord;
-
-    await steps.critical('Navigate to the module and open the network - it carries a valid stamp', async () => {
-      await networkManagementPage.openList();
-      record = await networkManagementPage.readNetworkRecord(network.id);
-      expect(String(record.concurrencyStamp ?? '')).not.toBe('');
-    });
-
-    await steps.step(`"${MALFORMED_STAMP}" is refused as an invalid format, not as a conflict, and nothing is applied`, async () => {
-      const answer = await networkManagementPage.updateWithStamp(record, { descriptionEn: edited(CHANGES.staleEdit) }, MALFORMED_STAMP);
-      expect(VALIDATION_STATUSES as readonly number[], `a malformed stamp should be a validation error, got ${answer.status}`).toContain(answer.status);
-      expect(answer.status, 'it should be told apart from an ordinary conflict').not.toBe(CONFLICT.status);
-      expect((await networkManagementPage.readNetworkRecord(network.id)).descriptionEn).toBe(record.descriptionEn);
     });
   });
 

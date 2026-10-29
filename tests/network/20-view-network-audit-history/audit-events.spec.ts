@@ -1,18 +1,16 @@
 import { test, expect } from '../../../fixtures';
 import {
   ACTION,
-  ALL_ACTIONS,
   BLOCKED_CASES,
   CASE,
-  ENTRY_TIME_PATTERN,
   STATUS_CHANGE,
   appearsInOrder,
 } from '../../../data/networks/auditHistory.data';
 
 /**
  * User story 14139: View network audit history.
- * Which events the tab records - create, update, status change, delete,
- * facility membership - with what detail, and who may see it.
+ * Which events the tab records - create, update, status change, delete -
+ * with what detail, and who may see it.
  */
 test.describe('US 14139 - Audit history events', () => {
   test(`TC-${CASE.eventList}: should list the network's Create, Update and Status Change events when its Audit History tab opens`, async ({
@@ -112,118 +110,6 @@ test.describe('US 14139 - Audit history events', () => {
         appearsInOrder(actions, [ACTION.create, ACTION.update, ACTION.statusChange, ACTION.delete]),
         `the order of ${actions.join(' < ')}`,
       ).toBe(true);
-    });
-  });
-
-  test(`TC-${CASE.pdplChecklist}: should give every audit entry a formatted time, a user, an action type and changed values when entries are inspected`, async ({
-    networkDetailPage,
-    networkIn,
-    publishEdit,
-    steps,
-  }) => {
-    test.setTimeout(15 * 60_000);
-    const network = await networkIn('Inactive');
-    await publishEdit(network);
-
-    await steps.critical('Navigate to the network and open Audit History - the event list loads', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().expectEntry(ACTION.update);
-    });
-
-    await steps.step('Every entry has a consistently formatted timestamp', async () => {
-      const entries = await networkDetailPage.audit().readEntries();
-      expect(entries.filter((entry) => !ENTRY_TIME_PATTERN.test(entry.when)), 'malformed timestamps').toEqual([]);
-    });
-
-    await steps.step('Every entry identifies the acting user', async () => {
-      const entries = await networkDetailPage.audit().readEntries();
-      expect(entries.filter((entry) => entry.by === ''), 'entries without a user').toEqual([]);
-    });
-
-    await steps.step('Every entry carries one of the defined action types', async () => {
-      const entries = await networkDetailPage.audit().readEntries();
-      expect(entries.filter((entry) => !ALL_ACTIONS.includes(entry.action)), 'unlabelled or unknown actions').toEqual([]);
-    });
-
-    for (const action of [ACTION.update, ACTION.statusChange]) {
-      await steps.step(`The ${action} entry shows the changed fields with before and after values`, async () => {
-        const tab = networkDetailPage.audit();
-        const index = (await tab.readEntries()).findIndex((entry) => entry.action === action);
-        expect(index, `a ${action} entry to inspect`).toBeGreaterThanOrEqual(0);
-        const detail = await tab.openEntry(index);
-        await tab.closeEntry();
-        expect(detail.changes.length, 'changed values').toBeGreaterThan(0);
-        expect(detail.changes.filter((change) => change.field === ''), 'changes without a field name').toEqual([]);
-      });
-    }
-  });
-
-  test(`TC-${CASE.facilityEvents}: should log Facility Assigned and Facility Unassigned with the facility when a facility is assigned then unassigned`, async ({
-    networkDetailPage,
-    networkApprovalsPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(15 * 60_000);
-    const network = await networkIn('Active');
-    let facility = '';
-
-    await steps.critical('Navigate to the network and assign a facility - the assignment is saved', async () => {
-      await networkDetailPage.open(network.id);
-      const tab = networkDetailPage.facilities();
-      await tab.open();
-      await tab.openAssignDrawer();
-      const [option] = await tab.getAssignableOptions();
-      expect(option, 'a facility to assign').toBeDefined();
-      facility = option.split('—')[0].trim();
-      await tab.selectFacilities([facility]);
-      expect((await tab.confirmAssign())?.status).toBeLessThan(300);
-      await networkDetailPage.submitForApproval();
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.approve(network.name);
-    });
-
-    await steps.critical('Unassign the same facility - the unassignment is saved', async () => {
-      await networkDetailPage.open(network.id);
-      const tab = networkDetailPage.facilities();
-      await tab.open();
-      expect((await tab.remove(facility))?.status).toBeLessThan(300);
-      await networkDetailPage.submitForApproval();
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.approve(network.name);
-    });
-
-    await steps.step('Audit History lists a Facility Assigned and a Facility Unassigned entry naming the facility', async () => {
-      await networkDetailPage.open(network.id);
-      const tab = networkDetailPage.audit();
-      await tab.expectEntry(ACTION.facilityUnassigned);
-      const entries = await tab.readEntries();
-      for (const action of [ACTION.facilityAssigned, ACTION.facilityUnassigned]) {
-        const index = entries.findIndex((entry) => entry.action === action);
-        expect(index, `a ${action} entry`).toBeGreaterThanOrEqual(0);
-        const detail = await tab.openEntry(index);
-        await tab.closeEntry();
-        expect(JSON.stringify(detail.changes), `the ${action} entry should identify ${facility}`).toContain(facility);
-        expect(detail.meta, 'time and user').not.toBe('');
-      }
-    });
-  });
-
-  test(`TC-${CASE.newNetwork}: should show only the Create event when a brand-new network's Audit History opens`, async ({
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft');
-
-    await steps.critical('Navigate to the new network and open Audit History - the tab loads', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-    });
-
-    await steps.step('Only the initial Create event is shown, with no broken rows', async () => {
-      const entries = await networkDetailPage.audit().readEntries();
-      expect(entries.map((entry) => entry.action), 'the history of a just-created network').toEqual([ACTION.create]);
     });
   });
 

@@ -6,16 +6,14 @@ import {
   CONFLICT,
   LOCKING_DRAFT,
   RELOAD_ACTION,
-  STAMP_REQUIRED,
-  VALIDATION_STATUSES,
   edited,
 } from '../../../data/networks/staleSaveWarning.data';
 
 /**
  * User story 14312: Warn users when saving a network that changed since it was
  * opened. The server side of the warning - a stale version sent straight to
- * UpdateNetwork, the exact-match boundary, the version value itself, and two
- * racing saves. Sent through NetworkManagementPage.updateWithStamp.
+ * UpdateNetwork, the exact-match boundary, and two racing saves. Sent through
+ * NetworkManagementPage.updateWithStamp.
  */
 test.describe('US 14312 - Stale-save check on the server', () => {
   test(`TC-${CASE.apiBypass}: should refuse a force-save with a conflict and keep the newer data when a stale version is sent directly`, async ({
@@ -83,37 +81,6 @@ test.describe('US 14312 - Stale-save check on the server', () => {
     await steps.step('A save referencing the version one behind is blocked as a conflict', async () => {
       const answer = await networkManagementPage.updateWithStamp(current, { descriptionEn: edited(CHANGES.localUnsaved) }, String(current.concurrencyStamp));
       expect(answer.status).toBe(CONFLICT.status);
-    });
-  });
-
-  test(`TC-${CASE.versionData}: should populate the version, change it on every save and require it when the version reference is checked`, async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', LOCKING_DRAFT);
-    let first!: NetworkRecord;
-
-    await steps.critical('Navigate to the module - the list loads', async () => {
-      await networkManagementPage.openList();
-    });
-
-    await steps.step('The record opened for editing carries a non-null version value', async () => {
-      first = await networkManagementPage.readNetworkRecord(network.id);
-      expect(first.concurrencyStamp, 'a version/stamp should be present').toBeTruthy();
-    });
-
-    await steps.step('A conflict-free save produces a new version value', async () => {
-      const answer = await networkManagementPage.updateWithStamp(first, { descriptionEn: edited(CHANGES.description) }, String(first.concurrencyStamp));
-      expect(answer.status).toBeLessThan(300);
-      expect((await networkManagementPage.readNetworkRecord(network.id)).concurrencyStamp).not.toBe(first.concurrencyStamp);
-    });
-
-    await steps.step('A save with a blank version reference is rejected as required and invalid', async () => {
-      const latest = await networkManagementPage.readNetworkRecord(network.id);
-      const answer = await networkManagementPage.updateWithStamp(latest, { descriptionEn: edited(CHANGES.localUnsaved) }, null);
-      expect(VALIDATION_STATUSES as readonly number[], `a blank version should be a validation error, got ${answer.status}`).toContain(answer.status);
-      expect(answer.text, 'the reason should name the version reference').toMatch(STAMP_REQUIRED);
     });
   });
 

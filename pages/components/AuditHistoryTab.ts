@@ -76,9 +76,8 @@ export class AuditHistoryTab {
     await this.detail.waitForPageReady();
     // The timeline renders a moment AFTER the search box. Read at once it was
     // always empty, so expectEntry reported "no entries at all" for a tab that
-    // listed them (17820, 17836, 17926 - the screenshot showed the entries,
-    // 2026-10-27). Wait for the first entry; a record with none simply waits
-    // this out.
+    // listed them (the screenshot showed the entries, 2026-10-27). Wait for the
+    // first entry; a record with none simply waits this out.
     await this.entries().first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
   }
 
@@ -108,9 +107,9 @@ export class AuditHistoryTab {
         .toMatch(typeof action === 'string' ? new RegExp(action) : action);
     } catch {
       // The poll can time out mid-reload, and the failure screenshot then
-      // showed a blank page (17820, 17836, 17926). Leave the tab open and
-      // loaded so the image shows the audit history that was checked, and say
-      // in the failure WHAT it showed (QA lead, 2026-10-27: "more details").
+      // showed a blank page. Leave the tab open and loaded so the image shows
+      // the audit history that was checked, and say in the failure WHAT it
+      // showed (QA lead, 2026-10-27: "more details").
       await this.open().catch(() => undefined);
       const name = await this.detail.getName().catch(() => '(name not read)');
       const found = await this.readEntries().catch(() => [] as AuditEntry[]);

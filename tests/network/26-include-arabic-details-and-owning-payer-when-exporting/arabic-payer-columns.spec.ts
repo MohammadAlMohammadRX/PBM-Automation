@@ -3,10 +3,12 @@ import {
   ARABIC,
   CASES,
   COL,
+  PAYER_COLUMN_BUG,
   SCOPE,
   UTF8_BOM,
   XLSX_SIGNATURE,
   cellAt,
+  payerColumns,
   rowFor,
 } from '../../../data/networks/arabicPayerExport.data';
 
@@ -25,7 +27,10 @@ test.describe('US 14303 - Arabic and owning-payer columns', () => {
     cleanup.register(() => languageSwitcher.switchTo('en'));
   });
 
-  test(`TC-${CASES.csvColumns.azureId}: should write the Arabic name, Arabic description and owning payer to CSV when the list is exported in Arabic`, async ({
+  // Bug 20021: the expected result is now that no payer column is exported.
+  test(`TC-${CASES.csvColumns.azureId}: should write the Arabic name and Arabic description to CSV, with no payer column, when the list is exported in Arabic`, {
+    annotation: PAYER_COLUMN_BUG,
+  }, async ({
     networkManagementPage,
     languageSwitcher,
     publishedPayer,
@@ -44,20 +49,17 @@ test.describe('US 14303 - Arabic and owning-payer columns', () => {
       expect(code).not.toBe('');
     });
 
-    let row: Record<string, string> | undefined;
-    let headers: string[] = [];
+    let file!: Awaited<ReturnType<typeof networkManagementPage.exportAndParse>>;
     await steps.step('The CSV downloads and carries the Arabic name and description exactly', async () => {
-      const file = await networkManagementPage.exportAndParse(SCOPE.allNetworks, 'csv');
-      headers = file.parsed.headers;
-      row = rowFor(file.parsed, code);
+      file = await networkManagementPage.exportAndParse(SCOPE.allNetworks, 'csv');
+      const row = rowFor(file.parsed, code);
       expect(row, `the export should hold ${code}`).toBeDefined();
       expect(cellAt(file.parsed, row!, COL.nameAr)).toBe(network.nameAr);
       expect(cellAt(file.parsed, row!, COL.descriptionAr)).toBe(ARABIC.description);
-      expect(cellAt(file.parsed, row!, COL.payer), 'the owning payer column should be filled').not.toBe('');
     });
 
-    await steps.step('The owning payer column names the network\'s payer', async () => {
-      expect(row?.[headers[COL.payer]], `the payer cell should name "${publishedPayer.nameEn}"`).toBe(publishedPayer.nameEn);
+    await steps.step('The exported file has no payer column', async () => {
+      expect(payerColumns(file.parsed), `payer columns in the export (headers: ${file.parsed.headers.join(' | ')})`).toEqual([]);
     });
   });
 
@@ -152,7 +154,10 @@ test.describe('US 14303 - Arabic and owning-payer columns', () => {
     }
   });
 
-  test(`TC-${CASES.withAndWithoutPayer.azureId}: should fill the owning payer for an owned network and leave it consistently blank for an unowned one`, async ({
+  // Bug 20021: the expected result is now that no payer column is exported.
+  test(`TC-${CASES.withAndWithoutPayer.azureId}: should export no payer column for either an owned or an unowned network`, {
+    annotation: PAYER_COLUMN_BUG,
+  }, async ({
     networkManagementPage,
     languageSwitcher,
     publishedPayer,
@@ -175,16 +180,13 @@ test.describe('US 14303 - Arabic and owning-payer columns', () => {
       expect(file.parsed.rows.length).toBeGreaterThan(0);
     });
 
-    await steps.step('The owned network shows its payer', async () => {
-      const row = rowFor(file.parsed, codes.owned);
-      expect(row).toBeDefined();
-      expect(cellAt(file.parsed, row!, COL.payer), `the payer cell should name "${publishedPayer.nameEn}"`).toBe(publishedPayer.nameEn);
+    await steps.step('Both networks are exported', async () => {
+      expect(rowFor(file.parsed, codes.owned), `the export should hold the owned network ${codes.owned}`).toBeDefined();
+      expect(rowFor(file.parsed, codes.unowned), `the export should hold the unowned network ${codes.unowned}`).toBeDefined();
     });
 
-    await steps.step('The unowned network\'s payer cell is blank', async () => {
-      const row = rowFor(file.parsed, codes.unowned);
-      expect(row).toBeDefined();
-      expect(cellAt(file.parsed, row!, COL.payer)).toBe('');
+    await steps.step('The exported file has no payer column', async () => {
+      expect(payerColumns(file.parsed), `payer columns in the export (headers: ${file.parsed.headers.join(' | ')})`).toEqual([]);
     });
   });
 

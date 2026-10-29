@@ -42,15 +42,6 @@ export const UNAUTHORISED: readonly number[] = [401, 403];
 /** Lifecycle budget per case: provisioning an Inactive network costs ~4 minutes. */
 export const LIFECYCLE_TIMEOUT_MS = 25 * 60_000;
 
-/** Status-change audit entries: old and new values and who did it. */
-export const ACTIVATION_AUDIT = {
-  action: /Status Change/i,
-  statusField: /status/i,
-  before: 'Inactive',
-  after: 'Active',
-  meta: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\s*•\s*\S+/,
-} as const;
-
 export const BLOCKED_CASES: readonly NetworkBlockedCase[] = [
   {
     azureId: '17833',

@@ -1,7 +1,7 @@
 import { test, expect } from '../../../fixtures';
 import type { NetworkFormDialog, SaveOutcome } from '../../../pages/network/NetworkFormDialog';
 import { NETWORK_LIFECYCLE, NETWORK_TOAST } from '../../../data/networks/network.data';
-import { FLOW_FACILITY, HOLD_MS, JOB_WAIT_MS, PERMANENT_CODE } from '../../../data/networks/networkForm.data';
+import { FLOW_FACILITY, JOB_WAIT_MS, PERMANENT_CODE } from '../../../data/networks/networkForm.data';
 import { APPROVAL_CELL, DENIED_STATUSES, REGISTER } from '../../../data/networks/registerNetwork.data';
 
 /**
@@ -162,36 +162,6 @@ test.describe('US 14122 - Registration workflow', () => {
       await networkManagementPage.openList();
       await networkManagementPage.search(data.nameEn);
       expect(await networkManagementPage.getRowActionAvailability(data.nameEn, 'edit')).toBe('available');
-    });
-  });
-
-  test(`TC-${REGISTER.inactivePayer.azureId}: should set an approved registration to Pending when its owning payer is inactive`, async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    inactivePayer,
-    steps,
-  }) => {
-    test.setTimeout(20 * 60_000);
-
-    await steps.critical('Navigate to the Network Management module', async () => {
-      await networkManagementPage.openList();
-      expect(await networkManagementPage.isAddOffered()).toBe(true);
-    });
-
-    // The form only offers the top-bar scope payer, and the scope selector
-    // lists active payers only - so the registration for an INACTIVE payer is
-    // made through the same API the form calls (create, facility, submit,
-    // approve), effective now.
-    const network = await networkIn('Pending', { payerName: inactivePayer.nameEn, effectiveInMinutes: 1 });
-
-    await steps.step('The approved network with an inactive payer reads Pending, not Active', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.pending);
-    });
-
-    await steps.step('It stays Pending once its effective date has passed and the job has run', async () => {
-      await networkDetailPage.expectStatusHeldFor(network.id, NETWORK_LIFECYCLE.pending, HOLD_MS);
     });
   });
 

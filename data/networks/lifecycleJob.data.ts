@@ -26,13 +26,6 @@ export const JOB_HOLD_MS = 150_000;
 /** How long a due transition may take to show (job interval + list/detail lag). */
 export const JOB_TRANSITION_MS = 4 * 60_000;
 
-/** What an automatic status change looks like in the network's Audit History. */
-export const AUTO_STATUS_AUDIT = {
-  action: 'Status Change',
-  actor: 'System',
-  field: 'StatusId',
-} as const;
-
 /** Minutes from now until 23:59 today - "an expiry date equal to today". At least 20. */
 export function minutesUntilEndOfToday(): number {
   const end = new Date();

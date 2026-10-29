@@ -41,20 +41,8 @@ export const CONFLICT = {
 /** What a user must be offered after a conflict: a way to reload and retry. */
 export const RELOAD_ACTION = /reload|refresh|retry/i;
 
-/** The statuses a refused-as-invalid request may carry (validation, not conflict). */
-export const VALIDATION_STATUSES = [400, 422] as const;
-
 /** A request without the right to edit. */
 export const FORBIDDEN_STATUS = 403;
-
-/** What a validation error about the stamp must mention. */
-export const STAMP_REQUIRED = /concurrency|stamp|version/i;
-
-/** The sheet's malformed stamp (17980). */
-export const MALFORMED_STAMP = '###invalid_token###';
-
-/** The sheet's 256-character "max-length" stamp: the stored stamp is a 36-character GUID, its full length. */
-export const EMPTY_STAMP = '';
 
 /** A 256-character token that does NOT match - used to show a long stamp is judged by value, not length. */
 export const LONG_WRONG_STAMP = repeatTo('a', 256);
@@ -65,15 +53,9 @@ export const ERROR_BODY_FIELDS = ['Status', 'Title'] as const;
 export const CASE = {
   matchingStamp: '17970',
   staleStamp: '17971',
-  stampBoundaries: '17972',
   decisionTable: '17973',
-  stateTransition: '17974',
-  twoAdministrators: '17975',
-  missingStamp: '17977',
   simultaneous: '17976',
   exploratory: '17978',
-  checklist: '17979',
-  malformedStamp: '17980',
   noEditPermission: '17981',
   apiContract: '17982',
 } as const;
@@ -82,9 +64,7 @@ export const CASE = {
 export const CHANGES = {
   renamedSuffix: 'Updated',
   firstAdmin: 'Description changed by the first administrator',
-  secondAdminType: 'PPO',
   staleEdit: 'Description changed in the stale window',
-  reapplied: 'Description reapplied after refreshing',
   extraAfterRefresh: 'Typed after refreshing, before retrying',
 } as const;
 

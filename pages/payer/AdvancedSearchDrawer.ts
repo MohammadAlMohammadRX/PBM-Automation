@@ -224,11 +224,6 @@ export class AdvancedSearchDrawer {
     return ((await this.control(fieldKey).getAttribute('placeholder')) ?? '').trim();
   }
 
-  /** The computed text direction of a criterion's control - "rtl" or "ltr". */
-  async getTextDirection(fieldKey: string): Promise<string> {
-    return this.control(fieldKey).evaluate((element) => window.getComputedStyle(element).direction);
-  }
-
   /** Which of the drawer's own controls are on screen. */
   async getControlsPresent(): Promise<{ search: boolean; cancel: boolean; close: boolean }> {
     const shown = (id: string) => this.page.locator(buttonSelector(id)).first().isVisible();

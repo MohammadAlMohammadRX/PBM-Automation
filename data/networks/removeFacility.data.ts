@@ -19,10 +19,8 @@ export const CASE = {
   confirmRemoves: '17920',
   decisionCancelConfirm: '17922',
   cancelKeeps: '17923',
-  auditCaptures: '17926',
   roleRestricted: '17928',
   lastFacility: '17929',
-  reAdd: '17930',
   pendingUnrelated: '17931',
   refreshesInPlace: '17932',
 } as const;
@@ -32,15 +30,6 @@ export const PAIR = { removed: FACILITY.pharmacyC, kept: FACILITY.pharmacyB } as
 
 /** The facility an unrelated pending proposal adds (17931). */
 export const UNRELATED_ADDITION = FACILITY.pharmacyA;
-
-/** The administrator as audit entries name it ("By: CareConnect"). */
-export const AUDIT_ACTOR = /careconnect/i;
-
-/** An audit action that is about a facility leaving the network. */
-export const REMOVAL_ACTION = /unassign|remov/i;
-
-/** An audit action about a facility joining OR leaving (matches "Facility Assigned" and "Facility Unassigned"). */
-export const ASSIGN_ACTION = /assign/i;
 
 export const BLOCKED_CASES: NetworkBlockedCase[] = [
   {

@@ -16,7 +16,6 @@ export const DETAILS = {
   overLimit: repeatTo('R', 501),
   underLimit: repeatTo('R', 499),
   short: 'Reason captured by an automated case.',
-  history: 'Branch closed permanently as of this quarter',
   hostile: '<script>alert(1)</script> test 😀 ñ日本語',
   partial: 'Partly typed then abandoned',
   counterProbe: 'abc',
@@ -39,11 +38,6 @@ export const UNSELECTED_REASON = /^Select$|^$/;
 
 /** What a reason-less confirmation must say. */
 export const REASON_REQUIRED = /required|reason/i;
-
-/** The audit entry of an approved inactivation. */
-export const REASON_AUDIT = {
-  action: /Status Change/i,
-} as const;
 
 /** Lifecycle budget per case. */
 export const LIFECYCLE_TIMEOUT_MS = 25 * 60_000;

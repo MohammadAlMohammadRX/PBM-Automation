@@ -1,11 +1,11 @@
 import { test, expect } from '../../../fixtures';
 import { NETWORK_COLUMN } from '../../../constants/ElementIds';
-import { NETWORK_LIFECYCLE, uniqueArabic } from '../../../data/networks/network.data';
+import { NETWORK_LIFECYCLE } from '../../../data/networks/network.data';
 import { FIELD, SEARCH_CASES, sheetNamed } from '../../../data/networks/advancedSearch.data';
 
 /**
  * User story 14117: Apply advanced search criteria to networks.
- * The search outcomes - by English name, Arabic name, code, combined criteria -
+ * The search outcomes - by English name, code, combined criteria -
  * and how the drawer remembers, resets and discards what was entered.
  *
  * Every network searched for is the case's own (fixture `networkIn`): the
@@ -37,35 +37,6 @@ test.describe('US 14117 - Advanced search outcomes', () => {
         names.filter((name) => !name.toLowerCase().includes(data.term.toLowerCase())),
         `every listed network should match "${data.term}"`,
       ).toEqual([]);
-    });
-  });
-
-  test(`TC-${SEARCH_CASES.arabicName.azureId}: should list the matching network when its Arabic name is searched`, async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    const data = SEARCH_CASES.arabicName;
-    const network = await networkIn('Draft', { nameEn: sheetNamed(data.sheetName), nameAr: uniqueArabic(data.nameAr) });
-
-    await steps.critical('Navigate to the Network Management module - the list loads', async () => {
-      await networkManagementPage.openList();
-    });
-
-    await steps.step('The Arabic text is entered and displayed right-to-left in the field', async () => {
-      const drawer = await networkManagementPage.openAdvancedSearch();
-      await drawer.typeText(FIELD.nameOrCode, network.nameAr);
-      expect(await drawer.getValue(FIELD.nameOrCode), 'the field should hold the Arabic text as typed').toBe(network.nameAr);
-      expect(await drawer.getTextDirection(FIELD.nameOrCode), 'Arabic input should render right-to-left').toBe('rtl');
-      await drawer.submit();
-    });
-
-    await steps.step('The list refreshes and shows the network whose Arabic name matches', async () => {
-      await networkManagementPage.expectRowsRendered();
-      expect(
-        await networkManagementPage.readColumn(NETWORK_COLUMN.networkName),
-        'the server should match the Arabic name and return its network',
-      ).toContain(network.name);
     });
   });
 

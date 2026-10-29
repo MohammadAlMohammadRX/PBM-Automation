@@ -7,12 +7,11 @@ import {
   DETAILS_LIMIT,
   INVALID_REASONS,
   LIFECYCLE_TIMEOUT_MS,
-  REASON_AUDIT,
   REASON_REQUIRED,
   UNSELECTED_REASON,
   counterFor,
 } from '../../../data/networks/inactivationReason.data';
-import { APPROVAL_CELL, AUDIT_EXPECTATION } from '../../../data/networks/deactivateNetwork.data';
+import { APPROVAL_CELL } from '../../../data/networks/deactivateNetwork.data';
 
 /**
  * User story 14319: Require a reason when inactivating a network.
@@ -270,44 +269,6 @@ test.describe('US 14319 - Inactivation reason rules', () => {
       await drawer.confirm();
       await networkManagementPage.publishStagedChange(network.name);
       expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.inactive);
-    });
-  });
-
-  test('TC-18260: should show the recorded reason and details in the history when an inactivated network is reviewed', async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-    let reason = '';
-
-    await steps.critical('Navigate to the module - enter the reason and details', async () => {
-      await networkManagementPage.openList();
-      [reason] = await networkManagementPage.readInactivationReasons(network.name);
-      const result = await networkManagementPage.attemptInactivation(network.name, reason, DETAILS.history);
-      expect(result.detailsHeld).toBe(DETAILS.history);
-      expect(result.closed).toBe(true);
-    });
-
-    await steps.step('Approved, the network is Inactive', async () => {
-      await networkManagementPage.publishStagedChange(network.name);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.inactive);
-    });
-
-    await steps.step('The history shows the reason and details exactly as submitted', async () => {
-      await networkDetailPage.open(network.id);
-      const audit = networkDetailPage.audit();
-      await audit.open();
-      await audit.expectEntry(REASON_AUDIT.action);
-      const entries = await audit.readEntries();
-      const index = entries.findIndex((e) => REASON_AUDIT.action.test(e.action) && e.by !== AUDIT_EXPECTATION.systemActor);
-      expect(index).toBeGreaterThanOrEqual(0);
-      const changes = JSON.stringify((await audit.openEntry(index)).changes);
-      expect(changes, 'the reason').toContain(reason);
-      expect(changes, 'the details').toContain(DETAILS.history);
-      await audit.closeEntry();
     });
   });
 

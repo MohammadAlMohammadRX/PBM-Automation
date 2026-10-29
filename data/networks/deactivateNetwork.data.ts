@@ -18,7 +18,6 @@ import { repeatTo, type NetworkBlockedCase } from './network.data';
 
 export const DEACTIVATE = {
   details: 'Suspended pending contract renewal',
-  detailsAudit: 'Awaiting renewal',
   detailsNoReason: 'Temporary pause',
   detailsLimit: 500,
   atLimit: repeatTo('D', 500),
@@ -45,20 +44,6 @@ export const APPROVAL_CELL = {
   draft: /Draft/,
   pendingApproval: /Pending Approval/,
   published: /Published/,
-} as const;
-
-/** What the audit entry of an approved inactivation must carry. */
-export const AUDIT_EXPECTATION = {
-  action: /Status Change/i,
-  statusField: /status/i,
-  before: /Active/,
-  after: /Inactive/,
-  /** The automatic job's entries, which a user-made change is told apart from. */
-  systemActor: 'System',
-  reasonField: /reason/i,
-  detailsField: /details/i,
-  /** "dd/mm/yyyy hh:mm • <actor>" - a timestamp and a named actor. */
-  meta: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\s*•\s*\S+/,
 } as const;
 
 /**

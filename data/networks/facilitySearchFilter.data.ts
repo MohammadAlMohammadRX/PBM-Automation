@@ -19,7 +19,6 @@ export const CASE = {
   injection: '18090',
   exploreCombined: '18091',
   checklist: '18093',
-  invalidRange: '18092',
   emptyKeyword: '18094',
   statusValues: '18095',
   roleAccess: '18096',
@@ -45,8 +44,6 @@ export const RANGE = {
   startsAfter: { from: dayFromToday(1), to: dayFromToday(15) },
   endsBefore: { from: dayFromToday(-14), to: dayFromToday(-1) },
   lastMonth: { from: dayFromToday(-40), to: dayFromToday(-30) },
-  /** From after To (18092): ten days ahead -> today. */
-  reversed: { from: dayFromToday(9), to: today() },
 } as const;
 
 export const FACILITY_STATUS = { active: 'Active', inactive: 'Inactive', pending: 'Pending' } as const;
@@ -66,6 +63,3 @@ export const SCOPING = {
   networkB: [FACILITY.pharmacyA.code],
   term: FACILITY.pharmacyA.name,
 } as const;
-
-/** A validation message for a reversed range. */
-export const INVALID_RANGE = /from|before|after|range|invalid/i;

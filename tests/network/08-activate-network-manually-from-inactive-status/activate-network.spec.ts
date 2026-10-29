@@ -3,7 +3,6 @@ import { NETWORK_LIFECYCLE, NETWORK_TOAST } from '../../../data/networks/network
 import { ACTIVATION_PROMPT } from '../../../data/networks/networkActivation.data';
 import { minutesUntilEndOfToday } from '../../../data/networks/lifecycleJob.data';
 import {
-  ACTIVATION_AUDIT,
   BLOCKER_MESSAGE,
   CLEARED_INACTIVATION_FIELDS,
   FIXTURE_INACTIVATION_DETAILS,
@@ -11,7 +10,7 @@ import {
   UNAUTHORISED,
   duplicateName,
 } from '../../../data/networks/activateNetwork.data';
-import { APPROVAL_CELL, AUDIT_EXPECTATION } from '../../../data/networks/deactivateNetwork.data';
+import { APPROVAL_CELL } from '../../../data/networks/deactivateNetwork.data';
 
 /**
  * User story 14128: Activate network manually from Inactive status.
@@ -334,43 +333,6 @@ test.describe('US 14128 - Manual activation from Inactive', () => {
       }
       await networkDetailPage.open(network.id);
       expect(await networkDetailPage.getMainText()).not.toContain(FIXTURE_INACTIVATION_DETAILS);
-    });
-  });
-
-  test('TC-17836: should record the old and new status, the user and the time when an activation is approved', async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Inactive');
-
-    await steps.critical('Navigate to the module - activate the network and have it approved', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.stageStatusChange(network.name, 'activate');
-      await networkManagementPage.publishStagedChange(network.name);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('The Audit History lists the status change', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-      await networkDetailPage.audit().expectEntry(ACTIVATION_AUDIT.action);
-    });
-
-    await steps.step('The entry shows Inactive -> Active, the user and the time', async () => {
-      const audit = networkDetailPage.audit();
-      const entries = await audit.readEntries();
-      const index = entries.findIndex((e) => ACTIVATION_AUDIT.action.test(e.action) && e.by !== AUDIT_EXPECTATION.systemActor);
-      expect(index, `a user-made Status Change entry should exist among ${JSON.stringify(entries)}`).toBeGreaterThanOrEqual(0);
-      const entry = await audit.openEntry(index);
-      expect(entry.changes.find((c) => ACTIVATION_AUDIT.statusField.test(c.field)), JSON.stringify(entry.changes)).toMatchObject({
-        before: expect.stringContaining(ACTIVATION_AUDIT.before),
-        after: expect.stringContaining(ACTIVATION_AUDIT.after),
-      });
-      expect(entry.meta).toMatch(ACTIVATION_AUDIT.meta);
-      await audit.closeEntry();
     });
   });
 

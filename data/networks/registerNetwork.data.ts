@@ -37,7 +37,6 @@ export const REGISTER = {
     /** The payer the administrator switches to for the last step - the suite's scope payer (SCOPE_PAYER). */
     adminWorkingPayer: () => env.scopePayer,
   },
-  inactivePayer: { azureId: '17789' },
   codeOnlyAtApproval: { azureId: '17790' },
   registrationRole: { azureId: '17791' },
   draftThenSubmit: { azureId: '17792', editedArabicDescription: () => `وصف محدث ${arabicOfLength(6)}` },

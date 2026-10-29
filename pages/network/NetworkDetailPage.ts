@@ -377,54 +377,6 @@ export class NetworkDetailPage extends BasePage {
     return NetworkUtils.postAsSession(this.page, ApiEndpoints.networkSubmit, { networkId });
   }
 
-  // ---- story 34 additions (submission workflow) ----
-
-  /**
-   * The header buttons this network offers, by their id suffix
-   * (`network-detail-{key}-button`) - including any the NETWORK_DETAIL map does
-   * not name, such as a "Discard Draft" the submission story asks for. Scoped
-   * to the detail screen's own id namespace; tab-internal buttons excluded.
-   */
-  async getHeaderActionKeys(): Promise<string[]> {
-    await this.waitForLoaded();
-    const ids = await this.page
-      .locator('[id^="network-detail-"][id$="-button"]')
-      .evaluateAll((elements) => elements
-        .filter((element) => (element as HTMLElement).offsetParent !== null || element.getBoundingClientRect().height > 0)
-        .map((element) => (element as HTMLElement).id));
-    return ids
-      .map((id) => id.replace(/^network-detail-/, '').replace(/-button$/, ''))
-      .filter((key) => !/^(view|remove|assign|cancel|close)/.test(key) && !key.includes('-search'));
-  }
-
-  /** Clicks a header action whose id key matches `pattern` (e.g. /discard/), returning the prompt it raises. */
-  async clickHeaderActionMatching(pattern: RegExp): Promise<ConfirmDialog> {
-    const key = (await this.getHeaderActionKeys()).find((k) => pattern.test(k));
-    expect(key, `the header should offer an action matching ${pattern}`).toBeDefined();
-    await this.page.locator(buttonSelector(`network-detail-${key}-button`)).first().click();
-    const dialog = new ConfirmDialog(this.page);
-    await dialog.waitForVisible();
-    return dialog;
-  }
-
-  // ---- story 05 / 10 additions (status held after approval) ----
-
-  /**
-   * Re-opens a network by id every 20 s for `durationMs` and asserts its header
-   * keeps reading `status`. By id rather than through the list, so it works for
-   * a network owned by a payer the top-bar scope cannot select (an inactive one).
-   */
-  async expectStatusHeldFor(networkId: string, status: string, durationMs: number): Promise<void> {
-    const deadline = Date.now() + durationMs;
-    do {
-      await this.open(networkId);
-      await this.expectStatus(status);
-      await this.page.waitForTimeout(Math.min(20_000, Math.max(0, deadline - Date.now())));
-    } while (Date.now() < deadline);
-    await this.open(networkId);
-    await this.expectStatus(status);
-  }
-
   // ---- story 07 / 08 / 39 additions (header lifecycle actions) ----
 
   /**

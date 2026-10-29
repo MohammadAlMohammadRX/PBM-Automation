@@ -281,7 +281,7 @@ export class NetworkFacilitiesTab {
       // the label read on one opening did not match the next opening's text.
       const key = /^FCL-\d+/.exec(facility.trim())?.[0] ?? facility;
       const option = this.page.getByRole('option').filter({ hasText: key }).filter({ visible: true }).first();
-      // The option resolved but never read as "stable" in 17880 / 17993
+      // The option resolved but never read as "stable" in 17880
       // (2026-10-24): the panel keeps re-rendering while it settles. A normal
       // click first; if it cannot land, the option's own click handler is
       // fired - the option is already proven visible and enabled above.
@@ -291,10 +291,6 @@ export class NetworkFacilitiesTab {
     // Close the overlay by clicking the drawer's own title - Escape closes the
     // whole drawer (verified 2026-10-21).
     await this.drawerTitle().click();
-  }
-
-  async isAssignConfirmEnabled(): Promise<boolean> {
-    return this.confirmButton().isEnabled({ timeout: Timeouts.short }).catch(() => false);
   }
 
   /** Confirms the drawer and returns what AssignFacilitiesToNetwork answered. */
@@ -422,28 +418,6 @@ export class NetworkFacilitiesTab {
   }
 
   /**
-   * Clicks Assign in the drawer WITHOUT asserting it was usable, and reports
-   * whether a request left the browser plus every message shown - for the
-   * empty-selection case, where the subject is that nothing is submitted.
-   */
-  async attemptConfirmAssign(): Promise<{ sent: boolean; enabled: boolean; messages: string[] }> {
-    const enabled = await this.isAssignConfirmEnabled();
-    const requests = await NetworkUtils.countRequestsDuring(
-      this.page,
-      ApiEndpoints.networkAssignFacilities,
-      () => this.confirmButton().click({ force: true, timeout: Timeouts.short }).catch(() => undefined),
-      1_500,
-    );
-    const messages = (await this.page
-      .locator(`#${NETWORK_FACILITIES.assignDrawer.root} [id$="-error"], #${NETWORK_FACILITIES.assignDrawer.root} .p-error, #pbm-toast-summary, #pbm-toast-detail`)
-      .allInnerTexts()
-      .catch(() => [] as string[]))
-      .map((t) => t.trim())
-      .filter((t) => t !== '');
-    return { sent: requests > 0, enabled, messages };
-  }
-
-  /**
    * Runs the tab's advanced search with any of: facility status, an
    * assigned-on range (DD/MM/YYYY each). The drawer offers ONE range criterion,
    * `assignedon` (verified 2026-10-21), typed as "from - to" the way a PrimeNG
@@ -457,26 +431,6 @@ export class NetworkFacilitiesTab {
     }
     await drawer.submit();
     await this.detail.waitForPageReady();
-  }
-
-  /**
-   * Fills the advanced search and clicks Search, reporting how many facility
-   * requests that fired and the messages the drawer then shows - for the
-   * invalid-range case, which asserts that no search runs.
-   */
-  async attemptAdvancedSearch(criteria: { assignedFrom: string; assignedTo: string }): Promise<{ requests: number; messages: string[]; stillOpen: boolean }> {
-    const drawer = await this.openAdvancedSearch();
-    await drawer.typeDate('assignedon', `${criteria.assignedFrom} - ${criteria.assignedTo}`);
-    const requests = await NetworkUtils.countRequestsDuring(
-      this.page,
-      ApiEndpoints.networkFacilities,
-      () => this.page.locator(buttonSelector('network-detail-facilities-advanced-search-search-button')).first().click(),
-      1_500,
-    );
-    const stillOpen = await drawer.isOpen();
-    const messages = [...(await drawer.getMessages()), await this.detail.getToastMessage(1_500).catch(() => '')].filter((m) => m !== '');
-    if (stillOpen) await drawer.cancel();
-    return { requests, messages, stillOpen };
   }
 
   /** The facility-status options the advanced search offers. */

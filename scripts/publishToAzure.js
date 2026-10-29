@@ -34,7 +34,8 @@
  * Options / environment:
  *   --report <path>        report JSON (default reports/PBM-Payer-Module-Full-Run.json)
  *   --html <path>          HTML report attached to the run (default: same name, .html)
- *   --run-name <text>      run title (default "Payer module - automated results <date>")
+ *   --module <name>        module named in the run title and comments (default "payer")
+ *   --run-name <text>      run title (default "<Module> module - automated results <date>")
  *   --no-screenshots       do not attach failing-step screenshots
  *   --bugs <path>          JSON { "<test case id>": <Azure bug id> } of the QA-approved bugs. With it,
  *                          only Passed results and Failed results that have an approved bug are
@@ -66,6 +67,7 @@ const BASE = `https://dev.azure.com/${encodeURIComponent(ORG)}/${encodeURICompon
 const TOKEN = process.env.AZURE_DEVOPS_PAT || '';
 const REPORT = path.resolve(ROOT, option('report', 'reports/PBM-Payer-Module-Full-Run.json'));
 const HTML = path.resolve(ROOT, option('html', REPORT.replace(/\.json$/i, '.html')));
+const MODULE = option('module', 'payer');
 const PLAN = option('plan', '');
 const SUITE = option('suite', '');
 const PUBLISH = flag('publish');
@@ -139,7 +141,7 @@ function readResults() {
   // The report MERGES a full run with later re-runs, so neither date alone is
   // "when this ran": say both - the full run's start and when the report was built.
   const builtOn = fs.statSync(REPORT).mtime.toISOString().slice(0, 10);
-  const source = `final reviewed payer-module report (full run from ${String(report.runDate || '').slice(0, 10) || 'n/a'}, `
+  const source = `final reviewed ${MODULE}-module report (full run from ${String(report.runDate || '').slice(0, 10) || 'n/a'}, `
     + `with re-runs and QA-lead decisions; built ${builtOn})`;
   const byId = new Map();
   const skipped = [];
@@ -235,7 +237,7 @@ async function attach(url, file, comment) {
 async function publish(planId, toPublish, report) {
   const byPoint = new Map();
   for (const r of toPublish) for (const p of r.points) byPoint.set(p, r);
-  const runName = option('run-name', `Payer module - automated results, reviewed ${STAMP.slice(0, 10)}`);
+  const runName = option('run-name', `${MODULE[0].toUpperCase()}${MODULE.slice(1)} module - automated results, reviewed ${STAMP.slice(0, 10)}`);
 
   const { body: run } = await call('POST', `${BASE}/_apis/test/runs?api-version=${API}`, {
     name: runName,

@@ -19,7 +19,6 @@ export const CASE = {
   decisionTable: '17908',
   approvedApplied: '17909',
   rejected: '17910',
-  zeroSelected: '17913',
   coordinatorOnly: '17916',
   approverOnly: '17915',
   draftNotLive: '17917',
@@ -40,7 +39,6 @@ export const REFUSAL = {
   nonPharmacy: /pharmac/i,
   alreadyAssigned: /already/i,
   inactive: /inactive|not active|no longer active/i,
-  atLeastOne: /at least one|select/i,
 } as const;
 
 export const BLOCKED_CASES: NetworkBlockedCase[] = [

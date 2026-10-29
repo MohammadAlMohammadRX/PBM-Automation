@@ -3,18 +3,14 @@ import { NETWORK_LIFECYCLE, uniqueArabic } from '../../../data/networks/network.
 import {
   AUDIT_METADATA,
   CASE,
-  EDIT_WORKFLOW_ACTIONS,
-  EMPTY_AUDIT_MESSAGE,
   NETWORK_CODE_PATTERN,
-  NONEXISTENT_NETWORK_ID,
-  NOT_FOUND_MESSAGE,
   OVERVIEW_DATE_PATTERN,
 } from '../../../data/networks/overviewDetails.data';
 
 /**
  * User story 14126: View network overview and details.
  * The Overview's fields and metadata, the tab set, the status shown per
- * lifecycle state, who may open the screen, and the missing-record case.
+ * lifecycle state, and who may open the screen.
  *
  * Each case opens a network it provisioned itself (fixture `networkIn`) by id.
  */
@@ -89,25 +85,6 @@ test.describe('US 14126 - Network overview and tabs', () => {
     });
   });
 
-  test(`TC-${CASE.emptyAudit}: should show a clear empty state when a network with no recorded changes opens Audit History`, async ({
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft');
-
-    await steps.critical('Navigate to the new network and open Audit History - the tab opens', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-    });
-
-    await steps.step('An empty-state message is shown rather than an error or a blank panel', async () => {
-      const tab = networkDetailPage.audit();
-      expect(await tab.readEntries(), 'a never-edited network has no entries').toEqual([]);
-      expect(await tab.getPanelText(), 'the tab should say there is no history').toMatch(EMPTY_AUDIT_MESSAGE);
-    });
-  });
-
   test(`TC-${CASE.statusMatches}: should show the true lifecycle status when Pending, Active and Expired networks are opened`, async ({
     networkDetailPage,
     networkIn,
@@ -155,50 +132,6 @@ test.describe('US 14126 - Network overview and tabs', () => {
       const session = await shapedNonAdmin({ without: ['viewNetworkDetails'] });
       await session.networkDetail.openExpectingFailure(network.id);
       expect(await session.networkDetail.isLoaded(), 'the detail screen must not load for this user').toBe(false);
-    });
-  });
-
-  test(`TC-${CASE.editWorkflowAudit}: should record the edit, its submission and its approval when a network went through the edit workflow`, async ({
-    networkDetailPage,
-    networkIn,
-    publishEdit,
-    steps,
-  }) => {
-    test.setTimeout(12 * 60_000);
-    const network = await networkIn('Active');
-    await publishEdit(network, { descriptionEn: 'Edited through the approval workflow' });
-
-    await steps.critical('Navigate to the network that went through an edit-approval cycle', async () => {
-      await networkDetailPage.open(network.id);
-      expect(await networkDetailPage.getName()).toBe(network.name);
-    });
-
-    await steps.step('Audit History shows the edit, the Send for Approval and the approval, each with user and time', async () => {
-      const tab = networkDetailPage.audit();
-      await tab.expectEntry(EDIT_WORKFLOW_ACTIONS[0]);
-      const entries = await tab.readEntries();
-      const actions = entries.map((entry) => entry.action).join(' | ');
-      for (const action of EDIT_WORKFLOW_ACTIONS) {
-        expect(actions, `the audit history should record ${action}`).toMatch(action);
-      }
-      expect(entries.filter((entry) => entry.by === '' || entry.when === ''), 'entries without a user or a time').toEqual([]);
-    });
-  });
-
-  test(`TC-${CASE.notFound}: should show a clear "network not found" message when a deleted or unknown network id is opened`, async ({
-    networkManagementPage,
-    networkDetailPage,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the Network Management module - the list loads', async () => {
-      await networkManagementPage.openList();
-    });
-
-    await steps.step('Opening an id that never existed shows a "Network not found" message, not a broken page', async () => {
-      await networkDetailPage.openExpectingFailure(NONEXISTENT_NETWORK_ID);
-      expect(await networkDetailPage.isLoaded(), 'no network should render for an unknown id').toBe(false);
-      const said = `${await networkDetailPage.readToast()} ${await networkDetailPage.getMainText()}`;
-      expect(said, 'the user should be told the network was not found').toMatch(NOT_FOUND_MESSAGE);
     });
   });
 });

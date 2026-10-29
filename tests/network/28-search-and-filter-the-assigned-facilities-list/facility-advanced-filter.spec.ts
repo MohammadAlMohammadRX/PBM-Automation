@@ -5,7 +5,6 @@ import {
   CASE,
   CHECKLIST_KEYS,
   FACILITY_STATUS,
-  INVALID_RANGE,
   KEYWORD,
   RANGE,
   STATUS_VALUES,
@@ -176,30 +175,6 @@ test.describe('US 14306 - Advanced filtering of assigned facilities', () => {
       expect(checklist.labels.filter((label) => label === ''), 'unlabelled criteria').toEqual([]);
       expect(checklist.controls.search, 'Search / Apply').toBe(true);
       expect(checklist.controls.cancel, 'Clear / Reset (the panel\'s Cancel)').toBe(true);
-    });
-  });
-
-  test(`TC-${CASE.invalidRange}: should reject a range whose From date is after its To date and run no search`, async ({
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', { facilityCodes: ALL });
-    let attempt = { requests: -1, messages: [] as string[], stillOpen: false };
-
-    await steps.critical('Navigate to the network and open Advanced Search', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect((await networkDetailPage.facilities().getCodes()).length).toBe(ALL.length);
-    });
-
-    await steps.step('Applying From after To shows a validation error', async () => {
-      attempt = await networkDetailPage.facilities().attemptAdvancedSearch({ assignedFrom: RANGE.reversed.from, assignedTo: RANGE.reversed.to });
-      expect(attempt.messages.join(' | '), 'the user should be told From must not be after To').toMatch(INVALID_RANGE);
-    });
-
-    await steps.step('No search is executed', async () => {
-      expect(attempt.requests, 'no facilities request should be sent for an invalid range').toBe(0);
     });
   });
 

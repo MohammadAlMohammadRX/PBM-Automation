@@ -27,9 +27,6 @@ export type NetworkFieldKey = keyof typeof NETWORK_FIELD;
 /** What the server said to a save, or null when no request left the browser. */
 export type SaveOutcome = { status: number; body: unknown; text: string } | null;
 
-/** A save's server answer plus every message shown afterwards (saveEditAndReport). */
-export type EditSaveReport = { outcome: SaveOutcome; messages: string[] };
-
 /** What a user is shown after a stale save (readConflictPrompt). */
 export interface ConflictPrompt {
   messages: string[];

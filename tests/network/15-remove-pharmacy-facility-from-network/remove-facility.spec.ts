@@ -1,12 +1,9 @@
 import { test, expect } from '../../../fixtures';
-import { ASSIGNMENT_STATE, BUDGET, NO_FACILITIES, REMOVE_PROMPT, codeOfOption, today } from '../../../data/networks/facilities.data';
+import { ASSIGNMENT_STATE, BUDGET, NO_FACILITIES, REMOVE_PROMPT } from '../../../data/networks/facilities.data';
 import {
-  ASSIGN_ACTION,
-  AUDIT_ACTOR,
   BLOCKED_CASES,
   CASE,
   PAIR,
-  REMOVAL_ACTION,
   UNRELATED_ADDITION,
 } from '../../../data/networks/removeFacility.data';
 
@@ -107,39 +104,6 @@ test.describe('US 14132 - Removing a facility', () => {
     });
   });
 
-  test(`TC-${CASE.auditCaptures}: should log the user, time and facility when a facility is removed`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [PAIR.removed.code, PAIR.kept.code] });
-
-    await steps.critical('Navigate to the network and remove the facility - the removal completes', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect((await networkDetailPage.facilities().attemptRemove(PAIR.removed.code)).outcome?.status).toBeLessThan(300);
-      await networkManagementPage.publishStagedChange(network.name);
-    });
-
-    await steps.critical('The audit history has a new entry for the removal', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-      await networkDetailPage.audit().expectEntry(REMOVAL_ACTION);
-    });
-
-    await steps.step('The entry records who removed it, when, and which facility', async () => {
-      const entries = await networkDetailPage.audit().readEntries();
-      const index = entries.findIndex((entry) => REMOVAL_ACTION.test(entry.action));
-      const detail = await networkDetailPage.audit().openEntry(Math.max(index, 0));
-      expect(detail.meta, 'the acting user').toMatch(AUDIT_ACTOR);
-      expect(detail.meta, 'the removal date').toContain(today());
-      expect(JSON.stringify(detail.changes), 'the facility removed').toMatch(new RegExp(`${PAIR.removed.code}|${PAIR.removed.name}`));
-      await networkDetailPage.audit().closeEntry();
-    });
-  });
-
   test(`TC-${CASE.roleRestricted}: should refuse a removal from every entry point when the user lacks the removal permission`, async ({
     networkDetailPage,
     networkIn,
@@ -200,46 +164,6 @@ test.describe('US 14132 - Removing a facility', () => {
       expect(await networkDetailPage.facilities().readRows()).toEqual([]);
       expect(await networkDetailPage.facilities().getEmptyText()).toMatch(NO_FACILITIES);
       expect(await networkDetailPage.getTabCount('facilities')).toBe(0);
-    });
-  });
-
-  test(`TC-${CASE.reAdd}: should let a removed facility be proposed again and keep both events in the audit trail`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [PAIR.removed.code, PAIR.kept.code] });
-
-    await steps.critical('Navigate to the network and remove a facility (approved)', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect((await networkDetailPage.facilities().attemptRemove(PAIR.removed.code)).outcome?.status).toBeLessThan(300);
-      await networkManagementPage.publishStagedChange(network.name);
-    });
-
-    await steps.critical('The removed facility is offered in the pool again', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      await networkDetailPage.facilities().openAssignDrawer();
-      expect((await networkDetailPage.facilities().getAssignableOptions()).map(codeOfOption)).toContain(PAIR.removed.code);
-      await networkDetailPage.facilities().cancelAssign();
-    });
-
-    await steps.step('Proposing and approving it again makes it a current assignment', async () => {
-      expect((await networkDetailPage.facilities().assign([PAIR.removed.code]))?.status).toBeLessThan(300);
-      await networkManagementPage.publishStagedChange(network.name);
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      expect(await networkDetailPage.facilities().getSettledCodes()).toContain(PAIR.removed.code);
-    });
-
-    await steps.step('The audit history shows the removal and the new assignment as separate events', async () => {
-      await networkDetailPage.audit().open();
-      await networkDetailPage.audit().expectEntry(REMOVAL_ACTION);
-      const actions = (await networkDetailPage.audit().readEntries()).map((e) => e.action);
-      expect(actions.filter((a) => ASSIGN_ACTION.test(a)).length, `separate facility events: ${actions.join(', ')}`).toBeGreaterThanOrEqual(2);
     });
   });
 

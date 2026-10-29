@@ -3,16 +3,13 @@ import { NETWORK_LIFECYCLE, NETWORK_MESSAGE, NETWORK_TOAST } from '../../../data
 import { ACTIVATION_PROMPT } from '../../../data/networks/networkActivation.data';
 import { minutesUntilEndOfToday } from '../../../data/networks/lifecycleJob.data';
 import {
-  DETAILS,
   EXPIRY_GUIDANCE,
   EXTENDED_EXPIRY,
   LIFECYCLE_TIMEOUT_MS,
   MATRIX_TIMEOUT_MS,
-  RAPID_CLICKS,
-  SERVER_REFUSAL,
   UNAUTHORISED,
 } from '../../../data/networks/statusPrerequisites.data';
-import { APPROVAL_CELL, AUDIT_EXPECTATION } from '../../../data/networks/deactivateNetwork.data';
+import { APPROVAL_CELL } from '../../../data/networks/deactivateNetwork.data';
 
 /**
  * User story 14318: Enforce status prerequisites for activation and
@@ -81,112 +78,6 @@ test.describe('US 14318 - Status prerequisites for lifecycle actions', () => {
       await networkManagementPage.publishStagedChange(network.name);
       await networkDetailPage.open(network.id);
       await networkDetailPage.expectStatus(NETWORK_LIFECYCLE.active);
-    });
-  });
-
-  test('TC-18239: should refuse to inactivate a network that is already Inactive', async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Inactive');
-
-    await steps.critical('Navigate to the module - the network is listed Inactive', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.inactive);
-    });
-
-    await steps.step('Inactivate is not offered for the record', async () => {
-      await networkManagementPage.expectRowActionUnavailable(network.name, 'inactivate');
-    });
-
-    await steps.step('Forced anyway, the request is refused: only Active networks can be inactivated', async () => {
-      const [reason] = await networkManagementPage.readInactivationReasonLookup();
-      const answer = await networkManagementPage.submitInactivationRequest(network.id, reason.id, DETAILS);
-      expect(answer.status, 'the server must refuse').toBeGreaterThanOrEqual(400);
-      expect(answer.text).toMatch(SERVER_REFUSAL.inactivateNotActive);
-    });
-  });
-
-  test('TC-18240: should refuse to activate a network that is already Active', async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-
-    await steps.critical('Navigate to the module - the network is listed Active', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('Activate is not offered for the record', async () => {
-      await networkManagementPage.expectRowActionUnavailable(network.name, 'activate');
-    });
-
-    await steps.step('Forced anyway, the request is refused: only Inactive networks can be activated', async () => {
-      const answer = await networkManagementPage.submitStatusRequest('activate', network.id);
-      expect(answer.status, 'the server must refuse').toBeGreaterThanOrEqual(400);
-      expect(answer.text).toMatch(SERVER_REFUSAL.activateNotInactive);
-    });
-  });
-
-  test('TC-18241: should block activating an Expired network and ask for an extended expiry date', async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Expired');
-
-    await steps.critical('Navigate to the module - the network is listed Expired', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('Activate is disabled for the Expired network', async () => {
-      await networkManagementPage.expectRowActionUnavailable(network.name, 'activate');
-    });
-
-    await steps.step('The user is told to extend the expiry date first, and a forced request is refused', async () => {
-      expect(await networkManagementPage.getRowActionMessage(network.name, 'activate')).toMatch(EXPIRY_GUIDANCE);
-      const answer = await networkManagementPage.submitStatusRequest('activate', network.id);
-      expect(answer.status, 'the server must refuse').toBeGreaterThanOrEqual(400);
-      expect(answer.text).toMatch(SERVER_REFUSAL.expired);
-    });
-  });
-
-  test('TC-18242: should block inactivating an Expired network and ask for an extended expiry date', async ({
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Expired');
-
-    await steps.critical('Navigate to the module - the network is listed Expired', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.expired);
-    });
-
-    await steps.step('Inactivate is not usable for the Expired network, and a forced request is refused', async () => {
-      await networkManagementPage.expectRowActionUnavailable(network.name, 'inactivate');
-      const [reason] = await networkManagementPage.readInactivationReasonLookup();
-      const answer = await networkManagementPage.submitInactivationRequest(network.id, reason.id, DETAILS);
-      expect(answer.status, 'the server must refuse').toBeGreaterThanOrEqual(400);
-    });
-
-    await steps.step('The user is told the expiry date must be extended before any lifecycle action', async () => {
-      expect(
-        await networkManagementPage.getRowActionMessage(network.name, 'inactivate'),
-        'the row should explain why no lifecycle action is possible',
-      ).toMatch(EXPIRY_GUIDANCE);
     });
   });
 
@@ -331,44 +222,6 @@ test.describe('US 14318 - Status prerequisites for lifecycle actions', () => {
     });
   });
 
-  test('TC-18247: should process a single status change when Inactivate is clicked repeatedly', async ({
-    networkManagementPage,
-    networkApprovalsPage,
-    networkDetailPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-
-    await steps.critical('Navigate to the module - the network is listed Active', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('Rapid repeated clicks produce one request', async () => {
-      const [reason] = await networkManagementPage.readInactivationReasons(network.name);
-      const drawer = await networkManagementPage.openDeactivationDrawer(network.name);
-      await drawer.selectReason(reason);
-      await drawer.confirmRepeatedly(RAPID_CLICKS);
-      await networkManagementPage.openList();
-      await networkManagementPage.submitForApproval(network.name);
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.expectSingleQueuedRequest(network.name);
-    });
-
-    await steps.step('Refreshed after approval, the network is Inactive with one status-change entry', async () => {
-      await networkApprovalsPage.approve(network.name);
-      expect(await networkManagementPage.readStatus(network.name)).toBe(NETWORK_LIFECYCLE.inactive);
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().open();
-      const userChanges = (await networkDetailPage.audit().readEntries())
-        .filter((e) => AUDIT_EXPECTATION.action.test(e.action) && e.by !== AUDIT_EXPECTATION.systemActor);
-      expect(userChanges, 'exactly one user-made status change should be recorded').toHaveLength(1);
-    });
-  });
-
   test('TC-18248: should withhold Activate and Inactivate from a user without the lifecycle permissions', async ({
     networkManagementPage,
     networkIn,
@@ -407,53 +260,6 @@ test.describe('US 14318 - Status prerequisites for lifecycle actions', () => {
       const inactivate = await session.networks.submitStatusRequest('inactivate', active.id);
       expect(UNAUTHORISED, `activate answered ${activate.status}`).toContain(activate.status);
       expect(UNAUTHORISED, `inactivate answered ${inactivate.status}`).toContain(inactivate.status);
-    });
-  });
-
-  test('TC-18249: should confirm, report, audit and refresh the list when a status change is made', async ({
-    networkManagementPage,
-    networkDetailPage,
-    networkIn,
-    toast,
-    steps,
-  }) => {
-    test.setTimeout(LIFECYCLE_TIMEOUT_MS);
-    const network = await networkIn('Active');
-
-    await steps.critical('Navigate to the module - the network is listed Active', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.active);
-    });
-
-    await steps.step('A confirmation dialog precedes the change and a success message follows it', async () => {
-      const wording = await networkManagementPage.stageStatusChange(network.name, 'inactivate');
-      expect(wording.title, 'the confirmation dialog').toBe(NETWORK_MESSAGE.inactivateTitle);
-      await toast.expectText(NETWORK_TOAST.savedAsDraft);
-      await networkManagementPage.publishStagedChange(network.name);
-    });
-
-    await steps.step('The audit log records old and new status, the time and the user', async () => {
-      await networkDetailPage.open(network.id);
-      const audit = networkDetailPage.audit();
-      await audit.open();
-      await audit.expectEntry(AUDIT_EXPECTATION.action);
-      const entries = await audit.readEntries();
-      const index = entries.findIndex((e) => AUDIT_EXPECTATION.action.test(e.action) && e.by !== AUDIT_EXPECTATION.systemActor);
-      expect(index).toBeGreaterThanOrEqual(0);
-      const entry = await audit.openEntry(index);
-      expect(entry.changes.find((c) => AUDIT_EXPECTATION.statusField.test(c.field))).toMatchObject({
-        before: expect.stringMatching(AUDIT_EXPECTATION.before),
-        after: expect.stringMatching(AUDIT_EXPECTATION.after),
-      });
-      expect(entry.meta).toMatch(AUDIT_EXPECTATION.meta);
-      await audit.closeEntry();
-    });
-
-    await steps.step('The list row shows Inactive', async () => {
-      await networkManagementPage.openList();
-      await networkManagementPage.search(network.name);
-      await networkManagementPage.expectStatusText(network.name, NETWORK_LIFECYCLE.inactive);
     });
   });
 

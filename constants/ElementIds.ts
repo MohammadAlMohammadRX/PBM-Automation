@@ -1557,15 +1557,13 @@ export type NetworkSortColumn = keyof typeof NETWORK_SORT_FIELD;
 /**
  * Advanced Search criteria keys under `network-list-advanced-search-field-`.
  * Live 2026-10-21: searchtext, networktypeid, statusid, approvalstatus. There
- * is NO payer criterion - `payer` is listed because story 14302 asks for one,
- * and the drawer reports it absent rather than the spec guessing.
+ * is NO payer criterion.
  */
 export const NETWORK_ADVANCED_SEARCH_FIELD = {
   nameOrCode: 'searchtext',
   networkType: 'networktypeid',
   status: 'statusid',
   approvalStatus: 'approvalstatus',
-  payer: 'payerid',
 } as const;
 
 export type NetworkSearchField = keyof typeof NETWORK_ADVANCED_SEARCH_FIELD;

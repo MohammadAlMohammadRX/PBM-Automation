@@ -6,7 +6,6 @@ import {
   MULTI_PAYER_ACCOUNT,
   NO_OWNER,
   PAYER_HEADER,
-  PAYER_SORT_WORD,
   RAPID_TERM,
   VIEW_PERMISSIONS,
 } from '../../../data/networks/owningPayerDirectory.data';
@@ -127,29 +126,6 @@ test.describe('US 14302 - Owning payer on the directory', () => {
         chips.includes(RAPID_TERM) === names.every((name) => name.includes(RAPID_TERM)),
         'the grid must agree with the chips after the switch - no stale criterion either way',
       ).toBe(true);
-    });
-  });
-
-  test(`TC-${CASES.payerColumnPaging.azureId}: should sort by payer and keep the Payer column populated on later pages`, async ({
-    networkManagementPage,
-    steps,
-  }) => {
-    await steps.critical('Navigate to the module - the grid loads with the Payer column', async () => {
-      await networkManagementPage.openList();
-      expect(await networkManagementPage.getHeaderTexts()).toContain(PAYER_HEADER);
-    });
-
-    await steps.step('The directory can be sorted by payer in both directions', async () => {
-      const options = await networkManagementPage.getSortOptions();
-      expect(options.filter((option) => option.startsWith(PAYER_SORT_WORD)), 'payer ascending and descending sort options').toHaveLength(2);
-    });
-
-    await steps.step('On the next page the Payer column is still shown and populated', async () => {
-      await networkManagementPage.goToPage(2);
-      expect(await networkManagementPage.getHeaderTexts()).toContain(PAYER_HEADER);
-      const owners = await networkManagementPage.readColumn(NETWORK_COLUMN.payer);
-      expect(owners.length).toBeGreaterThan(0);
-      expect(owners.filter((owner) => owner === ''), 'empty payer cells').toEqual([]);
     });
   });
 

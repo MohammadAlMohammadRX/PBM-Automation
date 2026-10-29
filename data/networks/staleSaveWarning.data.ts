@@ -1,5 +1,5 @@
 import { NETWORK_TOAST } from './network.data';
-import { CONFLICT, LOCKING_DRAFT, RELOAD_ACTION, STAMP_REQUIRED, VALIDATION_STATUSES, edited } from './optimisticLocking.data';
+import { CONFLICT, LOCKING_DRAFT, RELOAD_ACTION, edited } from './optimisticLocking.data';
 
 /**
  * Test data for US 14312 "Warn users when saving a network that changed since
@@ -18,7 +18,7 @@ import { CONFLICT, LOCKING_DRAFT, RELOAD_ACTION, STAMP_REQUIRED, VALIDATION_STAT
  * NA_UserA and NA_UserB are two windows of the same administrator
  * (`staleSession`); the Viewer row uses the shaped non-admin session.
  */
-export { CONFLICT, LOCKING_DRAFT, RELOAD_ACTION, STAMP_REQUIRED, VALIDATION_STATUSES, edited };
+export { CONFLICT, LOCKING_DRAFT, RELOAD_ACTION, edited };
 
 /** What a successful, conflict-free save shows. */
 export const SAVED_TOAST = NETWORK_TOAST.savedAsDraft.summary;
@@ -30,13 +30,11 @@ export const CASE = {
   noConflict: '18152',
   warned: '18153',
   stateTransition: '18154',
-  reloadRetry: '18155',
   apiBypass: '18156',
   offByOne: '18157',
   roleDecisionTable: '18158',
   differentFields: '18159',
   dialogChecklist: '18161',
-  versionData: '18160',
   concurrentApi: '18162',
   reloadDiscards: '18163',
 } as const;

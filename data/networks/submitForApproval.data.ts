@@ -14,8 +14,7 @@ import { edited } from './optimisticLocking.data';
  * Approval Management > Network queue; approving publishes it.
  *
  * The sheet's fields the form does not have map onto ones it does: "address"
- * and "Contact Phone" -> the two descriptions. "Discard Draft" is looked for
- * among the detail header's actions by name. The reviewer is the same
+ * and "Contact Phone" -> the two descriptions. The reviewer is the same
  * administrator who submitted: the environment has one account that may
  * approve (self-approval is itself asserted by 18174).
  *
@@ -54,9 +53,6 @@ export const ALREADY_PENDING = /already|pending|one (pending|change)/i;
 /** The change types the queue shows. */
 export const CHANGE_TYPE = { update: 'Update', delete: 'Delete' } as const;
 
-/** A header action that discards a draft. */
-export const DISCARD_ACTION = /discard/i;
-
 /** The managed rejection reason standing in for the sheet's "Incorrect address format". */
 export const REJECTION_REASON: RejectionReason = 'Incorrect Data';
 
@@ -72,7 +68,6 @@ export const CASE = {
   secondPendingBlocked: '18169',
   editWithdraws: '18170',
   deleteWithdraws: '18171',
-  discardDraft: '18172',
   availabilityMatrix: '18173',
   noSelfApproval: '18174',
   duplicateSubmits: '18175',
@@ -84,5 +79,4 @@ export const CHANGES = {
   address: 'Address changed by the maker',
   contactPhone: 'Contact phone changed while pending',
   further: 'A further edit while the first is pending',
-  discarded: 'A draft change to be discarded',
 } as const;

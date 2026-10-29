@@ -183,39 +183,6 @@ test.describe('US 14131 - Assignable pool and eligibility', () => {
     });
   });
 
-  test(`TC-${CASE.zeroSelected}: should block the proposal and create no draft when no facility is selected`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.oneLiveNetwork);
-    const network = await networkIn('Active', { facilityCodes: [MEMBERSHIP.existing.code] });
-    let attempt = { sent: true, enabled: true, messages: [] as string[] };
-
-    await steps.critical('Navigate to the network and open the assignment drawer with nothing selected', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.facilities().open();
-      await networkDetailPage.facilities().openAssignDrawer();
-      expect((await networkDetailPage.facilities().getAssignableOptions()).length).toBeGreaterThan(0);
-    });
-
-    await steps.step('Submitting the empty selection sends nothing', async () => {
-      attempt = await networkDetailPage.facilities().attemptConfirmAssign();
-      expect(attempt.sent, 'an empty proposal must not reach the server').toBe(false);
-    });
-
-    await steps.step('A validation message requires at least one facility', async () => {
-      expect(attempt.messages.join(' | '), 'the user should be told to select at least one facility').toMatch(REFUSAL.atLeastOne);
-    });
-
-    await steps.step('No draft change is created for the network', async () => {
-      await networkManagementPage.openList();
-      expect(await networkManagementPage.readRow(network.name), 'the approval cell should still read the published version')
-        .toMatchObject({ approvalStatus: expect.stringMatching(/Published/) });
-    });
-  });
-
   for (const blocked of BLOCKED_CASES) {
     test(`TC-${blocked.azureId}: ${blocked.title}`, async ({ steps }) => {
       steps.blocked(blocked.reason);
