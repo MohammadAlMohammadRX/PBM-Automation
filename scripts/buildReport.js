@@ -825,7 +825,16 @@ const tagOf = (name) => name.replace(/[^A-Za-z ]/g, '').split(' ')[0].slice(0, 3
 // every case its Azure Test Case id, each linked to the work item, so a reader
 // can trace a result straight back to Azure. Stories are matched by FOLDER,
 // not by name: 16 story names here differ from their Azure titles.
-const azureStoryOf = (g) => storyOfFolder(g.dir);
+// The folder map holds PAYER stories only, keyed by the two-digit prefix, so
+// a network or plan folder ("01-...") would pick up payer story 01. Those
+// story names carry their own id ("US 14145 View plan ..."), which wins.
+const OWN_ID = /^US (\d+) (.+)$/;
+const azureStoryOf = (g) => {
+  const own = OWN_ID.exec(g.name || '');
+  return own ? { id: own[1], title: own[2] } : storyOfFolder(g.dir);
+};
+/** The story name without its "US <id>" prefix when the badge already shows it. */
+const storyLabel = (g) => (OWN_ID.exec(g.name || '') || [])[2] || g.name;
 const caseLink = (id) => (/^\d+$/.test(String(id))
   ? `<a href="${workItemUrl(id)}" target="_blank" rel="noopener" title="Azure Test Case ${esc(id)}">${esc(id)}</a>`
   : esc(id));
@@ -1047,7 +1056,7 @@ const storySections = grouped
       .join('');
 
     return `<section class="story">
-      <h2>${storyBadge(g)}${esc(g.name)}</h2>
+      <h2>${storyBadge(g)}${esc(storyLabel(g))}</h2>
       <p class="story__meta">${g.cases.length} test case${g.cases.length === 1 ? '' : 's'} ${chips}</p>
       <div class="tw"><table>
         <thead><tr><th>Case</th><th>Expected result</th><th>Actual result</th><th>Status</th></tr></thead>
@@ -1087,7 +1096,7 @@ const rerunChanges = (() => {
 const summaryRows = grouped
   .map((g) => {
     const c = storyCounts(g);
-    return `<tr><td>${storyBadge(g)}${esc(g.name)}${
+    return `<tr><td>${storyBadge(g)}${esc(storyLabel(g))}${
       isRerun(g) ? ` <small class="rerun">re-run ${esc(RERUN_ON)}</small>` : ''
     }${
       (OVERRIDES.storyLabels || []).filter((l) => l.name === g.name)

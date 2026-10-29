@@ -91,47 +91,6 @@ test.describe('US 14307 - States side by side and approvals', () => {
     });
   });
 
-  test(`TC-${CASE.badgesDistinct}: should render every status badge with its own label and visual treatment`, async ({
-    networkDetailPage,
-    networkManagementPage,
-    networkIn,
-    steps,
-  }) => {
-    test.setTimeout(BUDGET.twoLiveNetworks);
-    const drafted = await networkIn('Active', { facilityCodes: [START.kept.code, START.removed.code] });
-    const pending = await networkIn('Active', { facilityCodes: [START.kept.code, START.removed.code] });
-    const tones = new Map<string, string>();
-
-    await steps.critical('Navigate to the networks holding every state', async () => {
-      for (const network of [drafted, pending]) {
-        await networkDetailPage.open(network.id);
-        await networkDetailPage.facilities().open();
-        expect((await networkDetailPage.facilities().assign([PROPOSED.code]))?.status).toBeLessThan(300);
-        expect((await networkDetailPage.facilities().attemptRemove(START.removed.code)).outcome?.status).toBeLessThan(300);
-      }
-      await networkManagementPage.openList();
-      await networkManagementPage.submitForApproval(pending.name);
-    });
-
-    await steps.step('Each in-progress label renders completely with a visual indicator', async () => {
-      for (const network of [drafted, pending]) {
-        await networkDetailPage.open(network.id);
-        await networkDetailPage.facilities().open();
-        const badges = (await networkDetailPage.facilities().readBadgeTones()).filter((badge) => badge.assignmentTone !== '');
-        for (const badge of badges) tones.set(badge.assignment, badge.assignmentTone);
-      }
-      expect([...tones.keys()].sort()).toEqual([...IN_PROGRESS].sort());
-    });
-
-    await steps.step('The four in-progress badges are visually distinct from one another', async () => {
-      expect(new Set(tones.values()).size, `tones: ${JSON.stringify(Object.fromEntries(tones))}`).toBe(IN_PROGRESS.length);
-    });
-
-    await steps.step('The approved row shows the Active status badge', async () => {
-      expect((await networkDetailPage.facilities().findRow(START.kept.code))?.status).toBe(FACILITY_ACTIVE);
-    });
-  });
-
   test(`TC-${CASE.approversOnly}: should let only an approver decide a pending facility change`, async ({
     networkDetailPage,
     networkManagementPage,

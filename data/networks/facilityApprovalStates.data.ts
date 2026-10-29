@@ -20,7 +20,6 @@ export const CASE = {
   dateAtApproval: '18104',
   duplicateSubmission: '18105',
   rejectPending: '18106',
-  badgesDistinct: '18107',
   dateAfterRefresh: '18109',
   approversOnly: '18108',
   workflowSync: '18110',

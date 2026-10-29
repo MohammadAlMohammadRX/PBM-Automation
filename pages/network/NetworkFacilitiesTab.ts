@@ -457,23 +457,6 @@ export class NetworkFacilitiesTab {
     await this.detail.waitForPageReady();
   }
 
-  /** Each row's badge tones (`data-tone`), for the distinct-badge checklist. */
-  async readBadgeTones(): Promise<{ code: string; assignment: string; assignmentTone: string; status: string; statusTone: string }[]> {
-    return this.rows().evaluateAll((trs, ids) =>
-      trs
-        .filter((tr) => tr.querySelectorAll('td').length >= 5)
-        .map((tr) => {
-          const cells = Array.from(tr.querySelectorAll('td')).map((td) => (td as HTMLElement).innerText.trim());
-          return {
-            code: cells[1] ?? '',
-            assignment: cells[4] ?? '',
-            assignmentTone: tr.querySelector(`#${ids.assignment}`)?.getAttribute('data-tone') ?? '',
-            status: cells[2] ?? '',
-            statusTone: tr.querySelector(`#${ids.status}`)?.getAttribute('data-tone') ?? '',
-          };
-        }), { assignment: NETWORK_FACILITIES.assignmentBadge, status: NETWORK_FACILITIES.statusBadge });
-  }
-
   /** Clicks a column header (to sort by it) and returns that column's values afterwards. */
   async sortByHeader(header: string): Promise<string[]> {
     const index = (await this.getHeaders()).indexOf(header);
