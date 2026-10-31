@@ -67,7 +67,15 @@ export class AuditHistoryTab {
   }
 
   private entries(): Locator {
+    // Terminology entries carry their own ids (2026-10-29); the others are
+    // found by the View Details button every entry shares.
+    if (this.ids.entryPrefix !== undefined) return this.page.locator(`li[id^="${this.ids.entryPrefix}"]`);
     return this.page.locator('li', { has: this.page.locator(`#${this.ids.viewButton}`) });
+  }
+
+  private entryViewButton(entry: Locator): Locator {
+    if (this.ids.entryPrefix !== undefined) return entry.locator(`[id$="${this.ids.viewButton}"]`).first();
+    return entry.locator(buttonSelector(this.ids.viewButton)).first();
   }
 
   async open(): Promise<void> {
@@ -86,9 +94,10 @@ export class AuditHistoryTab {
     const texts = await this.entries().allInnerTexts();
     return texts.map((text) => {
       const lines = text.split('\n').map((l) => l.trim()).filter((l) => l !== '' && l !== 'View Details');
-      const byLine = lines.find((l) => /^By:/i.test(l)) ?? '';
+      // "By: CareConnect" on plans / networks, "By CareConnect" on terminologies.
+      const byLine = lines.find((l) => /^By:?\s/i.test(l)) ?? '';
       const rest = lines.filter((l) => l !== byLine);
-      return { action: rest[0] ?? '', when: rest[1] ?? '', by: byLine.replace(/^By:\s*/i, '') };
+      return { action: rest[0] ?? '', when: rest[1] ?? '', by: byLine.replace(/^By:?\s*/i, '') };
     });
   }
 
@@ -143,7 +152,7 @@ export class AuditHistoryTab {
 
   /** Opens the entry at `index` (0 = newest) and reads its drawer. */
   async openEntry(index = 0): Promise<AuditEntryDetail> {
-    await this.entries().nth(index).locator(buttonSelector(this.ids.viewButton)).first().click();
+    await this.entryViewButton(this.entries().nth(index)).click();
     const d = this.ids.drawer;
     await expect(this.page.locator(`#${d.title}`)).toBeVisible({ timeout: Timeouts.default });
     // The change rows arrive with GetAuditLogById, after the title: read at
@@ -179,6 +188,25 @@ export class AuditHistoryTab {
   async hasNextPage(): Promise<boolean> {
     const next = this.page.locator(`#${this.ids.pager}-next`);
     return (await next.count()) > 0 && (await next.isEnabled());
+  }
+
+  /** What identifies the page on screen: the entries' own ids where they have them, else their text. */
+  private async pageSnapshot(): Promise<string> {
+    if (this.ids.entryPrefix !== undefined) return (await this.entries().evaluateAll((els) => els.map((e) => e.id))).join('|');
+    return (await this.entries().allInnerTexts()).join('|');
+  }
+
+  /**
+   * Turns one page and waits for the entries to be replaced. waitForPageReady
+   * returned before the new page rendered, so the next "has a next page?" read
+   * the old pager and clicked a Next that was about to be disabled (20244,
+   * 2026-10-30: 300 lock entries, the click waited out on a disabled button).
+   */
+  private async turnPage(direction: 'next' | 'prev'): Promise<void> {
+    const before = await this.pageSnapshot();
+    await this.page.locator(`#${this.ids.pager}-${direction}`).click();
+    await this.detail.waitForPageReady();
+    await expect.poll(() => this.pageSnapshot(), { timeout: Timeouts.default, message: `the audit history should show the ${direction} page` }).not.toBe(before);
   }
 
   /** The tab panel's whole text - the empty-state message when there are no entries. */
@@ -245,14 +273,12 @@ export class AuditHistoryTab {
     // and missed every entry on page 1 (seen in its screenshot, 2026-10-28).
     const first = this.page.locator(`#${this.ids.pager}-prev`);
     for (let step = 0; step < maxPages && (await first.count()) > 0 && (await first.isEnabled()); step += 1) {
-      await first.click();
-      await this.detail.waitForPageReady();
+      await this.turnPage('prev');
     }
     const all: AuditEntry[] = [...(await this.readEntries())];
     let moved = 0;
     for (let page = 1; page < maxPages && (await this.hasNextPage()); page += 1) {
-      await this.page.locator(`#${this.ids.pager}-next`).click();
-      await this.detail.waitForPageReady();
+      await this.turnPage('next');
       all.push(...(await this.readEntries()));
       moved += 1;
     }
@@ -261,8 +287,7 @@ export class AuditHistoryTab {
     // page 1 while page 2 was on screen and timed out).
     const prev = this.page.locator(`#${this.ids.pager}-prev`);
     for (let step = 0; step < moved && (await prev.count()) > 0 && (await prev.isEnabled()); step += 1) {
-      await prev.click();
-      await this.detail.waitForPageReady();
+      await this.turnPage('prev');
     }
     return all;
   }

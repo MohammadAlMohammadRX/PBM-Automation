@@ -4,6 +4,7 @@ import { ACCESS_TOKEN_KEY } from '../data/payers/lifecycleGuardrails.data';
 import {
   NETWORK_PERMISSION,
   ROLE_PERMISSION,
+  TERMINOLOGY_PERMISSION,
   type RolePermissionKey,
 } from '../data/accounts/payerAdminRole.data';
 import { Logger } from '../utils/Logger';
@@ -38,9 +39,16 @@ const PAYER_PREFIX = 'Payers.';
 // Assumed from the tree's 'Networks' group heading, by analogy with 'Payers.'.
 // Evidence only: a wrong prefix costs an annotation, never a result.
 const NETWORK_PREFIX = 'Networks.';
+// Read off the effective list on 2026-10-29 (`Terminologies.CreateTerminology`, ...).
+const TERMINOLOGY_PREFIX = 'Terminologies.';
 
-const codeOf = (key: RolePermissionKey): string =>
-  `${key in NETWORK_PERMISSION ? NETWORK_PREFIX : PAYER_PREFIX}${ROLE_PERMISSION[key]}`;
+const prefixOf = (key: RolePermissionKey): string => {
+  if (key in NETWORK_PERMISSION) return NETWORK_PREFIX;
+  if (key in TERMINOLOGY_PERMISSION) return TERMINOLOGY_PREFIX;
+  return PAYER_PREFIX;
+};
+
+const codeOf = (key: RolePermissionKey): string => `${prefixOf(key)}${ROLE_PERMISSION[key]}`;
 
 /** The permission codes the signed-in session is told it holds. */
 export async function readEffectivePermissions(page: Page): Promise<string[]> {

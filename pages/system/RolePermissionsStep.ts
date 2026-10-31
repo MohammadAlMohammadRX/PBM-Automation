@@ -274,9 +274,12 @@ export class RolePermissionsStep {
   private async rowFor(label: string): Promise<Locator> {
     const index = await this.nodes().evaluateAll(
       (rows, wanted) =>
-        rows.findIndex(
-          (row) => ((row as HTMLElement).innerText || '').trim().split('\n')[0].trim() === wanted,
-        ),
+        rows.findIndex((row) => {
+          const first = ((row as HTMLElement).innerText || '').trim().split('\n')[0].trim();
+          // A parent node reads "GetTerminologies (0/17)" - its counter changes
+          // with the children, so it is matched by name plus any counter (2026-10-30).
+          return first === wanted || (first.startsWith(`${wanted} (`) && /\(\d+\/\d+\)$/.test(first));
+        }),
       label,
     );
     if (index < 0) {

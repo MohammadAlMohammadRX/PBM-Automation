@@ -132,14 +132,101 @@ export const PLAN_PERMISSION = {
 
 export type PlanPermissionKey = keyof typeof PLAN_PERMISSION;
 
+// ---- terminology module additions (2026-10-29) ----
+/**
+ * The Terminologies-section permissions, as the live catalogue labels them -
+ * read off Role Administration on 2026-10-29. Like the network section these
+ * are code names. The section reads "Terminologies (0/19)" for the Payer Admin
+ * role: it holds NONE of them, so a terminology case shapes the account by
+ * GRANTING what it should hold. `GetTerminologies` is the parent node of the 17
+ * below it (as `GetPayers` is for payers) - toggling it toggles them all - so
+ * it is deliberately not a key: "may see the list" is granted leaf by leaf.
+ * The section's own "View Audit Logs" (`Terminologies.AuditLogs`) is NOT a key
+ * either: every section carries a row of that label, and the shaping step finds
+ * rows by label, so it would toggle the Payers one instead.
+ */
+export const TERMINOLOGY_PERMISSION = {
+  /**
+   * The PARENT node of every right below (verified 2026-10-30: granting only
+   * the read leaves left the list empty for the account). Granting it ticks all
+   * 17 children, so a shape grants it first and then withholds what the case
+   * must lack - see `terminologyShape`.
+   */
+  viewTerminologyList: 'GetTerminologies',
+  createTerminology: 'CreateTerminology',
+  deleteTerminology: 'DeleteTerminology',
+  deleteTerminologyErrorRow: 'DeleteTerminologyErrorRow',
+  deleteTerminologyRow: 'DeleteTerminologyRow',
+  exportTerminologies: 'ExportTerminologies',
+  viewActiveImportJob: 'GetActiveTerminologyImportJob',
+  viewMappedFieldValues: 'GetMappedFieldValues',
+  viewTerminologiesDropdown: 'GetTerminologiesDropdown',
+  viewTerminology: 'GetTerminology',
+  viewTerminologyData: 'GetTerminologyData',
+  viewTerminologyErrors: 'GetTerminologyErrors',
+  importTerminology: 'ImportTerminology',
+  setTerminologyActive: 'SetTerminologyActive',
+  setTerminologyLocked: 'SetTerminologyLocked',
+  updateTerminology: 'UpdateTerminology',
+  uploadTerminologyImport: 'UploadTerminologyImport',
+  upsertTerminologyRow: 'UpsertTerminologyRow',
+} as const;
+
+export type TerminologyPermissionKey = keyof typeof TERMINOLOGY_PERMISSION;
+
+/** What a "view-only" terminology user holds: every read right the catalogue offers as a leaf. */
+export const TERMINOLOGY_READ_PERMISSIONS = [
+  'viewTerminology',
+  'viewTerminologyData',
+  'viewTerminologyErrors',
+  'viewTerminologiesDropdown',
+  'viewMappedFieldValues',
+  'viewActiveImportJob',
+] as const satisfies readonly TerminologyPermissionKey[];
+
+/** Every terminology permission the shaping step can name - for "no terminology rights at all". */
+export const ALL_TERMINOLOGY_PERMISSIONS = Object.keys(TERMINOLOGY_PERMISSION) as readonly TerminologyPermissionKey[];
+
+/** Every right that changes terminology data - what a "view-only" user must lack. */
+export const TERMINOLOGY_WRITE_PERMISSIONS = [
+  'createTerminology',
+  'updateTerminology',
+  'deleteTerminology',
+  'setTerminologyActive',
+  'setTerminologyLocked',
+  'upsertTerminologyRow',
+  'deleteTerminologyRow',
+  'deleteTerminologyErrorRow',
+  'importTerminology',
+  'uploadTerminologyImport',
+  'exportTerminologies',
+] as const satisfies readonly TerminologyPermissionKey[];
+
+/**
+ * A terminology permission shape for `shapedNonAdmin`: the list (the
+ * `GetTerminologies` parent, which brings every read leaf) plus the `allow`ed
+ * write rights; every other write right - and `alsoWithhold` - withheld.
+ */
+export const terminologyShape = (
+  allow: readonly TerminologyPermissionKey[] = [],
+  alsoWithhold: readonly TerminologyPermissionKey[] = [],
+): { with: TerminologyPermissionKey[]; without: TerminologyPermissionKey[] } => ({
+  with: ['viewTerminologyList', ...allow],
+  without: [...TERMINOLOGY_WRITE_PERMISSIONS.filter((key) => !allow.includes(key)), ...alsoWithhold],
+});
+
+/** A view-only terminology user. */
+export const TERMINOLOGY_VIEW_ONLY = terminologyShape();
+
 /** Any permission the role-shaping fixture can tick or untick. */
-export type RolePermissionKey = PayerPermissionKey | NetworkPermissionKey | PlanPermissionKey;
+export type RolePermissionKey = PayerPermissionKey | NetworkPermissionKey | PlanPermissionKey | TerminologyPermissionKey;
 
 /** The catalogue label for any shapeable permission. */
 export const ROLE_PERMISSION: Readonly<Record<RolePermissionKey, string>> = {
   ...PAYER_PERMISSION,
   ...NETWORK_PERMISSION,
   ...PLAN_PERMISSION,
+  ...TERMINOLOGY_PERMISSION,
 };
 
 /** The catalogue label for a permission, by the name a case uses. */

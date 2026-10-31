@@ -50,6 +50,10 @@ export const AppRoutes = {
   // ---- plan folder 27 additions (2026-10-27) ----
   /** Formulary Mgmt - the list; a formulary's detail is `/formulary-pricing/{id}`. */
   formularyManagement: '/formulary-pricing',
+
+  // ---- Terminology module (2026-10-29) ----
+  /** Terminology Mgmt - the list; a terminology's detail is `/terminology-management/{id}`. */
+  terminologyManagement: '/terminology-management',
 } as const;
 
 export type AppRouteKey = keyof typeof AppRoutes;

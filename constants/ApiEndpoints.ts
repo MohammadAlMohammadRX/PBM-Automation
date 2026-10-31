@@ -278,6 +278,49 @@ export const ApiEndpoints = {
    * sends it, to prove a non-administrator is refused server-side.
    */
   roleUpdate: '/api/Roles/UpdateRole',
+
+  // ---- Terminology module (2026-10-29) - every path observed in the live traffic ----
+  /** POST `{pageNumber, rowsPerPage, sortBy, ...criteria}` -> `payload.terminologies.{items, totalRows}`. */
+  terminologyList: '/api/Terminologies/GetTerminologies',
+  /** POST `{}` - the ACTIVE terminologies other screens offer (the Mapping Identifier picker). */
+  terminologyDropdown: '/api/Terminologies/GetTerminologiesDropdown',
+  /** POST `{ id }` -> fields, flags and the concurrencyStamp. */
+  terminologyDetail: '/api/Terminologies/GetTerminology',
+  /** POST `{ name, description, isSubscribed, subscriptionReference, isActive, isLocked, fields[] }` -> `{ id }`. */
+  terminologyCreate: '/api/Terminologies/CreateTerminology',
+  /** PUT - the create body plus `id` and `concurrencyStamp`; the automatic Is Active field is left out. */
+  terminologyUpdate: '/api/Terminologies/UpdateTerminology',
+  /** DELETE `/DeleteTerminology/{id}` - 409 while the terminology holds records. */
+  terminologyDelete: '/api/Terminologies/DeleteTerminology',
+  /** POST `{ id, isActive, inactivationReasonId, inactivationDetails }` - takes effect at once, no approval. */
+  terminologySetActive: '/api/Terminologies/SetTerminologyActive',
+  /** POST `{ id, isLocked }`. */
+  terminologySetLocked: '/api/Terminologies/SetTerminologyLocked',
+  /** POST `{ terminologyId, pageNumber, rowsPerPage, sortBy, filters }` -> `payload.{fields, rows[{rowId, cells, display}]}`. */
+  terminologyData: '/api/Terminologies/GetTerminologyData',
+  /** POST `{ terminologyId, rowId|null, cells: {fieldId: value} }` -> `{ rowId }`; field errors in ValidationErrors. */
+  terminologyUpsertRow: '/api/Terminologies/UpsertTerminologyRow',
+  /** POST `{ terminologyId, rowId }`. */
+  terminologyDeleteRow: '/api/Terminologies/DeleteTerminologyRow',
+  /** POST `{ terminologyId, pageNumber, rowsPerPage, sortBy }` -> `payload.rows[{rowId, cells[{fieldName, value, error}]}]`. */
+  terminologyErrors: '/api/Terminologies/GetTerminologyErrors',
+  /** POST `{ terminologyId, rowId }` - drops one failed upload row. */
+  terminologyDeleteErrorRow: '/api/Terminologies/DeleteTerminologyErrorRow',
+  /** POST `{ fieldId, includeRowIds }` - the values a mapping field offers. */
+  terminologyMappedValues: '/api/Terminologies/GetMappedFieldValues',
+  /** POST multipart `file` + `terminologyId` -> `{ jobId, status }`. */
+  terminologyUpload: '/api/Terminologies/UploadTerminologyImport',
+  /** POST `{ terminologyId, includeCompleted }` -> `{ status, totalRows, processedRows, succeededRows, failedRows }` or null. */
+  terminologyImportJob: '/api/Terminologies/GetActiveTerminologyImportJob',
+  /** POST - the list export (`format` 1 CSV / 2 Excel). */
+  terminologyExport: '/api/Terminologies/ExportTerminologies',
+  terminologyFieldTypeLookup: '/api/Lookups/Items/terminologyFieldType',
+  terminologyFieldRestrictionLookup: '/api/Lookups/Items/terminologyFieldRestriction',
+  terminologyDeactivationReasonLookup: '/api/Lookups/Items/terminologyDeactivationReason',
+  /** POST `{ rowsPerPage }` - the Lookup module's lists, the List field's sources. */
+  lookupList: '/api/Lookups/GetLookups',
+  /** POST `{ entityType, entityId, actionType, pageNumber, rowsPerPage }` - an entity's audit trail (the terminology Audit History tab). */
+  auditLogList: '/api/AuditLogs/GetAuditLogs',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

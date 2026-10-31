@@ -33,6 +33,7 @@
     "test:payer": "node scripts/run-payer-module.js",
     "test:network": "cross-env MODULE=network node scripts/run-payer-module.js",
     "test:plan": "cross-env MODULE=plan node scripts/run-payer-module.js",
+    "test:terminology": "cross-env MODULE=terminology node scripts/run-payer-module.js",
     "seed:networks": "cross-env SEED_NETWORKS=1 playwright test tests/seed/seed-networks.spec.ts --project=chromium",
     "azure:plans": "node scripts/publishToAzure.js --list-plans",
     "azure:preview": "node scripts/publishToAzure.js",

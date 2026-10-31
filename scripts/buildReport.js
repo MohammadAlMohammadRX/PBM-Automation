@@ -355,6 +355,27 @@ const STORIES = [
   ['28-manage-conflicting-requests-during-the-approval-workflow', 'US 14343 Manage conflicting requests during the approval workflow'],
   ['29-revert-a-plan-to-a-prior-version', 'US 14345 Revert a plan to a prior version'],
   ['30-keep-activation-and-deactivation-changes-isolated-to-the-plan', 'US 16775 Keep activation and deactivation changes isolated to the plan itself'],
+  // Terminology module (Feature 15145), added 2026-10-29 from test_cases_pushed_2026-10-29 Terminology.csv
+  // (19 stories, 238 cases), folders in sheet order.
+  ['01-view-terminology-list-with-usage-details', 'US 15149 View Terminology list with Usage Details'],
+  ['02-define-a-new-terminology-and-its-rules', 'US 15150 Define a New Terminology and Its Rules'],
+  ['03-retire-values-using-the-automatic-active-field', 'US 15151 Retire Values Using the Automatic Active Field'],
+  ['04-activate-or-deactivate-a-terminology', 'US 15146 Activate or Deactivate a Terminology'],
+  ['05-export-terminology-list-to-file', 'US 15147 Export Terminology list to File'],
+  ['06-search-and-filter-terminology-list', 'US 15148 Search and Filter Terminology list'],
+  ['07-add-edit-and-delete-terminology-records', 'US 15152 Add, Edit, and Delete Terminology Records'],
+  ['08-import-terminology-records-from-a-file', 'US 15153 Import Terminology Records from a File'],
+  ['09-correct-and-reimport-failed-upload-rows', 'US 15154 Correct and Reimport Failed Upload Rows'],
+  ['10-define-a-mapping-field-between-terminologies', 'US 15155 Define a Mapping Field Between Terminologies'],
+  ['11-limit-one-active-import-per-terminology', 'US 15157 Limit One Active Import per Terminology'],
+  ['12-lock-a-terminology-to-prevent-changes', 'US 15158 Lock a Terminology to Prevent Changes'],
+  ['13-mark-a-terminology-as-externally-subscribed', 'US 15159 Mark a Terminology as Externally Subscribed'],
+  ['14-enforce-deletion-blockers-for-terminologies-and-records', 'US 15160 Enforce Deletion Blockers for Terminologies and Records (Items)'],
+  ['15-protect-predefined-terminologies-from-deletion', 'US 15161 Protect Predefined Terminologies from Deletion'],
+  ['16-review-terminology-audit-history', 'US 15162 Review Terminology Audit History'],
+  ['17-control-access-to-terminology-functions-by-permission', 'US 15163 Control Access to Terminology Functions by Permission'],
+  ['18-view-terminology-details', 'US 17435 View Terminology Details'],
+  ['19-predefined-terminologies', 'US 17436 Predefined Terminologies'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];

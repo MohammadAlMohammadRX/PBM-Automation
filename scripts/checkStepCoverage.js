@@ -30,6 +30,8 @@ const TEST_ROOT = path.join('tests', 'payer');
 const NETWORK_ROOT = path.join('tests', 'network');
 // The plans module (2026-10-27) likewise.
 const PLAN_ROOT = path.join('tests', 'plan');
+// The terminology module (2026-10-29) likewise.
+const TERMINOLOGY_ROOT = path.join('tests', 'terminology');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -84,6 +86,16 @@ const ASSERTS_INTERNALLY = [
   ['restorePayerCron(', 'asserts the schedule reads the original value again'],
   ['settingsPage.save()', 'asserts the settings upsert was accepted (status < 400)'],
   ['.sendForApproval()', 'confirms the prompt and waits for the page to settle'],
+  // ---- terminology module (2026-10-29) ----
+  ['.openDetails(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
+  ['DetailPage.open(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
+  ['terminologyDetail.open(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
+  ['.openAddForm()', 'asserts the Add Terminology drawer opened'],
+  ['.openImport()', 'asserts the Upload Data drawer opened'],
+  ['.addField()', 'polls until the new field card is rendered'],
+  ['.openEditForm(', 'asserts the drawer opened and loaded the saved name'],
+  ['.openDeactivateDrawer(', 'asserts the Deactivate drawer opened'],
+  ['.openAddRecord()', 'asserts the record drawer opened'],
 ];
 
 /**
@@ -201,8 +213,9 @@ function walk(dir) {
 walk(TEST_ROOT);
 if (fs.existsSync(NETWORK_ROOT)) walk(NETWORK_ROOT);
 if (fs.existsSync(PLAN_ROOT)) walk(PLAN_ROOT);
+if (fs.existsSync(TERMINOLOGY_ROOT)) walk(TERMINOLOGY_ROOT);
 
-const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

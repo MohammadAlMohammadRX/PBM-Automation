@@ -758,6 +758,12 @@ export const PLAN_COLUMN = {
 /** The ids a detail screen's Audit History tab is built from (components/AuditHistoryTab). */
 export interface AuditTabIds {
   searchInput: string;
+  /**
+   * Set when each entry carries its own id (`{entryPrefix}{id}`) - the
+   * terminology timeline, 2026-10-29. `viewButton` is then the SUFFIX of the
+   * entry's own View Details id rather than an id shared by every entry.
+   */
+  entryPrefix?: string;
   /** The id prefix the tab's advanced-search drawer namespaces its fields under. */
   searchPrefix: string;
   advancedSearchButton: string;
@@ -1753,4 +1759,288 @@ export const NETWORK_CARDS = {
   container: 'network-list-cards',
   cardPrefix: 'network-card-',
   titleSuffix: 'title',
+} as const;
+
+// ---- Terminology module (Feature 15145) - every id below read off the live screens, 2026-10-29 ----
+
+/** The Terminology list (`/terminology-management`) - the shared list conventions (ListPageBase). */
+export const TERMINOLOGY_LIST = {
+  screen: 'terminology-list',
+  searchFilterButton: 'terminology-list-search-filter-button',
+  advancedSearch: 'terminology-list-advanced-search',
+  /** Chips for applied criteria (`-chip-{key}`, each with `-remove`); there is no chip-level Clear All here. */
+  chips: 'terminology-list-filter-chips',
+  /** The toolbar's "Clear" button beside the search box - clears the keyword and every criterion (verified 2026-10-30). */
+  clearAll: 'terminology-list-search-clear-button',
+  sortTrigger: 'terminology-list-sort-trigger',
+  sortMenu: 'terminology-list-sort-menu',
+  /** `terminology-list-sort-option-{field}-{asc|desc}`. */
+  sortOptionPrefix: 'terminology-list-sort-option-',
+  cards: 'terminology-list-cards',
+} as const;
+
+/** Column keys of the list (`terminology-list-table-th-{key}`, `-cell-{key}`). */
+export const TERMINOLOGY_COLUMN = {
+  name: 'name',
+  description: 'description',
+  fields: 'fieldcount',
+  records: 'recordcount',
+  status: 'status',
+  locked: 'islocked',
+  actions: 'actions',
+} as const;
+
+export type TerminologyColumn = keyof typeof TERMINOLOGY_COLUMN;
+
+/**
+ * Row actions of the list, by the suffix each button carries
+ * (`terminology-list-table-row-{id}-{suffix}`). Activate / Inactivate share
+ * one toggle, Lock / Unlock another; the label says which it is.
+ */
+export const TERMINOLOGY_ROW_ACTION = {
+  view: 'view',
+  edit: 'edit',
+  toggleActive: 'toggle-active',
+  toggleLocked: 'toggle-locked',
+  delete: 'delete',
+} as const;
+
+export type TerminologyRowAction = keyof typeof TERMINOLOGY_ROW_ACTION;
+
+/** Sort fields (`{field}-{asc|desc}`). */
+export const TERMINOLOGY_SORT_FIELD = {
+  name: 'name',
+  description: 'description',
+  status: 'isactive',
+  subscribed: 'issubscribed',
+  locked: 'islocked',
+  fields: 'fieldcount',
+  records: 'recordcount',
+  createdOn: 'createdon',
+  modifiedOn: 'modifiedon',
+} as const;
+
+export type TerminologySortField = keyof typeof TERMINOLOGY_SORT_FIELD;
+
+/** The advanced-search criteria (`terminology-list-advanced-search-field-{key}-input`). */
+export const TERMINOLOGY_FILTER_FIELD = {
+  name: 'name',
+  subscribed: 'subscribed',
+  locked: 'islocked',
+  active: 'isactive',
+} as const;
+
+export type TerminologyFilterField = keyof typeof TERMINOLOGY_FILTER_FIELD;
+
+/** The list's Export control (components/ExportMenu). */
+export const TERMINOLOGY_EXPORT = {
+  root: 'terminology-list-export',
+  trigger: 'terminology-list-export-trigger',
+  menu: 'terminology-list-export-menu',
+  selected: 'terminology-list-export-selected',
+  all: 'terminology-list-export-all',
+} as const;
+
+/** A card of the Cards view (`terminology-card-{id}-{suffix}`); cards offer no Activate / Inactivate. */
+export const TERMINOLOGY_CARD = {
+  prefix: 'terminology-card-',
+  title: 'title',
+  description: 'description',
+  fields: 'fields',
+  subscribed: 'is-subscribed',
+  locked: 'is-locked',
+  action: {
+    lock: 'lock-button',
+    view: 'view-button',
+    edit: 'edit-button',
+    delete: 'delete-button',
+  },
+} as const;
+
+export type TerminologyCardAction = keyof typeof TERMINOLOGY_CARD.action;
+
+/**
+ * The Add / Edit Terminology drawer - two steps, Details then Fields.
+ *
+ * The three Details checkboxes carry the description's id with a counter
+ * (Subscribed, Locked, Active in that order on Add; Edit shows Subscribed
+ * only), and the field builder's Required / Unique / In Table checkboxes carry
+ * a `mapping-field-checkbox` id likewise - read off the live drawer, odd as the
+ * names are.
+ */
+export const TERMINOLOGY_FORM = {
+  root: 'terminology-form-drawer',
+  title: 'terminology-form-drawer-title',
+  close: 'terminology-form-drawer-close',
+  name: 'terminology-form-drawer-name-input',
+  description: 'terminology-form-drawer-description-input',
+  subscribed: 'terminology-form-drawer-description-checkbox',
+  locked: 'terminology-form-drawer-description-checkbox-2',
+  active: 'terminology-form-drawer-description-checkbox-3',
+  subscriptionReference: 'terminology-form-drawer-subscription-reference-input',
+  subscriptionReferenceError: 'terminology-form-drawer-subscription-reference-error',
+  next: 'terminology-form-drawer-next-button',
+  back: 'terminology-form-drawer-back-button',
+  save: 'terminology-form-drawer-save-button',
+  cancel: 'terminology-form-drawer-cancel-button',
+  addField: 'terminology-form-drawer-add-field-button',
+  /** locator-exception: every field card's remove button shares this id; a card is addressed by position. */
+  removeField: 'terminology-form-drawer-remove-field-button',
+  /** locator-exception: every field card repeats these ids; a card is addressed by position. */
+  field: {
+    name: 'terminology-form-drawer-field-builder-name-input',
+    type: 'terminology-form-drawer-field-builder-type-select',
+    restriction: 'terminology-form-drawer-field-builder-restriction-select',
+    maxLength: 'terminology-form-drawer-field-builder-max-length-input',
+    listSource: 'terminology-form-drawer-field-builder-list-source-select',
+    mappingTerminology: 'terminology-form-drawer-field-builder-mapping-terminology-select',
+    mappingField: 'terminology-form-drawer-field-builder-mapping-field-select',
+    required: 'terminology-form-drawer-field-builder-mapping-field-checkbox',
+    unique: 'terminology-form-drawer-field-builder-mapping-field-checkbox-2',
+    showInTable: 'terminology-form-drawer-field-builder-mapping-field-checkbox-3',
+  },
+} as const;
+
+/** The field builder's controls, by what they configure. */
+export type TerminologyFieldControl = keyof typeof TERMINOLOGY_FORM.field;
+
+/** The status-change drawer of the list and of the detail screen (one component, two namespaces). */
+export const TERMINOLOGY_DEACTIVATE = {
+  list: 'terminology-deactivate-drawer',
+  detail: 'terminology-detail-deactivate-drawer',
+  /** Suffixes under either namespace. */
+  title: 'title',
+  warning: 'warning',
+  reason: 'reason-select',
+  details: 'details-input',
+  confirm: 'confirm-button',
+  cancel: 'cancel-button',
+} as const;
+
+/** A terminology's detail screen. */
+export const TERMINOLOGY_DETAIL = {
+  root: 'terminology-detail',
+  action: {
+    toggleActive: 'terminology-detail-toggle-active-button',
+    edit: 'terminology-detail-edit-button',
+    delete: 'terminology-detail-delete-button',
+  },
+  tab: {
+    data: 'terminology-detail-tab-data',
+    schema: 'terminology-detail-tab-schema',
+    errors: 'terminology-detail-tab-errors',
+    audit: 'terminology-detail-tab-audit',
+    /** The sheet's "Overview" tab - inferred from the tab convention; the screen had none on 2026-10-29. */
+    overview: 'terminology-detail-tab-overview',
+  },
+  /** `{grid}-table-row-{rowId}`, `-cell-{fieldId}`, `-th-{fieldId}`, `{grid}-search-input`. */
+  grid: {
+    data: 'terminology-detail-data',
+    schema: 'terminology-detail-schema',
+    errors: 'terminology-detail-errors',
+  },
+  addRecord: 'terminology-detail-add-record-button',
+  upload: 'terminology-detail-upload-button',
+  /** locator-exception: every record row repeats these two ids. */
+  editRecord: 'terminology-detail-edit-record-button',
+  deleteRecord: 'terminology-detail-delete-record-button',
+  /** locator-exception: every failed row repeats these ids. */
+  fixErrorRow: 'terminology-detail-fix-error-row-button',
+  errorDetail: 'terminology-detail-show-error-detail-button',
+  /** The import progress snackbar's dismiss control - the snackbar itself has no id. */
+  snackbarDismiss: 'terminology-detail-dismiss-snackbar-button',
+  dataExport: {
+    root: 'terminology-detail-data-export',
+    trigger: 'terminology-detail-data-export-trigger',
+    menu: 'terminology-detail-data-export-menu',
+    selected: 'terminology-detail-data-export-selected',
+    all: 'terminology-detail-data-export-all',
+  },
+  errorsExport: {
+    root: 'terminology-detail-errors-export',
+    trigger: 'terminology-detail-errors-export-trigger',
+    menu: 'terminology-detail-errors-export-menu',
+    selected: 'terminology-detail-errors-export-selected',
+    all: 'terminology-detail-errors-export-all',
+  },
+  /** The Data tab's advanced search (`-field-{fieldId}-input`). */
+  dataAdvancedSearch: 'terminology-detail-advanced-search',
+  dataSearchFilterButton: 'terminology-detail-data-search-filter-button',
+} as const;
+
+export type TerminologyDetailTab = keyof typeof TERMINOLOGY_DETAIL.tab;
+export type TerminologyDetailAction = keyof typeof TERMINOLOGY_DETAIL.action;
+export type TerminologyGrid = keyof typeof TERMINOLOGY_DETAIL.grid;
+
+/** Fields tab column keys (`terminology-detail-schema-table-row-{id}-cell-{key}`). */
+export const TERMINOLOGY_SCHEMA_COLUMN = {
+  name: 'name',
+  type: 'type',
+  restriction: 'restriction',
+  required: 'required',
+  unique: 'unique',
+  showInTable: 'showontable',
+} as const;
+
+export type TerminologySchemaColumn = keyof typeof TERMINOLOGY_SCHEMA_COLUMN;
+
+/** The Add / Edit Record drawer (also opened by "Fix & save this row"). */
+export const TERMINOLOGY_RECORD_DIALOG = {
+  root: 'terminology-row-dialog',
+  title: 'terminology-row-dialog-title',
+  /** `terminology-row-dialog-{fieldId}-input` (text / number / date) or `-select` (list / mapping). */
+  fieldPrefix: 'terminology-row-dialog-',
+  /** The automatic Is Active field. */
+  isActive: 'terminology-row-dialog-name-checkbox',
+  save: 'terminology-row-dialog-save-button',
+  cancel: 'terminology-row-dialog-cancel-button',
+} as const;
+
+/** The Upload Terminology Data drawer. */
+export const TERMINOLOGY_IMPORT_DIALOG = {
+  root: 'terminology-import-dialog',
+  title: 'terminology-import-dialog-title',
+  template: 'terminology-import-dialog-download-template-button',
+  file: 'terminology-import-dialog-import-file-input',
+  message: 'terminology-import-dialog-import-file-message',
+  upload: 'terminology-import-dialog-import-button',
+  cancel: 'terminology-import-dialog-close-button',
+} as const;
+
+/**
+ * The detail's Audit History tab. Unlike plans / networks each entry carries
+ * its own id (`terminology-detail-audit-row-{id}`) and its View Details button
+ * ends `-view-details`, so the shared AuditHistoryTab addresses entries by
+ * `entryPrefix` here.
+ */
+export const TERMINOLOGY_AUDIT = {
+  searchInput: 'terminology-detail-audit-search-input',
+  searchPrefix: 'terminology-detail-audit',
+  advancedSearchButton: 'terminology-detail-audit-search-filter-button',
+  advancedSearch: 'terminology-detail-audit-advanced-search',
+  chips: 'terminology-detail-audit-filter-chips',
+  entryPrefix: 'terminology-detail-audit-row-',
+  viewButton: '-view-details',
+  pager: 'terminology-detail-audit-pager',
+  drawer: {
+    title: 'terminology-detail-audit-detail-drawer-title',
+    action: 'terminology-detail-audit-detail-drawer-action-chip',
+    entityType: 'terminology-detail-audit-detail-drawer-entity-type',
+    entityId: 'terminology-detail-audit-detail-drawer-entity-id',
+    meta: 'terminology-detail-audit-detail-drawer-meta',
+    diffTable: 'terminology-detail-audit-detail-drawer-body',
+    rowPrefix: 'terminology-detail-audit-detail-drawer-row-',
+    close: 'terminology-detail-audit-detail-drawer-close',
+  },
+} as const satisfies AuditTabIds;
+
+/** The header's notification bell and its drawer (global chrome). */
+export const NOTIFICATION_CENTRE = {
+  bell: 'notification-bell-button',
+  badge: 'notification-bell-badge',
+  drawer: 'notification-drawer',
+  /** The drawer's title and entry list (verified 2026-10-30): the p-drawer host itself never reports visible. */
+  title: 'notification-drawer-title',
+  list: 'notification-drawer-list',
+  close: 'notification-drawer-close',
 } as const;

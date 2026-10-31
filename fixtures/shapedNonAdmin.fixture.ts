@@ -8,6 +8,8 @@ import { NetworkManagementPage } from '../pages/network/NetworkManagementPage';
 import { NetworkDetailPage } from '../pages/network/NetworkDetailPage';
 import { PlanManagementPage } from '../pages/plan/PlanManagementPage';
 import { PlanDetailPage } from '../pages/plan/PlanDetailPage';
+import { TerminologyManagementPage } from '../pages/terminology/TerminologyManagementPage';
+import { TerminologyDetailPage } from '../pages/terminology/TerminologyDetailPage';
 import { RoleAdministrationPage } from '../pages/system/RoleAdministrationPage';
 import { ExportMenu } from '../pages/components/ExportMenu';
 import { PayerScopeDialog } from '../pages/components/PayerScopeDialog';
@@ -47,6 +49,9 @@ export interface ShapedSession {
   plans: PlanManagementPage;
   planDetail: PlanDetailPage;
   planApprovals: ApprovalManagementPage;
+  /** The Terminology module as this session sees it (2026-10-29). */
+  terminologies: TerminologyManagementPage;
+  terminologyDetail: TerminologyDetailPage;
   exportMenu: ExportMenu;
   /** What was actually changed, so a case can say so in its message. */
   removed: string[];
@@ -171,9 +176,11 @@ export const test = base.extend<ShapedNonAdminFixtures>({
     };
 
     await use(async (shape: PermissionShape): Promise<ShapedSession> => {
+      // GRANTS FIRST (2026-10-30): a granted parent node (e.g. GetTerminologies)
+      // ticks every child, so a withheld child is unticked only after it.
       const wanted = [
-        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
         ...(shape.with ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: true })),
+        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
       ];
 
       // THE BUDGET IS EXTENDED HERE, not in each case. Reshaping the role costs a
@@ -240,6 +247,8 @@ export const test = base.extend<ShapedNonAdminFixtures>({
           plans: new PlanManagementPage(shaped),
           planDetail: new PlanDetailPage(shaped),
           planApprovals: new ApprovalManagementPage(shaped, 'plan'),
+          terminologies: new TerminologyManagementPage(shaped),
+          terminologyDetail: new TerminologyDetailPage(shaped),
           exportMenu: new ExportMenu(shaped),
           removed: (shape.without ?? []).map((key) => ROLE_PERMISSION[key]),
           granted: (shape.with ?? []).map((key) => ROLE_PERMISSION[key]),
@@ -299,9 +308,11 @@ export const test = base.extend<ShapedNonAdminFixtures>({
     };
 
     await use(async (shape: PermissionShape): Promise<RoleShape> => {
+      // GRANTS FIRST (2026-10-30): a granted parent node (e.g. GetTerminologies)
+      // ticks every child, so a withheld child is unticked only after it.
       const wanted = [
-        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
         ...(shape.with ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: true })),
+        ...(shape.without ?? []).map((key) => ({ label: ROLE_PERMISSION[key], wanted: false })),
       ];
       // The same allowance as the sibling fixture, for the same reason: the role
       // round trip costs a minute or so before the case does anything of its own.
