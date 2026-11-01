@@ -132,9 +132,9 @@ export const DRAFT_BADGE = /Draft/i;
 export const DRAFT_HIDDEN_ACTIONS = ['activate', 'inactivate'] as const;
 export const DRAFT_GO_LIVE_ACTION = 'submit';
 
-/** 19078 - a plan id that has never existed, and what the user should be told. */
+/** 19078 - a plan id that has never existed, and what must NOT be shown (an application error). */
 export const NONEXISTENT_PLAN_ID = '00000000-0000-4000-8000-000000000000';
-export const NOT_FOUND_MESSAGE = /not found|does not exist|no longer exists/i;
+export const APPLICATION_ERROR = /error|exception|went wrong/i;
 
 /** 19079 - the breadcrumb link back to the list ("Plans Mgmt" on 2026-10-27). */
 export const BREADCRUMB_PLANS_LINK = /Plans/i;

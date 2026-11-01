@@ -11,7 +11,6 @@ import {
   LIMIT_MESSAGE,
   MAINTAINED_REASONS,
   ONLY_ACTIVE_MESSAGE,
-  ONLY_INACTIVE_MESSAGE,
   PAYER_REQUEST,
   REASON_REQUIRED_MESSAGE,
   STATUS,
@@ -140,15 +139,15 @@ test.describe('US 14331 - Plan deactivation rules', () => {
     });
   });
 
-  test(`TC-${CASE.alreadyActive}: should refuse to activate a plan with MSG-PLN-022 when it is already Active`, async ({
+  // An already-Active plan is simply not offered Activate; the forced-request / MSG-PLN-022 checks were
+  // dropped with the invalid bug (QA lead, 2026-11-01).
+  test(`TC-${CASE.alreadyActive}: should not offer Activate and keep the plan Active when the plan is already Active`, async ({
     planManagementPage,
-    planDetailPage,
     planIn,
     steps,
   }) => {
     test.setTimeout(12 * 60_000);
     const plan = await planIn('Active');
-    let forced = { status: 0, text: '' };
 
     await steps.critical('Navigate to the Plans Management module - the plan is listed Active', async () => {
       await planManagementPage.openListFor(plan.payerName);
@@ -160,13 +159,7 @@ test.describe('US 14331 - Plan deactivation rules', () => {
       await planManagementPage.expectRowActionUnavailable(plan.name, 'activate');
     });
 
-    await steps.step('Forced anyway, the request is checked against the current status and refused', async () => {
-      forced = await planDetailPage.requestActivationViaApi(plan.id);
-      expect(forced.status, 'the server must refuse').toBeGreaterThanOrEqual(400);
-    });
-
-    await steps.step('MSG-PLN-022 says only an Inactive plan can be activated, and the status does not change', async () => {
-      expect(forced.text, 'MSG-PLN-022').toMatch(ONLY_INACTIVE_MESSAGE);
+    await steps.step('The plan stays Active', async () => {
       expect(await planManagementPage.readStatus(plan.name)).toBe(STATUS.active);
     });
   });

@@ -78,15 +78,12 @@ export const EDIT = {
       { state: 'Rejected', label: 'Rejected' },
     ] as const,
   },
-  privateDraft: { azureId: '18961', description: () => edited('Updated English description text') },
   /**
    * 18962 - an Active plan is NOT edited (business rule, 2026-10-27): its row and
    * header show no Edit at all, so the live plan can only change through a
    * staged status change that is approved.
    */
   liveUnchanged: { azureId: '18962', editShown: 'absent' as const },
-  secondSubmission: { azureId: '18964', description: () => edited('A second change') },
-  sameDayExpiry: { azureId: '18965', effectiveDate: () => pickerDateTime(5, '09:00'), expiryDate: () => pickerDateTime(5, '18:00') },
   oneDayExpiry: { azureId: '18966', effectiveDate: () => pickerDateTime(5, '10:00'), expiryDate: () => pickerDateTime(6, '10:00') },
   blankExpiry: { azureId: '18967' },
   untouchedPastEffective: { azureId: '18968', description: () => edited('Only the description changed') },

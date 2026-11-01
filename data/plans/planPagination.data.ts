@@ -39,7 +39,7 @@ export const CASES = {
   exactlyEleven: { azureId: '19058', count: 11 },
   viewAndFilter: { azureId: '19059', status: PLAN_LIFECYCLE.active },
   viewSwitch: { azureId: '19060', loads: 2 },
-  rapidClicks: { azureId: '19061', clicks: 4, expectedRequests: 1 },
+  rapidClicks: { azureId: '19061', clicks: 4 },
   exploration: { azureId: '19062', status: PLAN_LIFECYCLE.active },
   pageSizeAndSpinner: { azureId: '19063' },
   empty: { azureId: '19064', term: (): string => `NOSUCHPLAN ${networkStamp()}`, message: PLAN_MESSAGE.noPlansFound },

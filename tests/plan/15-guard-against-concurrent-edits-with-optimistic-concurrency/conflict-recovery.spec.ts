@@ -126,7 +126,8 @@ test.describe('US 14166 - Recovering from a plan save conflict', () => {
     });
   });
 
-  test(`TC-${CASE.conflictMessage}: should state that the plan changed and offer a reload action when a save conflicts`, async ({
+  // No reload action is required on the conflict message (QA lead, 2026-11-01).
+  test(`TC-${CASE.conflictMessage}: should state that the plan changed when a save conflicts`, async ({
     planManagementPage,
     planIn,
     staleSession,
@@ -153,13 +154,13 @@ test.describe('US 14166 - Recovering from a plan save conflict', () => {
       expect(report.outcome?.status, report.text).toBe(CONFLICT.status);
     });
 
-    await steps.step('The message says the plan changed since it was opened and a reload action is offered', async () => {
+    await steps.step('The message says the plan changed since it was opened', async () => {
       expect([...prompt.messages, prompt.dialogTitle].join(' | '), 'the message should say the plan has changed').toMatch(CHANGED_SINCE_OPENED);
-      expect(prompt.dialogActions.join(', '), 'an obvious reload action should be offered').toMatch(RELOAD_ACTION);
     });
   });
 
-  test(`TC-${CASE.conflictAudited}: should record who and when in the plan's audit history when a conflicting save is refused`, async ({
+  // A refused save changes nothing, so the audit history records only saved changes (QA lead, 2026-11-01).
+  test(`TC-${CASE.conflictAudited}: should record only the saved change, not the refused attempt, in the plan's audit history when a conflicting save is refused`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -184,15 +185,13 @@ test.describe('US 14166 - Recovering from a plan save conflict', () => {
       expect(report.outcome?.status, report.text).toBe(CONFLICT.status);
     });
 
-    await steps.step('The plan\'s audit log holds an entry recording the rejected save attempt, with who and when', async () => {
+    await steps.step('The plan\'s audit log records User B\'s saved change and no entry for the refused attempt', async () => {
       await planDetailPage.open(plan.id);
       const audit = planDetailPage.audit();
       await audit.open();
       const entries = await audit.readEntries();
-      const conflicts = entries.filter((entry) => CONFLICT_AUDIT_ENTRY.test(entry.action));
-      expect(conflicts.length, `a conflict entry among: ${entries.map((entry) => entry.action).join(', ')}`).toBeGreaterThan(0);
-      expect(conflicts[0].by, 'who attempted it').not.toBe('');
-      expect(conflicts[0].when, 'when it was attempted').not.toBe('');
+      expect(entries.length, 'User B\'s saved change should be recorded').toBeGreaterThan(0);
+      expect(entries.filter((entry) => CONFLICT_AUDIT_ENTRY.test(entry.action)).map((entry) => entry.action), 'entries for the refused attempt').toEqual([]);
     });
   });
 

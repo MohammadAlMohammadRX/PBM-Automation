@@ -36,7 +36,8 @@ export const STATUS = {
   // The diacritics (damma, fatha) are optional - a label may be rendered without them.
   superseded: { en: PLAN_VERSION_STATUS.superseded, ar: /مُ?ستبدَ?ل/ },
   rejected: { en: PLAN_VERSION_STATUS.rejected, ar: /مرفوض/ },
-  withdrawn: { en: PLAN_VERSION_STATUS.withdrawn, ar: /مسحوب/ },
+  // A withdrawn change returns to Draft - there is no "Withdrawn" status (QA lead, 2026-11-01).
+  withdrawn: { en: PLAN_VERSION_STATUS.draft, ar: /مسود/ },
 } as const;
 
 /** Approval-cell states. */

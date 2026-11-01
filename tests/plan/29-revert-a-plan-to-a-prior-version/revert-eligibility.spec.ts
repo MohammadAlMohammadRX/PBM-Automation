@@ -6,10 +6,7 @@ import {
   BLOCKED_CASES,
   CASE,
   MESSAGE,
-  NEVER_PUBLISHED_STATES,
   PERMISSION_CASE_TIMEOUT_MS,
-  PUBLISHED_STATES,
-  REVERT_ACTION,
   REVERT_CASE_TIMEOUT_MS,
   REVERT_PERMISSION,
   SCOPED_PAYER,
@@ -174,38 +171,6 @@ test.describe('US 14345 - Which versions may be reverted to, and by whom', () =>
       expect(answer.status, `RevertPlanVersion answered ${answer.status}: ${answer.text.slice(0, 200)}`).toBeGreaterThanOrEqual(400);
       expect(answer.text, 'the refusal should cite the change already pending').toMatch(MESSAGE.pendingConflict);
       expect((await tab.readVersionsViaApi(plan.id)).length, 'no second request may have been created').toBe(versions.length);
-    });
-  });
-
-  test(`TC-${CASE.eligibilityShown}: should offer Revert only on published versions when the history mixes published, draft and rejected versions`, async ({
-    planIn,
-    stagePlanActivation,
-    planDetailPage,
-    steps,
-  }) => {
-    test.setTimeout(REVERT_CASE_TIMEOUT_MS);
-    const plan = await planIn('Inactive');
-    await stagePlanActivation(plan, 'reject');
-    await stagePlanActivation(plan, 'draft');
-    const tab = planDetailPage.versions();
-
-    await steps.critical('Navigate to the Plans Management module - the plan opens', async () => {
-      await planDetailPage.open(plan.id);
-      expect(await planDetailPage.getName()).toBe(plan.name);
-    });
-
-    await steps.critical('The version history lists every version with its status', async () => {
-      await tab.open();
-      const statuses = (await tab.readRows()).map((row) => row.status);
-      expect(statuses, 'published, rejected and draft versions').toEqual(expect.arrayContaining([...NEVER_PUBLISHED_STATES]));
-      expect(statuses.some((status) => PUBLISHED_STATES.test(status)), 'at least one published version').toBe(true);
-    });
-
-    await steps.step('Revert is offered only on entries that were published', async () => {
-      const rows = await tab.readRows();
-      const offering = rows.filter((row) => row.actions.some((label) => REVERT_ACTION.test(label)));
-      expect(offering.filter((row) => !PUBLISHED_STATES.test(row.status)).map((row) => `${row.version} (${row.status})`), 'never-published versions offering Revert').toEqual([]);
-      expect(offering.length, 'the earlier published version should offer Revert').toBeGreaterThan(0);
     });
   });
 

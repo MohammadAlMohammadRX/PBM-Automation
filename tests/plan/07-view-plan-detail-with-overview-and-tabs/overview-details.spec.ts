@@ -4,13 +4,13 @@ import { PLAN_PERMISSION } from '../../../data/accounts/payerAdminRole.data';
 import {
   ACCESS_DENIED_MESSAGE,
   ACTIVE_STATUS,
+  APPLICATION_ERROR,
   BREADCRUMB_PLANS_LINK,
   CASE,
   DEFAULT_PLAN_TYPE,
   EMPTY_PLACEHOLDER,
   FALLBACK,
   NONEXISTENT_PLAN_ID,
-  NOT_FOUND_MESSAGE,
   OVERVIEW_DATE,
   OVERVIEW_DESCRIPTION,
   PLAN_CODE,
@@ -138,24 +138,27 @@ test.describe('US 14155 - Plan detail overview', () => {
     });
   });
 
-  test(`TC-${CASE.notFound}: should show a clear not-found message when a plan id that does not exist is opened`, async ({
+  // Returning to the list (at most a short "Unable to load" toast) is the accepted handling (QA lead, 2026-11-01).
+  test(`TC-${CASE.notFound}: should return to the plan list without a blank page or an application error when a plan id that does not exist is opened`, async ({
     planManagementPage,
     planDetailPage,
     steps,
   }) => {
+    let said = '';
+
     await steps.critical('Navigate to the Plans Management module - the list loads', async () => {
       await planManagementPage.openList();
       await planManagementPage.expectRowsRendered();
     });
 
     await steps.step('Opening a plan id that never existed displays no plan data', async () => {
-      await planDetailPage.openExpectingFailure(NONEXISTENT_PLAN_ID);
+      said = await planDetailPage.openAndReadRefusal(NONEXISTENT_PLAN_ID);
       expect(await planDetailPage.isLoaded(), 'no plan should render for an unknown id').toBe(false);
     });
 
-    await steps.step('A clear "not found" message is shown instead of a blank page or an error', async () => {
-      const said = `${await planDetailPage.readToast()} ${await planDetailPage.getMainText()}`;
-      expect(said, 'the user should be told the plan was not found').toMatch(NOT_FOUND_MESSAGE);
+    await steps.step('The app returns to the plan list, with no blank page or application error', async () => {
+      await planManagementPage.expectRowsRendered();
+      expect(said, 'no application error should be shown').not.toMatch(APPLICATION_ERROR);
     });
   });
 

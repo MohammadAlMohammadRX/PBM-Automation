@@ -56,6 +56,8 @@ export const PLAN_APPROVAL_CELL = {
 
 /** The version statuses of the Version History tab (lookup codes published / superseded / ...). */
 export const PLAN_VERSION_STATUS = {
+  /** A revert, and a withdrawn change, are staged as a Draft (QA lead, 2026-11-01). */
+  draft: 'Draft',
   pendingApproval: 'Pending Approval',
   published: 'Published',
   superseded: 'Superseded',

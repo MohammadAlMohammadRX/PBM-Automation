@@ -61,7 +61,7 @@ test.describe('US 14337 - Plan change status rules', () => {
     });
   });
 
-  test(`TC-${CASE.arabicLabels}: should label each of the five plan change statuses with its English and Arabic name when the history is shown`, async ({
+  test(`TC-${CASE.arabicLabels}: should label each plan change status with its English and Arabic name, a withdrawn change reading Draft, when the history is shown`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -119,7 +119,7 @@ test.describe('US 14337 - Plan change status rules', () => {
       expect(labels.arabic).toMatch(STATUS.rejected.ar);
     });
 
-    await steps.step('A plan change in Withdrawn status reads "Withdrawn (مسحوب)"', async () => {
+    await steps.step('A withdrawn plan change returns to Draft and reads "Draft (مسودة)"', async () => {
       const labels = await readStatusLabels(withdrawn.id);
       expect(labels.english).toContain(STATUS.withdrawn.en);
       expect(labels.arabic).toMatch(STATUS.withdrawn.ar);

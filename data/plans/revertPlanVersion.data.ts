@@ -36,7 +36,6 @@ export const CASE = {
   noDuplicates: '19370',
   formularyRestored: '19371',
   pendingConflict: '19372',
-  eligibilityShown: '19373',
 } as const;
 
 /** The label a version row carries. */

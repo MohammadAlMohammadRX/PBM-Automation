@@ -44,11 +44,11 @@ test.describe('US 14343 - Withdrawing a pending request', () => {
       messages = report.messages.join(' ');
     });
 
-    await steps.step('The plan is Draft and the pending request has left the approval queue (MSG-PLN-041)', async () => {
+    await steps.step('The plan is Draft ("Saved as draft") and the pending request has left the approval queue', async () => {
       await planManagementPage.expectApprovalCell(plan.name, STATE.draft);
       await planApprovalsPage.open();
       await planApprovalsPage.expectNotInQueue(plan.name);
-      expect(messages, 'MSG-PLN-041 - the user is told the request was withdrawn').toMatch(MSG_041);
+      expect(messages, 'the user is told the plan is a draft again').toMatch(MSG_041);
     });
   });
 
@@ -78,10 +78,10 @@ test.describe('US 14343 - Withdrawing a pending request', () => {
       messages = outcome.messages.join(' ');
     });
 
-    await steps.step('The approver\'s pending queue no longer holds the request (MSG-PLN-042)', async () => {
+    await steps.step('The approver\'s pending queue no longer holds the request, and "Draft discarded" is shown', async () => {
       await planApprovalsPage.open();
       await planApprovalsPage.expectNotInQueue(plan.name);
-      expect(messages, 'MSG-PLN-042 - the user is told the pending request was withdrawn').toMatch(MSG_042);
+      expect(messages, 'the user is told the draft was discarded').toMatch(MSG_042);
     });
   });
 

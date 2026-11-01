@@ -58,14 +58,8 @@ test.describe('US 14147 - Plan creation rules', () => {
     });
   }
 
+  // 18982 (expiry on the effective date's own day) was removed as invalid, 2026-11-01.
   for (const period of [
-    {
-      azureId: CREATE.sameDay.azureId,
-      title: 'should block the submission with a period error when the expiry date equals the effective date',
-      build: CREATE.sameDay.build,
-      message: PLAN_FORM_MESSAGE.expiryAfterEffective,
-      rule: 'an expiry on the effective date\'s own day',
-    },
     {
       azureId: CREATE.pastEffective.azureId,
       title: 'should block the submission with a today-or-later error when the effective date is earlier than today',

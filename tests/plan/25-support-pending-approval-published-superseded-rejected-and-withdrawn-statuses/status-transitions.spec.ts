@@ -183,7 +183,7 @@ test.describe('US 14337 - Plan change status transitions', () => {
       await planManagementPage.expectApprovalCell(plan.name, CELL.pendingApproval);
     });
 
-    await steps.critical('Immediately withdraw the change - it becomes Withdrawn', async () => {
+    await steps.critical('Immediately withdraw the change - it returns to Draft', async () => {
       const report = await planManagementPage.stageEdit(plan.name, 'descriptionEn', EDIT.withdraw);
       expect(report.refused, report.text).toBe(false);
       await planManagementPage.expectApprovalCell(plan.name, CELL.draft);
@@ -197,7 +197,7 @@ test.describe('US 14337 - Plan change status transitions', () => {
       await planManagementPage.expectApprovalCell(plan.name, CELL.pendingApproval);
     });
 
-    await steps.step('The approver approves it - it is Published with one consistent, recorded history', async () => {
+    await steps.step('The approver approves it - it is Published and any prior published version is Superseded', async () => {
       await planApprovalsPage.open();
       await planApprovalsPage.approve(plan.name);
       await planDetailPage.open(plan.id);
@@ -205,7 +205,6 @@ test.describe('US 14337 - Plan change status transitions', () => {
       const statuses = (await planDetailPage.versions().readRows()).map((row) => row.status);
       expect(statuses.filter((status) => status === STATUS.published.en).length, `one Published version (${statuses.join(', ')})`).toBe(1);
       expect(statuses.filter((status) => status === STATUS.pendingApproval.en), 'nothing left pending').toEqual([]);
-      expect(statuses, 'the withdrawal stays on record').toContain(STATUS.withdrawn.en);
     });
   });
 

@@ -132,7 +132,7 @@ test.describe('US 14326 - Formulary picker contents', () => {
     });
   });
 
-  test(`TC-${CASE.emptyPayer}: should show an empty picker with a no-formulary message when the payer has no Active or Inactive formulary`, async ({
+  test(`TC-${CASE.emptyPayer}: should show an empty picker with a "No results found" message when the payer has no Active or Inactive formulary`, async ({
     publishedPayer,
     planDetailPage,
     planManagementPage,
@@ -153,7 +153,7 @@ test.describe('US 14326 - Formulary picker contents', () => {
       expect(await tab.isPickerShown(), 'the picker should render').toBe(true);
     });
 
-    await steps.step('Review the picker - an empty list with a message that the payer has no formulary', async () => {
+    await steps.step('Review the picker - an empty list with a "No results found" message', async () => {
       expect(await tab.getOfferedFormularyCodes()).toEqual([]);
       expect(await tab.readPickerOverlayText(), 'the empty state should explain why').toMatch(NO_FORMULARY_FOR_PAYER);
     });

@@ -78,10 +78,6 @@ export const CREATE = {
     overlapping: (nameEn: string): PlanFormData => planFormData({ nameEn, effectiveDate: pickerMinutesFromNow(10), expiryDate: pickerDateTime(200) }),
     afterExisting: { effectiveDate: () => pickerDateTime(32), expiryDate: () => pickerDateTime(400) },
   },
-  sameDay: {
-    azureId: '18982',
-    build: (): PlanFormData => planFormData({ nameEn: planNamed('Same Day Plan'), effectiveDate: pickerDateTime(IN_FIVE_DAYS, '09:00'), expiryDate: pickerDateTime(IN_FIVE_DAYS, '18:00') }),
-  },
   blankExpiry: { azureId: '18983', build: (): PlanFormData => planFormData({ nameEn: planNamed('Open Ended Plan') }) },
   oneDayGap: {
     azureId: '18984',

@@ -5,7 +5,6 @@ import {
   FORMULARY_NOT_FOUND,
   MISSING_FORMULARY_ID,
   PAYER_MISMATCH,
-  REQUIRED_FORMULARY,
   SUITE_PAYER,
   formularyCode,
 } from '../../../data/plans/assignPlanFormulary.data';
@@ -149,7 +148,7 @@ test.describe('US 14148 - Assigning a formulary', () => {
     });
   });
 
-  test(`TC-${CASE.requiredField}: should refuse to submit with a required-field message when no formulary is selected`, async ({
+  test(`TC-${CASE.requiredField}: should not submit the assignment when no formulary is selected`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -172,10 +171,10 @@ test.describe('US 14148 - Assigning a formulary', () => {
       expect(await tab.readAssignedFormularyIdViaApi(plan.id)).toBe('');
     });
 
-    await steps.step('Leave the formulary empty and submit - a required-field message shows and nothing is submitted', async () => {
+    // Nothing is sent without a selection; no message is required (QA lead, 2026-11-01).
+    await steps.step('Leave the formulary empty and submit - nothing is submitted', async () => {
       const attempt = await tab.attemptAssignWithoutSelection();
       expect(attempt.sent, 'an empty selection must not be submitted').toBe(false);
-      expect(attempt.messages.join(' | '), 'the user should be told a formulary is required').toMatch(REQUIRED_FORMULARY);
     });
 
     await steps.step('Select a valid formulary and submit again - it is accepted', async () => {

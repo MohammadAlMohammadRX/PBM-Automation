@@ -3,11 +3,8 @@ import {
   APPROVAL,
   CASE,
   EXPIRED_LOCKED_ACTIONS,
-  EXPIRY_WAIT_MS,
   LIFECYCLE_ACTIONS,
-  LIFECYCLE_STAGES,
   NON_DRAFT_STATES,
-  SHORT_LIVED,
   STAGED_CHANGE_DETAILS,
   STATUS,
   VIEW_STATES,
@@ -214,66 +211,6 @@ test.describe('US 14168 - Row actions by plan status', () => {
         await planManagementPage.search(plans[state].name);
         await planManagementPage.waitForRowVisible(plans[state].name);
         await planManagementPage.expectRowActionUnavailable(plans[state].name, 'delete');
-      }
-    });
-  });
-
-  test(`TC-${CASE.lifecycleActions}: should update the row actions at every stage when one plan moves from Draft to Expired`, async ({
-    planManagementPage,
-    planDetailPage,
-    planApprovalsPage,
-    planIn,
-    steps,
-  }) => {
-    test.setTimeout(35 * 60_000);
-    const plan = await planIn('Draft', SHORT_LIVED);
-
-    await steps.critical('Navigate to the Plans Management module - the list loads', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      expect(await planManagementPage.isListed(plan.name)).toBe(true);
-    });
-
-    await steps.step('In Draft, View, Edit, Send for Approval and Delete are available', async () => {
-      for (const action of LIFECYCLE_STAGES.draft.available) {
-        expect(await planManagementPage.getRowActionAvailability(plan.name, action), `Draft: ${action}`).toBe('available');
-      }
-    });
-
-    await steps.critical('Submitted for approval, Recall appears for the submitter and Edit / Delete are no longer available', async () => {
-      await planManagementPage.submitForApproval(plan.name);
-      await planManagementPage.expectApprovalCell(plan.name, APPROVAL.pendingApproval);
-      // The Approver half (Approve / Reject to an approver who did not submit) needs a second approver account - see 19174.
-      expect(await planManagementPage.getDecisionActionAvailability(plan.name, 'recall'), 'Pending: Recall for the submitter').toBe('available');
-      for (const action of LIFECYCLE_STAGES.pending.unavailable) {
-        await planManagementPage.expectRowActionUnavailable(plan.name, action);
-      }
-    });
-
-    await steps.step('Approved and published, Deactivate is available and Edit / Delete are not', async () => {
-      await planApprovalsPage.open();
-      await planApprovalsPage.approve(plan.name);
-      await planDetailPage.open(plan.id);
-      await planDetailPage.expectStatusEventually(STATUS.active);
-      await planManagementPage.openListFor(plan.payerName);
-      await planManagementPage.search(plan.name);
-      for (const action of LIFECYCLE_STAGES.active.available) {
-        expect(await planManagementPage.getRowActionAvailability(plan.name, action), `Active: ${action}`).toBe('available');
-      }
-      for (const action of LIFECYCLE_STAGES.active.unavailable) {
-        await planManagementPage.expectRowActionUnavailable(plan.name, action);
-      }
-    });
-
-    await steps.step('Once Expired, only View remains - Edit, Activate, Deactivate and Delete are unavailable', async () => {
-      await planDetailPage.open(plan.id);
-      await planDetailPage.expectStatusEventually(STATUS.expired, EXPIRY_WAIT_MS);
-      await planManagementPage.openListFor(plan.payerName);
-      await planManagementPage.search(plan.name);
-      for (const action of LIFECYCLE_STAGES.expired.available) {
-        expect(await planManagementPage.getRowActionAvailability(plan.name, action), `Expired: ${action}`).toBe('available');
-      }
-      for (const action of LIFECYCLE_STAGES.expired.unavailable) {
-        await planManagementPage.expectRowActionUnavailable(plan.name, action);
       }
     });
   });

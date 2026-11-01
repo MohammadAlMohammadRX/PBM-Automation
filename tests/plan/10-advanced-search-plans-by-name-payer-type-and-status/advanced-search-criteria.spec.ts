@@ -99,7 +99,7 @@ test.describe('US 14159 - Advanced search criteria', () => {
     });
   });
 
-  test(`TC-${CASES.maxLength.azureId}: should accept a plan name up to its maximum length and block one character more when the longest name is searched`, async ({
+  test(`TC-${CASES.maxLength.azureId}: should search a plan name of the maximum length and one character more without an error when the longest name is searched`, async ({
     planManagementPage,
     steps,
   }) => {
@@ -130,15 +130,13 @@ test.describe('US 14159 - Advanced search criteria', () => {
       expect(await drawer.isOpen()).toBe(false);
     });
 
-    await steps.step('One character beyond the maximum is prevented or reported', async () => {
+    // The search field enforces no limit: a longer name is simply searched (QA lead, 2026-11-01).
+    await steps.step('A name one character beyond the maximum is searched without an error', async () => {
       drawer = await planManagementPage.openAdvancedSearch();
       await drawer.typeText(field, data.character.repeat(limit + 1));
-      const kept = (await drawer.getValue(field)).length;
-      const messages = await drawer.getMessages();
-      // The case asks for the extra character to be prevented or reported - not
-      // for a maxlength attribute, which the field does not carry (2026-10-27).
-      expect(kept <= limit || messages.length > 0, `${kept} characters kept with the limit ${limit}; messages [${messages.join(' | ')}]`).toBe(true);
-      await drawer.cancel();
+      expect((await drawer.getValue(field)).length, 'the text typed').toBe(limit + 1);
+      await drawer.submit();
+      expect(await drawer.isOpen(), 'the search should run').toBe(false);
     });
   });
 

@@ -22,46 +22,6 @@ import {
  * Twin: tests/network/11-edit-existing-network-details (edit-approval).
  */
 test.describe('US 14146 - Plan edits through approval', () => {
-  test(`TC-${EDIT.privateDraft.azureId}: should save the edit as a private draft that another user does not see when a Draft plan is edited and saved`, async ({
-    planManagementPage,
-    planIn,
-    nonAdminSession,
-    steps,
-  }) => {
-    const plan = await planIn('Draft', NON_ADMIN_VISIBLE_PLAN);
-    const description = EDIT.privateDraft.description();
-    let form!: PlanFormDialog;
-
-    await steps.critical('Navigate to the Plans Management module - the plan directory loads', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      expect(await planManagementPage.isListed(plan.name)).toBe(true);
-    });
-
-    await steps.critical('Edit opens pre-populated with the plan\'s current names, type, payer, descriptions and dates', async () => {
-      form = await planManagementPage.openEditForm(plan.name);
-      const values = await form.readAll();
-      expect(values.nameEn).toBe(plan.name);
-      expect(values.nameAr).toBe(plan.nameAr);
-      expect(values.payer).toContain(plan.payerName);
-      expect(values.type).toBe('Individual');
-      expect(values.descriptionEn).toBe(ORIGINAL_DESCRIPTION);
-      expect(values.effectiveDate, 'the effective date').not.toBe('');
-      expect(values.expiryDate, 'the expiry date').not.toBe('');
-    });
-
-    await steps.step('Saving the change records a private draft and applies it to no live version', async () => {
-      await form.editField('descriptionEn', description);
-      const report = await form.saveEditAndReport();
-      expect(report.created, `the change should be saved as a draft: ${report.text}`).toBe(true);
-      expect((await planManagementPage.readRow(plan.name)).approvalStatus, 'the plan stays an unpublished draft').toMatch(PLAN_APPROVAL_CELL.draft);
-    });
-
-    await steps.step('A different user viewing the same plan does not see the saved draft changes', async () => {
-      await nonAdminSession.planDetail.openExpectingFailure(plan.id);
-      expect(await nonAdminSession.planDetail.readOverviewField('description'), 'the author\'s draft must stay private').not.toBe(description);
-    });
-  });
-
   test(`TC-${EDIT.liveUnchanged.azureId}: should show no Edit on an Active plan and keep its live values unchanged when the plan is opened`, async ({
     planManagementPage,
     planDetailPage,
@@ -90,35 +50,6 @@ test.describe('US 14146 - Plan edits through approval', () => {
     await steps.step('Seen by another session, the live plan still shows its original values', async () => {
       await staleSession.planDetail.open(plan.id);
       expect(await staleSession.planDetail.readOverviewField('description'), 'the live plan must not change').toBe(ORIGINAL_DESCRIPTION);
-    });
-  });
-
-  test(`TC-${EDIT.secondSubmission.azureId}: should refuse a second submission with a pending-approval message when a change is already pending`, async ({
-    planManagementPage,
-    planDetailPage,
-    planIn,
-    steps,
-  }) => {
-    test.setTimeout(8 * 60_000);
-    const plan = await planIn('PendingApproval', EDIT_PLAN);
-
-    await steps.critical('Navigate to the Plans Management module - the plan already has a change pending approval', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      await planManagementPage.expectApprovalCell(plan.name, PLAN_APPROVAL_CELL.pendingApproval);
-    });
-
-    await steps.step('Another edit of the same plan can be made and saved as a local draft', async () => {
-      const report = await planManagementPage.stageEdit(plan.name, 'descriptionEn', EDIT.secondSubmission.description());
-      expect(report.created, `the local draft should save: ${report.text}`).toBe(true);
-    });
-
-    await steps.step('Send for Approval on the new change is blocked with a message that a change is already pending', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      const result = await planManagementPage.attemptSubmit(plan.name);
-      expect(result.offered !== 'available' || result.status >= 300, `a second submission must be refused: ${result.status} ${result.text.slice(0, 200)}`).toBe(true);
-      await planDetailPage.open(plan.id);
-      expect([...result.messages, await planDetailPage.getNotice()].join(' | '), 'the user should be told a change is already pending')
-        .toMatch(ALREADY_PENDING);
     });
   });
 

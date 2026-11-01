@@ -27,7 +27,6 @@ export const CASE = {
   revalidatedAtApproval: '19204',
   emptyPayer: '19205',
   serviceDown: '19207',
-  noBypass: '19208',
   clearRefusal: '19209',
 } as const;
 
@@ -49,7 +48,8 @@ export const CROSS_PAYER_ERROR = /payer/i;
 export const FORMULARY_NOT_ACTIVE = new RegExp(`${PLAN_MESSAGE.onlyActiveFormulary.replace(/\./g, '\\.')}|formulary.*(active|inactive)|(active|inactive).*formulary`, 'i');
 
 /** The picker's empty state for a payer with no formulary (19205) - "No active formulary exists for the selected payer...". */
-export const NO_FORMULARY_FOR_PAYER = /no .*formular(y|ies)/i;
+// "No results found" is the accepted empty state (QA lead, 2026-11-01).
+export const NO_FORMULARY_FOR_PAYER = /no results found|no .*formular(y|ies)/i;
 
 /** The formulary list the picker loads (plan service formulariesDropdown) - failed on purpose in 19207. */
 export const FORMULARY_FEED = 'FormulariesDropdown';

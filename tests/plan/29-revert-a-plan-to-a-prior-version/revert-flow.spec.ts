@@ -24,13 +24,18 @@ import {
  * change awaiting approval, what approval restores (attributes and formulary),
  * the success message and audit trail, and repeated submission.
  *
+ * A revert is staged as a DRAFT carrying the version's values; the plan is then
+ * sent for approval and approved like any change (QA lead, Azure 19362 / 19366 /
+ * 19370 updated 2026-10-31).
+ *
  * Every plan is the case's own: `planIn('Inactive')` gives v1 (published, then
  * superseded) and v2 (the inactivation, current) - see the data file.
  */
 test.describe('US 14345 - Reverting a plan to a published version', () => {
-  test(`TC-${CASE.revertPublished}: should accept the revert and stage the version's values for approval when a previously published version is reverted to`, async ({
+  test(`TC-${CASE.revertPublished}: should restore the version's values once the revert is sent for approval and approved when a previously published version is reverted to`, async ({
     planIn,
     planDetailPage,
+    planApprovalsPage,
     steps,
   }) => {
     test.setTimeout(REVERT_CASE_TIMEOUT_MS);
@@ -57,13 +62,23 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
       expect(await dialog.isVisible(), 'the revert confirmation should be on screen').toBe(true);
     });
 
-    await steps.step('Confirming is accepted with a success message, staging v1\'s attributes and formulary for approval', async () => {
+    await steps.critical('Confirming stages a Draft carrying v1\'s attributes and formulary', async () => {
       const outcome = await tab.confirmRevertPrompt();
       expect(outcome?.status, `RevertPlanVersion: ${outcome?.text.slice(0, 200)}`).toBeLessThan(300);
-      await expect.poll(() => planDetailPage.readToast(), { message: 'a success message should be displayed' }).toMatch(MESSAGE.revertAccepted);
       const staged = newestVersion(await tab.readVersionsViaApi(plan.id));
-      expect(staged?.versionStatusEn, 'the revert should await review and approval').toBe(PLAN_VERSION_STATUS.pendingApproval);
+      expect(staged?.versionStatusEn, 'the revert should be staged as a draft').toBe(PLAN_VERSION_STATUS.draft);
       expect(revertedAttributes(staged ?? {}, target), 'the staged version should carry v1\'s values').toEqual(revertedAttributes(target ?? {}));
+    });
+
+    await steps.step('Sending the plan for approval and approving it restores v1\'s attributes and formulary', async () => {
+      await planDetailPage.open(plan.id);
+      await planDetailPage.submitForApproval();
+      await planApprovalsPage.open();
+      await planApprovalsPage.approve(plan.name);
+      await expect
+        .poll(async () => newestVersion(await tab.readVersionsViaApi(plan.id))?.versionStatusEn, { timeout: PUBLISH_WAIT_MS })
+        .toBe(PLAN_VERSION_STATUS.published);
+      expect(revertedAttributes(await planDetailPage.readRecordViaApi(plan.id), target), 'the plan should match v1').toEqual(revertedAttributes(target ?? {}));
     });
   });
 
@@ -87,7 +102,9 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
       expect(await tab.offersRevert(v(VERSION.created)), 'v1 should offer Revert').toBe(true);
       const outcome = await tab.revertTo(v(VERSION.created));
       expect(outcome?.status, `RevertPlanVersion: ${outcome?.text.slice(0, 200)}`).toBeLessThan(300);
-      // The single-pending-change rule: the first revert is approved before the second is asked for.
+      // The single-pending-change rule: the first revert (staged as a draft) is sent and approved before the second is asked for.
+      await planDetailPage.open(plan.id);
+      await planDetailPage.submitForApproval();
       await planApprovalsPage.open();
       await planApprovalsPage.approve(plan.name);
       await expect
@@ -104,7 +121,7 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
     });
   });
 
-  test(`TC-${CASE.entersReview}: should leave the current configuration in place and await approval when a revert is submitted`, async ({
+  test(`TC-${CASE.entersReview}: should leave the current configuration in place and stage the revert as a Draft when a revert is confirmed`, async ({
     planIn,
     planDetailPage,
     steps,
@@ -129,11 +146,10 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
       expect(outcome?.status, `RevertPlanVersion: ${outcome?.text.slice(0, 200)}`).toBeLessThan(300);
     });
 
-    await steps.step('The plan still shows its current configuration and reads as awaiting approval', async () => {
+    await steps.step('The revert reads Draft and the plan keeps its current configuration rather than replacing it at once', async () => {
       await planDetailPage.open(plan.id);
       await planDetailPage.expectStatus(PLAN_LIFECYCLE.inactive);
-      expect(await planDetailPage.getNotice(), 'the header should say a change awaits approval').toMatch(MESSAGE.awaitingApproval);
-      expect(newestVersion(await tab.readVersionsViaApi(plan.id))?.versionStatusEn).toBe(PLAN_VERSION_STATUS.pendingApproval);
+      expect(newestVersion(await tab.readVersionsViaApi(plan.id))?.versionStatusEn, 'the revert should be staged as a draft').toBe(PLAN_VERSION_STATUS.draft);
     });
   });
 
@@ -222,7 +238,7 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
     });
   });
 
-  test(`TC-${CASE.noDuplicates}: should create exactly one pending revert when the revert is confirmed repeatedly in quick succession`, async ({
+  test(`TC-${CASE.noDuplicates}: should create exactly one draft revert when the revert is confirmed repeatedly in quick succession`, async ({
     planIn,
     planDetailPage,
     steps,
@@ -247,7 +263,7 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
     await steps.step('Exactly one revert request exists in the pending change and the version history', async () => {
       const versions = await tab.readVersionsViaApi(plan.id);
       expect(versions.length, 'exactly one version should have been added').toBe(before + 1);
-      expect(versions.filter((record) => record.versionStatusEn === PLAN_VERSION_STATUS.pendingApproval), 'pending revert requests').toHaveLength(1);
+      expect(versions.filter((record) => record.versionStatusEn === PLAN_VERSION_STATUS.draft), 'draft revert requests').toHaveLength(1);
     });
   });
 
@@ -277,6 +293,8 @@ test.describe('US 14345 - Reverting a plan to a published version', () => {
       await tab.open();
       const outcome = await tab.revertTo(v(VERSION.created));
       expect(outcome?.status, `RevertPlanVersion: ${outcome?.text.slice(0, 200)}`).toBeLessThan(300);
+      await planDetailPage.open(plan.id);
+      await planDetailPage.submitForApproval();
       await planApprovalsPage.open();
       await planApprovalsPage.approve(plan.name);
       await expect

@@ -60,6 +60,18 @@ export class PlanDetailPage extends BasePage {
     await this.goto(`${AppRoutes.planManagement}/${planId}`);
   }
 
+  /**
+   * Opens a plan that should not load and returns the message the screen shows,
+   * read WHILE it is up: the refusal is a toast that leaves after a few seconds,
+   * and reading it after the "did not render" wait found nothing although the
+   * toast had been shown (19011 / 19278, 2026-10-28).
+   */
+  async openAndReadRefusal(planId: string): Promise<string> {
+    await this.openExpectingFailure(planId);
+    await this.page.locator(`#${TOAST.summary}, #${TOAST.detail}`).first().waitFor({ state: 'visible', timeout: Timeouts.default }).catch(() => undefined);
+    return (await this.readMessages()).join(' ');
+  }
+
   async waitForLoaded(): Promise<void> {
     await expect(this.byId(PLAN_DETAIL.name), 'the plan detail should load').toBeVisible({ timeout: Timeouts.default });
     await this.waitForPageReady();
@@ -184,6 +196,8 @@ export class PlanDetailPage extends BasePage {
     const outcome = await NetworkUtils.captureResponse(this.page, ApiEndpoints.planDelete, async () => {
       await dialog.confirmWithFollowUps();
     });
+    // The toast renders just after DeletePlan answers; reading at once found none (19353, 2026-11-01).
+    await this.page.locator(`#${TOAST.summary}, #${TOAST.detail}`).first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
     return { status: outcome?.status ?? 0, text: outcome?.text ?? '', messages: await this.readMessages() };
   }
 

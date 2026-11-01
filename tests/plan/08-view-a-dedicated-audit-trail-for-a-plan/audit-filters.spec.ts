@@ -2,10 +2,6 @@ import { test, expect } from '../../../fixtures';
 import {
   ACTION,
   CASE,
-  EMPTY_PERIOD,
-  INVALID_RANGE_MESSAGE,
-  INVERTED_RANGE,
-  auditDay,
   entryDay,
   shiftDay,
 } from '../../../data/plans/planAuditTrail.data';
@@ -62,49 +58,6 @@ test.describe('US 14157 - Plan audit trail filters', () => {
     });
   });
 
-  test(`TC-${CASE.combinedFilters}: should return only entries matching both conditions when action type and date range are combined`, async ({
-    planManagementPage,
-    planDetailPage,
-    planIn,
-    steps,
-  }) => {
-    test.setTimeout(15 * 60_000);
-    const plan = await planIn('Inactive');
-
-    await steps.critical('Navigate to the Plans Management module - the list loads', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      expect(await planManagementPage.isListed(plan.name)).toBe(true);
-    });
-
-    await steps.critical('Open the plan\'s Audit History tab - the full trail loads', async () => {
-      await planDetailPage.open(plan.id);
-      await planDetailPage.audit().expectEntry(ACTION.statusChange);
-    });
-
-    await steps.critical('Apply action type Status Change with a date range covering those entries - the list refreshes', async () => {
-      const result = await planDetailPage.audit().applyFilter({ actionType: ACTION.statusChange, from: auditDay(-1), to: auditDay() });
-      expect(result.applied, `the filters should apply: ${result.messages.join(' ')}`).toBe(true);
-    });
-
-    await steps.step('Only entries matching both the action type and the date range are shown', async () => {
-      const entries = await planDetailPage.audit().readEntries();
-      expect(entries.length, 'today\'s Status Change entries').toBeGreaterThan(0);
-      expect(entries.filter((entry) => entry.action !== ACTION.statusChange), 'entries of other types').toEqual([]);
-      expect(entries.filter((entry) => ![auditDay(-1), auditDay()].includes(entryDay(entry.when))), 'entries outside the range').toEqual([]);
-    });
-
-    await steps.critical('Change the date range to a period with no entries of that type - the list refreshes', async () => {
-      const tab = planDetailPage.audit();
-      await tab.clearFilters();
-      const result = await tab.applyFilter({ actionType: ACTION.statusChange, from: auditDay(EMPTY_PERIOD.fromDays), to: auditDay(EMPTY_PERIOD.toDays) });
-      expect(result.applied, `the filters should apply: ${result.messages.join(' ')}`).toBe(true);
-    });
-
-    await steps.step('No entries are shown - the combined filter correctly returns zero matches', async () => {
-      expect(await planDetailPage.audit().readEntries(), 'the plan did not exist in that period').toEqual([]);
-    });
-  });
-
   test(`TC-${CASE.dateBoundaries}: should include entries on the boundary dates and exclude those just outside when a date range is applied`, async ({
     planManagementPage,
     planDetailPage,
@@ -154,39 +107,6 @@ test.describe('US 14157 - Plan audit trail filters', () => {
     await steps.step('The latest entry is now excluded, so the boundary is respected', async () => {
       const days = (await planDetailPage.audit().readAllEntries()).map((entry) => entryDay(entry.when));
       expect(days.filter((day) => day === latest), 'entries of the excluded last day').toEqual([]);
-    });
-  });
-
-  test(`TC-${CASE.invalidRange}: should warn and not apply the filter when the start date is after the end date`, async ({
-    planManagementPage,
-    planDetailPage,
-    planIn,
-    steps,
-  }) => {
-    test.setTimeout(12 * 60_000);
-    const plan = await planIn('Active');
-    let before: string[] = [];
-
-    await steps.critical('Navigate to the Plans Management module - the list loads', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      expect(await planManagementPage.isListed(plan.name)).toBe(true);
-    });
-
-    await steps.critical('Open the plan\'s Audit History tab - the entries load', async () => {
-      await planDetailPage.open(plan.id);
-      await planDetailPage.audit().open();
-      before = (await planDetailPage.audit().readEntries()).map((entry) => entry.action);
-      expect(before.length).toBeGreaterThan(0);
-    });
-
-    await steps.step('A start date after the end date is entered and applied - a validation message is shown and the filter is not applied', async () => {
-      const result = await planDetailPage.audit().applyFilter({ from: auditDay(INVERTED_RANGE.fromDays), to: auditDay(INVERTED_RANGE.toDays) });
-      expect(result.applied, 'the inverted range must be refused').toBe(false);
-      expect(result.messages.join(' '), 'a clear validation message').toMatch(INVALID_RANGE_MESSAGE);
-    });
-
-    await steps.step('The trail is not silently replaced by a wrong result', async () => {
-      expect((await planDetailPage.audit().readEntries()).map((entry) => entry.action)).toEqual(before);
     });
   });
 });

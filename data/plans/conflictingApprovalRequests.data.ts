@@ -27,10 +27,13 @@ export { FORBIDDEN_STATUS, SUBMITTER_PAYER };
 
 /** MSG-PLN-040 - a change is already awaiting approval. */
 export const MSG_040 = /already (awaiting|pending)|awaiting approval|pending approval/i;
-/** MSG-PLN-041 - saving an edit withdrew the pending request; the plan is a draft again. */
-export const MSG_041 = /withdr[ae]wn?|returned to draft|back to draft/i;
-/** MSG-PLN-042 - deleting the plan withdrew its pending request. */
-export const MSG_042 = /withdr[ae]wn?/i;
+/**
+ * MSG-PLN-041 - saving an edit withdrew the pending request; the plan is a draft again.
+ * A withdrawn request simply becomes a draft, so "Saved as draft" is the message (QA lead, 2026-11-01).
+ */
+export const MSG_041 = /saved as draft|withdr[ae]wn?|returned to draft|back to draft/i;
+/** MSG-PLN-042 - deleting the plan withdrew its pending request: "Draft discarded" (QA lead, 2026-11-01). */
+export const MSG_042 = /draft discarded|withdr[ae]wn?/i;
 /** MSG-PLN-044 - a rejection needs a reason. */
 export const MSG_044 = /reason[^.]*required|required[^.]*reason|provide a reason|reason is mandatory/i;
 

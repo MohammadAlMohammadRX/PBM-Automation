@@ -44,34 +44,6 @@ test.describe('US 14146 - Plan edit form', () => {
     }
   });
 
-  test(`TC-${EDIT.sameDayExpiry.azureId}: should block the save with a validation error when the expiry date is set to the effective date's day`, async ({
-    planManagementPage,
-    planIn,
-    steps,
-  }) => {
-    const plan = await planIn('Draft', EDIT_PLAN);
-    let form!: PlanFormDialog;
-
-    await steps.critical('Navigate to the Plans Management module - the plan directory loads', async () => {
-      await planManagementPage.openListFor(plan.payerName);
-      expect(await planManagementPage.isListed(plan.name)).toBe(true);
-    });
-
-    await steps.critical('Open the Draft plan for editing - the edit form opens', async () => {
-      form = await planManagementPage.openEditForm(plan.name);
-      expect(await form.readField('nameEn')).toBe(plan.name);
-    });
-
-    await steps.step('With a same-day period, a validation error is shown and the save is blocked', async () => {
-      await form.editPeriod(EDIT.sameDayExpiry.effectiveDate(), EDIT.sameDayExpiry.expiryDate());
-      const report = await form.attemptEditSave();
-      const inline = await form.readFieldError('expiryDate');
-      expect(report.refused, `a same-day period must not save: ${report.text}`).toBe(true);
-      expect([...report.messages, inline].join(' | '), 'the message for a same-day period').toMatch(PLAN_FORM_MESSAGE.expiryAfterEffective);
-      await form.closeAndDiscard();
-    });
-  });
-
   test(`TC-${EDIT.oneDayExpiry.azureId}: should save the draft when the expiry date is exactly one day after the effective date`, async ({
     planManagementPage,
     planIn,

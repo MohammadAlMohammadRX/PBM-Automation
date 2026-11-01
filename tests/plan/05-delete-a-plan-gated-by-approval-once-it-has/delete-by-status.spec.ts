@@ -105,11 +105,11 @@ test.describe('US 14153 - Deleting by lifecycle status', () => {
       expect(await planManagementPage.isListed(plan.name)).toBe(false);
     });
 
-    await steps.step('Open, then request the deletion of, the already-deleted plan - a plan-not-found message', async () => {
-      await planDetailPage.openExpectingFailure(plan.id);
+    // "Unable to load the requested plan." and a return to the list is the accepted refusal (QA lead, 2026-11-01).
+    await steps.step('Open, then request the deletion of, the already-deleted plan - "Unable to load the requested plan" is shown and the deletion is refused', async () => {
+      const said = await planDetailPage.openAndReadRefusal(plan.id);
+      expect(said, 'the screen should say the plan could not be loaded').toMatch(PLAN_NOT_FOUND);
       expect(await planDetailPage.isLoaded(10_000), 'a deleted plan must not render').toBe(false);
-      expect([await planDetailPage.getMainText(), ...(await planDetailPage.readMessages())].join(' | '), 'the screen should say the plan was not found')
-        .toMatch(PLAN_NOT_FOUND);
       const answer = await planDetailPage.requestDeletionViaApi(plan.id);
       expect(answer.status, `deleting a deleted plan: ${answer.text.slice(0, 200)}`).toBeGreaterThanOrEqual(400);
       expect(answer.text).toMatch(PLAN_NOT_FOUND);

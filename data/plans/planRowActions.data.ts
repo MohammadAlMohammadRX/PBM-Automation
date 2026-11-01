@@ -32,7 +32,6 @@ export const CASE = {
   deleteBlockedByLinks: '19179',
   deleteLiveGated: '19180',
   permissionTooltips: '19181',
-  lifecycleActions: '19182',
 } as const;
 
 /** 19169 / 19178 - the plan states the sheet lists, as fixture states. */

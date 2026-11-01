@@ -146,6 +146,7 @@ test.describe('US 14335 - Plan visibility limited to assigned payers', () => {
     const plans = nonAdminSession.plans;
     const detail = nonAdminSession.planDetail;
     let answer = { status: 0, text: '' };
+    let said = '';
 
     await steps.critical('Navigate to the Plans Management module - the plan list loads', async () => {
       await plans.open();
@@ -158,19 +159,18 @@ test.describe('US 14335 - Plan visibility limited to assigned payers', () => {
 
     await steps.critical(`Opening ${OUT_OF_SCOPE_PAYER}'s plan by its identifier in the address bar is processed`, async () => {
       expect((await planDetailPage.requestPlanViaApi(outOfScope.id)).status, 'baseline: the administrator can read the plan').toBeLessThan(300);
-      await detail.openExpectingFailure(outOfScope.id);
+      said = await detail.openAndReadRefusal(outOfScope.id);
       answer = await detail.requestPlanViaApi(outOfScope.id);
       expect(answer.status, 'the request should be answered, not left hanging').toBeGreaterThan(0);
     });
 
-    await steps.step('The plan is reported as not found, with no hint that it exists under another payer', async () => {
+    // "Unable to load the requested plan." and a return to the list is the accepted answer (QA lead, 2026-11-01).
+    await steps.step('"Unable to load the requested plan" is shown and the list returns, with no hint that the plan exists under another payer', async () => {
       expect(await detail.isLoaded(MESSAGE_WAIT_MS), 'the out-of-scope plan\'s detail must not render').toBe(false);
       expect(answer.status, `GetPlan answered ${answer.status}: ${answer.text.slice(0, 200)}`).toBe(NOT_FOUND.status);
       expect(answer.text, 'the answer must not read as Forbidden').not.toMatch(NOT_FOUND.forbidden);
-      await expect
-        .poll(async () => (await detail.readMessages()).join(' '), { timeout: MESSAGE_WAIT_MS, message: 'the screen should say the plan was not found' })
-        .toMatch(NOT_FOUND.wording);
-      expect((await detail.readMessages()).join(' '), 'the screen must not read as Forbidden').not.toMatch(NOT_FOUND.forbidden);
+      expect(said, 'the screen should say the plan could not be loaded').toMatch(NOT_FOUND.wording);
+      expect(said, 'the screen must not read as Forbidden').not.toMatch(NOT_FOUND.forbidden);
     });
   });
 

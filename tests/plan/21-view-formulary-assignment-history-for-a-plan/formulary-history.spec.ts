@@ -6,7 +6,6 @@ import {
   BLOCKED_CASES,
   CASE,
   DATE_TIME,
-  NO_FORMULARY_YET,
   SUITE_PAYER,
   TAB_LABEL,
   tierText,
@@ -185,7 +184,7 @@ test.describe('US 14327 - Formulary assignment history', () => {
     });
   });
 
-  test(`TC-${CASE.emptyState}: should show a clear empty-state message when the plan never had a formulary`, async ({
+  test(`TC-${CASE.emptyState}: should load the Formulary Assignment tab without an error or a blank screen when the plan never had a formulary`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -205,8 +204,10 @@ test.describe('US 14327 - Formulary assignment history', () => {
       expect(await tab.readHistoryViaApi(plan.id).then((entries) => entries.filter((entry) => entry.formularyId))).toEqual([]);
     });
 
-    await steps.step('Review the content - a clear "no formulary assigned yet" message, not an error or a blank tab', async () => {
-      expect(await tab.getPanelText(), 'the tab should explain that no formulary was ever assigned').toMatch(NO_FORMULARY_YET);
+    // No dedicated "no formulary yet" message is required (QA lead, 2026-11-01).
+    await steps.step('Review the content - the tab loads without an error or a blank screen', async () => {
+      expect(await tab.getPanelText(), 'the tab should not be blank').not.toBe('');
+      expect((await planDetailPage.readMessages()).join(' '), 'no error should be shown').not.toMatch(/error|failed|unable/i);
     });
   });
 

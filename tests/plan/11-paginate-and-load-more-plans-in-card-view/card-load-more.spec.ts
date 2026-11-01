@@ -148,9 +148,11 @@ test.describe('US 14160 - Card view Load More', () => {
       expect(initial).toHaveLength(PAGE_SIZE);
     });
 
-    await steps.step('Rapid clicks on Load More are disabled or debounced while a request is in progress', async () => {
+    // Each click may send its own request - only duplicates or gaps would be a bug (QA lead, 2026-11-01).
+    await steps.step('Each rapid click on Load More is answered without an error', async () => {
       fired = await planManagementPage.loadMoreRapidly(data.clicks);
-      expect(fired, `${data.clicks} rapid clicks should send one request`).toBe(data.expectedRequests);
+      expect(fired, `${data.clicks} rapid clicks should load at least one more batch`).toBeGreaterThan(0);
+      expect(fired, 'no more requests than clicks').toBeLessThanOrEqual(data.clicks);
     });
 
     await steps.step('Once settled, every plan appears exactly once, in order, with no gaps', async () => {
