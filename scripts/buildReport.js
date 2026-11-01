@@ -25,6 +25,12 @@ const OUT = process.argv[3] || path.join('reports', 'PBM-Payer-Module-Test-Resul
  * the machine was asleep or frozen - per scripts/executionTiming.js.
  */
 const PARTIALS_DIR = process.argv[4] || '';
+/**
+ * Several directories, joined with path.delimiter (";" on Windows), when the
+ * input was merged from layers (mergeLayers.js): a full run plus its re-runs.
+ * The time is then the FULL test time - every layer's time, folder by folder.
+ */
+const PARTIALS_DIRS = PARTIALS_DIR.split(path.delimiter).filter((d) => d && fs.existsSync(d));
 
 /** The module the report is about - MODULE, as set by run-payer-module.js (default payer). */
 const MODULE_NAME = (process.env.MODULE || 'payer').replace(/[^a-z]/g, '') || 'payer';
@@ -806,9 +812,25 @@ let durationMs = PREPARED ? raw.durationMs : (raw.stats?.duration ?? totalMs);
 // the partials to hand the duration is recomputed as ACTIVE time, and folders
 // holding only manual stories are left out of it as they are out of the cases.
 let timing = null;
-if (!PREPARED && PARTIALS_DIR && fs.existsSync(PARTIALS_DIR)) {
+if (!PREPARED && PARTIALS_DIRS.length) {
   const { measureTiming } = require('./executionTiming');
-  const all = measureTiming(PARTIALS_DIR);
+  const layers = PARTIALS_DIRS.map((d) => measureTiming(d));
+  const byFolder = new Map();
+  for (const f of layers.flatMap((l) => l.folders)) {
+    const seen = byFolder.get(f.folder);
+    byFolder.set(f.folder, seen
+      ? {
+        folder: f.folder,
+        start: [seen.start, f.start].filter(Boolean).sort()[0] || null,
+        end: [seen.end, f.end].filter(Boolean).sort().pop() || null,
+        wallMs: seen.wallMs + f.wallMs,
+        frozenMs: seen.frozenMs + f.frozenMs,
+        activeMs: seen.activeMs + f.activeMs,
+        gaps: [...seen.gaps, ...f.gaps],
+      }
+      : f);
+  }
+  const all = { thresholdSec: layers[0].thresholdSec, folders: [...byFolder.values()].sort((a, b) => a.folder.localeCompare(b.folder)) };
   // Removed stories are out of the time as they are out of the cases.
   const manualFolders = new Set([...MANUAL_DIRS, ...REMOVED.map((r) => r.dir)].map((d) => d.slice(0, 2)));
   const folders = all.folders.filter((f) => !manualFolders.has(f.folder));
@@ -823,6 +845,7 @@ if (!PREPARED && PARTIALS_DIR && fs.existsSync(PARTIALS_DIR)) {
     activeMs: sum('activeMs'),
     firstStart: starts[0] || null,
     lastEnd: ends[ends.length - 1] || null,
+    runs: layers.length,
   };
   durationMs = timing.activeMs;
 }
@@ -1315,6 +1338,11 @@ ${
         ? `Only results produced by the automation are counted. ${MANUAL_DIRS.length} manual user
           stories (${manualCases.length} cases, skipped by design because they need scheduled jobs or
           time to pass) are excluded from every total and percentage: ${esc(MANUAL_STORY_NAMES.join('; '))}. `
+        : ''
+    }${
+      timing && timing.runs > 1
+        ? `Each case shows its latest result; the execution time is the full test time of the full run and its
+          ${timing.runs - 1} re-run${timing.runs > 2 ? 's' : ''} together. `
         : ''
     }${
       timing
