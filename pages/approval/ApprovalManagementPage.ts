@@ -26,13 +26,15 @@ import type { RejectionReason } from '../../data/payers/payerTypes';
  * network-activation story needed to approve a NETWORK status change; without
  * it that story would have needed a second, near-identical Page Object.
  */
-export type ApprovalScope = 'payer' | 'network' | 'plan';
+export type ApprovalScope = 'payer' | 'network' | 'plan' | 'formulary';
 
 const APPROVAL_SCREEN: Record<ApprovalScope, string> = {
   payer: SCREEN.approvalsPayer,
   network: SCREEN.approvalsNetwork,
   /** The Plans module's tab (2026-10-27): `approvals-plan-*`, the same component. */
   plan: SCREEN.approvalsPlan,
+  /** The Formulary module's tab (2026-11-02): `approvals-formulary-*`, the same component. */
+  formulary: SCREEN.approvalsFormulary,
 };
 
 /**
@@ -813,8 +815,11 @@ export class ApprovalManagementPage extends BasePage {
     await (await this.rowAction(entityName, decision)).click();
     const dialog = new ConfirmDialog(this.page);
     await dialog.waitForVisible();
-    const typed = comment === '' ? '' : await dialog.typeReasonText(comment);
+    // The reason FIRST: the formulary Reject dialog shows a "Rejection Reason"
+    // select and only then its text box ("Other"), so text typed before it went
+    // nowhere (18757 / 18760, 2026-11-02). Without a select this changes nothing.
     if (decision === 'reject') await dialog.selectReasonIfPresent(reason);
+    const typed = comment === '' ? '' : await dialog.typeReasonText(comment);
     await dialog.acknowledgeIfPresent();
     const answer = this.watchDecisionAnswer();
     await dialog.clickAction('confirm');

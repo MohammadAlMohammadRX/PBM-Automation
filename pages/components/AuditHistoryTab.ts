@@ -204,8 +204,19 @@ export class AuditHistoryTab {
    */
   private async turnPage(direction: 'next' | 'prev'): Promise<void> {
     const before = await this.pageSnapshot();
+    // A server-paged trail answers the turn with its own audit request - that
+    // is the turn, even when both pages read alike: 205 identical "Update · By
+    // CareConnect" entries never changed the text (formulary 18870, 2026-11-02).
+    const reloaded = this.page
+      .waitForResponse((response) => /audit/i.test(new URL(response.url()).pathname) && response.request().method() === 'POST', { timeout: Timeouts.short })
+      .catch(() => null);
     await this.page.locator(`#${this.ids.pager}-${direction}`).click();
+    const answered = await reloaded;
     await this.detail.waitForPageReady();
+    if (answered !== null) {
+      await this.entries().first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
+      return;
+    }
     await expect.poll(() => this.pageSnapshot(), { timeout: Timeouts.default, message: `the audit history should show the ${direction} page` }).not.toBe(before);
   }
 

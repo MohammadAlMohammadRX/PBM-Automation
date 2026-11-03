@@ -37,6 +37,8 @@ export const SCREEN = {
   approvalsNetwork: 'approvals-network',
   /** The Plan tab of the approvals hub (2026-10-27) - the same component again. */
   approvalsPlan: 'approvals-plan',
+  /** The Formulary tab of the hub (2026-11-02) - the same component again. */
+  approvalsFormulary: 'approvals-formulary',
   lookupItems: 'lookup-items',
   lookupItemForm: 'lookup-item-form-drawer',
 } as const;
@@ -1024,7 +1026,10 @@ export const FORMULARY_DETAIL = {
     edit: 'formulary-detail-edit-button',
     clone: 'formulary-detail-clone-button',
     delete: 'formulary-detail-delete-button',
+    /** Labelled "Deactivate" (a live or draft formulary) - verified 2026-11-02. */
     setActive: 'formulary-detail-set-active-button',
+    /** Labelled "Activate" - the button an INACTIVE formulary shows instead (verified 2026-11-02). */
+    activate: 'formulary-detail-set-active-button-2',
     submit: 'formulary-detail-submit-for-approval-button',
     revert: 'formulary-detail-revert-button',
   },
@@ -2033,6 +2038,583 @@ export const TERMINOLOGY_AUDIT = {
     close: 'terminology-detail-audit-detail-drawer-close',
   },
 } as const satisfies AuditTabIds;
+
+// ---- Formulary module (Feature 15190) - every id below read off the live screens, 2026-11-02 ----
+// reports/formulary/probe/SCREEN-MAP.md and the foundation probe of 2026-11-02.
+// FORMULARY_DETAIL / FORMULARY_FORM (plan folder 27, above) are extended, not replaced.
+
+/** The Formulary list (`/formulary-pricing`) - the shared list conventions (ListPageBase). */
+export const FORMULARY_LIST = {
+  screen: 'formulary-list',
+  kpiBand: 'formulary-list-kpis',
+  /** `${kpi}-label` / `${kpi}-value`. "pending" is labelled "Future Formularies". */
+  kpi: {
+    total: 'formulary-list-kpi-total',
+    active: 'formulary-list-kpi-active',
+    pending: 'formulary-list-kpi-pending',
+    inactive: 'formulary-list-kpi-inactive',
+    expired: 'formulary-list-kpi-expired',
+  },
+  toolbar: 'formulary-list-toolbar',
+  searchInput: 'formulary-list-search-input',
+  searchFilterButton: 'formulary-list-search-filter-button',
+  /** The quick status filter ("All Statuses", "Not Live", "Pending", "Active", "Inactive", "Expired"). */
+  statusFilter: 'formulary-list-filter-status-select',
+  chips: 'formulary-list-filter-chips',
+  sortTrigger: 'formulary-list-sort-trigger',
+  sortMenu: 'formulary-list-sort-menu',
+  /** `formulary-list-sort-option-{field}-{asc|desc}` - FORMULARY_SORT_FIELD. */
+  sortOptionPrefix: 'formulary-list-sort-option-',
+  addButton: 'formulary-list-add-button',
+  importTrigger: 'formulary-list-import-trigger',
+  advancedSearch: 'formulary-list-advanced-search',
+  table: 'formulary-list-table',
+  tableBody: 'formulary-list-table-body',
+  pager: 'formulary-list-table-pager',
+  cards: 'formulary-list-cards',
+  loadMore: 'formulary-list-load-more-button',
+  /** The list's own clone drawer - the same component as the detail's (FORMULARY_CLONE). */
+  cloneDrawer: 'formulary-list-clone-drawer',
+  deactivateDrawer: 'formulary-list-deactivate-drawer',
+} as const;
+
+export type FormularyKpiKey = keyof typeof FORMULARY_LIST.kpi;
+
+/** Column keys (`formulary-list-table-th-{key}`, `-row-{id}-cell-{key}`). */
+export const FORMULARY_COLUMN = {
+  name: 'name',
+  code: 'formularycode',
+  payer: 'payer',
+  tiers: 'tiercount',
+  trades: 'tradecount',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  status: 'status',
+  approvalStatus: 'versionstatus',
+} as const;
+
+export type FormularyColumn = keyof typeof FORMULARY_COLUMN;
+
+/**
+ * Row actions (`formulary-list-table-row-{id}-{suffix}`), offered by state:
+ * a draft shows View / Clone / Send for Approval / Deactivate / Delete.
+ */
+export const FORMULARY_ROW_ACTION = {
+  view: 'view',
+  clone: 'clone',
+  submit: 'submit-for-approval',
+  deactivate: 'deactivate',
+  activate: 'activate',
+  delete: 'delete',
+} as const;
+
+export type FormularyRowAction = keyof typeof FORMULARY_ROW_ACTION;
+
+/** Sort fields (`{field}-{asc|desc}`); Created On / Last Modified read "Newest to Oldest" for desc. */
+export const FORMULARY_SORT_FIELD = {
+  name: 'formularynameen',
+  code: 'formularycode',
+  status: 'statusid',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  createdOn: 'createdon',
+  modifiedOn: 'modifiedon',
+} as const;
+
+export type FormularySortField = keyof typeof FORMULARY_SORT_FIELD;
+
+/** Advanced-search criteria (`formulary-list-advanced-search-field-{key}-input`). */
+export const FORMULARY_FILTER_FIELD = {
+  text: 'searchtext',
+  status: 'statusid',
+  approvalStatus: 'approvalstatus',
+} as const;
+
+export type FormularyFilterField = keyof typeof FORMULARY_FILTER_FIELD;
+
+/** The list's Export control: Export Template / Selected Export / Export All Data. */
+export const FORMULARY_EXPORT = {
+  root: 'formulary-list-export',
+  trigger: 'formulary-list-export-trigger',
+  menu: 'formulary-list-export-menu',
+  template: 'formulary-list-export-template',
+  selected: 'formulary-list-export-selected',
+  all: 'formulary-list-export-all',
+} as const;
+
+/** A card of the Cards view (`formulary-card-{id}-{suffix}`). */
+export const FORMULARY_CARD = {
+  prefix: 'formulary-card-',
+  title: 'title',
+  versionStatus: 'version-status',
+  activeSwitch: 'active-switch',
+  code: 'code',
+  tiers: 'tiers',
+  trades: 'trades',
+  effectiveDate: 'effective-date',
+  expiryDate: 'expiry-date',
+  status: 'status',
+  statusBadge: 'status-badge',
+  action: {
+    view: 'view-button',
+    clone: 'clone-button',
+    delete: 'delete-button',
+    submit: 'submit-for-approval-button',
+  },
+} as const;
+
+export type FormularyCardAction = keyof typeof FORMULARY_CARD.action;
+
+/**
+ * The bulk Import drawer, under the list's (`formulary-list-bulk-import`) or the
+ * detail's (`formulary-detail-bulk-import`, Tiers / Trades) namespace; Upload
+ * history opens `{scope}-bulk-history`. Suffixes below.
+ */
+export const FORMULARY_IMPORT = {
+  list: 'formulary-list-bulk-import',
+  detail: 'formulary-detail-bulk-import',
+  listHistory: 'formulary-list-bulk-history',
+  detailHistory: 'formulary-detail-bulk-history',
+  title: 'title',
+  close: 'close',
+  intro: 'intro',
+  historyButton: 'history-button',
+  dropZone: 'drop-zone',
+  dropHint: 'drop-hint',
+  /** The file input - beside the drop zone, not inside it. */
+  file: 'file',
+  cancel: 'cancel-button',
+} as const;
+
+/** The Add / Edit Formulary drawer - two steps (Basic Information, Effective Period). */
+export const FORMULARY_FORM_DRAWER = {
+  root: 'formulary-form-drawer',
+  title: 'formulary-form-drawer-title',
+  close: 'formulary-form-drawer-close',
+  stepper: 'formulary-form-drawer-stepper',
+  /** `${stepPrefix}{1|2}` with `-bullet` / `-label`. */
+  stepPrefix: 'formulary-form-drawer-stepper-step-',
+  nameEn: 'formulary-form-drawer-formulary-name-en-input',
+  nameAr: 'formulary-form-drawer-formulary-name-ar-input',
+  payerSelect: 'formulary-form-drawer-payer-id-select',
+  /** Edit mode renders the payer read-only. */
+  payerTag: 'formulary-form-drawer-payer-id-tag',
+  descriptionEn: 'formulary-form-drawer-description-en-input',
+  descriptionAr: 'formulary-form-drawer-description-ar-input',
+  /** Step 2. Dates are typed as `DD/MM/YYYY HH:mm`. */
+  effectiveDate: 'formulary-form-drawer-effective-date-input',
+  expiryDate: 'formulary-form-drawer-expiry-date-input',
+  /** "Important: The formulary is saved as a draft ..." on step 2. */
+  notice: 'formulary-form-drawer-important-title-message-text',
+  /** Step 1: Cancel; step 2: Back. */
+  back: 'formulary-form-drawer-back-button',
+  next: 'formulary-form-drawer-next-button',
+  save: 'formulary-form-drawer-save-button',
+  /** `formulary-form-drawer-{field}-error` - FORMULARY_FORM_ERROR. */
+  errorPrefix: 'formulary-form-drawer-',
+} as const;
+
+/** Field error suffixes of the formulary drawer ("This field is required."). */
+export const FORMULARY_FORM_ERROR = {
+  nameEn: 'formulary-name-en-error',
+  nameAr: 'formulary-name-ar-error',
+  payer: 'payer-id-error',
+  descriptionEn: 'description-en-error',
+  descriptionAr: 'description-ar-error',
+  effectiveDate: 'effective-date-error',
+  expiryDate: 'expiry-date-error',
+} as const;
+
+export type FormularyFormField = keyof typeof FORMULARY_FORM_ERROR;
+
+/** The detail screen's tabs, notices and Overview (extends FORMULARY_DETAIL). */
+export const FORMULARY_DETAIL_EXTRA = {
+  tab: {
+    overview: 'formulary-detail-tab-overview',
+    tiers: 'formulary-detail-tab-tiers',
+    trades: 'formulary-detail-tab-trades',
+    versions: 'formulary-detail-tab-versions',
+    audit: 'formulary-detail-tab-audit',
+  },
+  /** "Not published yet: This formulary has never gone live ..." (v0 drafts). */
+  pendingCreate: 'formulary-detail-pending-create-message',
+  pendingCreateText: 'formulary-detail-pending-create-message-text',
+  /** "Important: Every change to this formulary ... is saved as a draft first." (Overview). */
+  draftNotice: 'formulary-detail-important-title-message-2',
+  draftNoticeText: 'formulary-detail-important-title-message-2-text',
+  /** The Tiers tab notice ("Tiers define cost-sharing groups ..."). */
+  tabNotice: 'formulary-detail-important-title-message',
+  tabNoticeText: 'formulary-detail-important-title-message-text',
+  loading: 'formulary-detail-loading',
+  deactivateDrawer: 'formulary-detail-deactivate-drawer',
+} as const;
+
+export type FormularyDetailTab = keyof typeof FORMULARY_DETAIL_EXTRA.tab;
+
+/** The Tiers tab: toolbar and the tier cards (`tier-card-{id}-{suffix}`). */
+export const FORMULARY_TIERS = {
+  searchInput: 'formulary-detail-description-search-input',
+  searchFilterButton: 'formulary-detail-description-search-filter-button',
+  chips: 'formulary-detail-description-chips',
+  addButton: 'formulary-detail-add-tier-button',
+  advancedSearch: 'formulary-detail-tiers-advanced-search',
+  importTrigger: 'formulary-detail-tiers-import-trigger',
+  export: {
+    root: 'formulary-detail-tiers-export',
+    trigger: 'formulary-detail-tiers-export-trigger',
+    menu: 'formulary-detail-tiers-export-menu',
+    template: 'formulary-detail-tiers-export-template',
+    csv: 'formulary-detail-tiers-export-csv',
+    excel: 'formulary-detail-tiers-export-excel',
+  },
+  cardPrefix: 'tier-card-',
+  card: {
+    title: 'title',
+    order: 'order',
+    coverage: 'coverage',
+    nameEn: 'name-en-label',
+    nameAr: 'name-ar-label',
+    description: 'description',
+    edit: 'edit-button',
+    delete: 'delete-button',
+  },
+} as const;
+
+/** Tier advanced-search criteria (`formulary-detail-tiers-advanced-search-field-{key}-input`). */
+export const FORMULARY_TIER_FILTER_FIELD = { name: 'name', description: 'description' } as const;
+
+/** The Add / Edit Tier drawer. */
+export const FORMULARY_TIER_DRAWER = {
+  root: 'formulary-tier-form-drawer',
+  title: 'formulary-tier-form-drawer-title',
+  close: 'formulary-tier-form-drawer-close',
+  nameEn: 'formulary-tier-form-drawer-name-en-input',
+  nameAr: 'formulary-tier-form-drawer-name-ar-input',
+  coverage: 'formulary-tier-form-drawer-coverage-input',
+  order: 'formulary-tier-form-drawer-order-input',
+  descriptionEn: 'formulary-tier-form-drawer-description-en-input',
+  descriptionAr: 'formulary-tier-form-drawer-description-ar-input',
+  cancel: 'formulary-tier-form-drawer-cancel-button',
+  save: 'formulary-tier-form-drawer-save-button',
+  errorPrefix: 'formulary-tier-form-drawer-',
+} as const;
+
+/** Tier drawer field error suffixes (`formulary-tier-form-drawer-{suffix}`). */
+export const FORMULARY_TIER_ERROR = {
+  nameEn: 'tier-name-en-error',
+  nameAr: 'tier-name-ar-error',
+  order: 'tier-order-error',
+  coverage: 'coverage-error',
+  descriptionEn: 'description-en-error',
+  descriptionAr: 'description-ar-error',
+} as const;
+
+export type FormularyTierField = keyof typeof FORMULARY_TIER_ERROR;
+
+/** The Trades & Pricing tab: toolbar, filters and the trade cards (`formulary-trades-card-{id}-{suffix}`). */
+export const FORMULARY_TRADES = {
+  searchInput: 'formulary-trades-search-input',
+  searchFilterButton: 'formulary-trades-search-filter-button',
+  tierFilter: 'formulary-trades-filter-tier-select',
+  statusFilter: 'formulary-trades-filter-status-select',
+  addButton: 'formulary-trades-add-button',
+  advancedSearch: 'formulary-trades-advanced-search',
+  importTrigger: 'formulary-detail-trades-import-trigger',
+  export: {
+    root: 'formulary-detail-trades-export',
+    trigger: 'formulary-detail-trades-export-trigger',
+    menu: 'formulary-detail-trades-export-menu',
+    template: 'formulary-detail-trades-export-template',
+    excel: 'formulary-detail-trades-export-excel',
+  },
+  cardPrefix: 'formulary-trades-card-',
+  card: {
+    title: 'title',
+    tradeCode: 'trade-code',
+    tier: 'tier',
+    tierBadge: 'tier-badge',
+    coverage: 'coverage',
+    netPrice: 'net-price',
+    rebate: 'rebate',
+    status: 'status',
+    statusBadge: 'status-badge',
+    /** "Suspend" on an Active trade, "Activate" on a Suspended one. */
+    toggleStatus: 'toggle-status-button',
+    priceHistory: 'price-history-button',
+    /** Labelled "Benefit Configuration". */
+    benefitConfig: 'edit-button',
+    /** Labelled "Remove". */
+    remove: 'delete-button',
+  },
+} as const;
+
+/** Trade advanced-search criteria (`formulary-trades-advanced-search-field-{key}-input`). */
+export const FORMULARY_TRADE_FILTER_FIELD = { name: 'name', tier: 'tier', status: 'status' } as const;
+
+/** The Add Trade drawer (`formulary-add-trade-dialog`); its fields sit under `-pricing-field-`. */
+export const FORMULARY_ADD_TRADE = {
+  root: 'formulary-add-trade-dialog',
+  title: 'formulary-add-trade-dialog-title',
+  close: 'formulary-add-trade-dialog-close',
+  trade: 'formulary-add-trade-dialog-pricing-field-trade-select',
+  tier: 'formulary-add-trade-dialog-pricing-field-tier-select',
+  coverage: 'formulary-add-trade-dialog-pricing-field-coverage-input',
+  baseCost: 'formulary-add-trade-dialog-pricing-field-base-cost-input',
+  publicPrice: 'formulary-add-trade-dialog-pricing-field-public-price-input',
+  supplierPrice: 'formulary-add-trade-dialog-pricing-field-supplier-price-input',
+  discount: 'formulary-add-trade-dialog-pricing-field-discount-input',
+  vat: 'formulary-add-trade-dialog-pricing-field-vat-input',
+  /** The live "Net price = (S − S × D%) × (1 + V%) = SAR n" line. */
+  netPriceMessage: 'formulary-add-trade-dialog-pricing-effective-to-message-text',
+  rebateType: 'formulary-add-trade-dialog-pricing-field-rebate-type-select',
+  /** Rendered only once a rebate type other than "No rebate" is chosen. */
+  rebateValue: 'formulary-add-trade-dialog-pricing-field-rebate-value-input',
+  effectiveFrom: 'formulary-add-trade-dialog-pricing-field-effective-from-input',
+  effectiveTo: 'formulary-add-trade-dialog-pricing-field-effective-to-input',
+  cancel: 'formulary-add-trade-dialog-cancel-button',
+  save: 'formulary-add-trade-dialog-save-button',
+  /** Errors: `{errorPrefix}{suffix}` - FORMULARY_TRADE_ERROR (verified: `formulary-add-trade-dialog-trade-id-error`). */
+  errorPrefix: 'formulary-add-trade-dialog-',
+} as const;
+
+/** Add Trade field error suffixes. */
+export const FORMULARY_TRADE_ERROR = {
+  trade: 'trade-id-error',
+  tier: 'tier-id-error',
+  coverage: 'coverage-error',
+  baseCost: 'base-cost-error',
+  publicPrice: 'public-price-error',
+  supplierPrice: 'supplier-price-error',
+  discount: 'discount-error',
+  vat: 'vat-error',
+  rebateValue: 'rebate-value-error',
+  effectiveFrom: 'effective-from-error',
+  effectiveTo: 'effective-to-error',
+} as const;
+
+export type FormularyTradeField = keyof typeof FORMULARY_TRADE_ERROR;
+
+/**
+ * The Price History drawer: the period cards, then (same drawer) the price
+ * record form or the rebate form. The value spans and the card buttons repeat
+ * the SAME id on every card - a card is addressed by its own id first.
+ */
+export const FORMULARY_PRICE_HISTORY = {
+  root: 'formulary-price-history-dialog',
+  close: 'formulary-price-history-dialog-close',
+  notice: 'formulary-price-history-dialog-important-title-message-text',
+  addRecord: 'formulary-price-history-dialog-add-record-button',
+  /** `formulary-price-history-dialog-card-{periodId}` with `-title`, `-status`, `-status-badge`. */
+  cardPrefix: 'formulary-price-history-dialog-card-',
+  /** locator-exception: repeated on every card; read inside a card. */
+  value: {
+    baseCost: 'formulary-price-history-dialog-pricing-base-cost',
+    publicPrice: 'formulary-price-history-dialog-pricing-public-price',
+    supplierPrice: 'formulary-price-history-dialog-pricing-supplier-price',
+    discount: 'formulary-price-history-dialog-pricing-discount',
+    vat: 'formulary-price-history-dialog-pricing-vat',
+    netPrice: 'formulary-price-history-dialog-pricing-calculated-net-price',
+    /** The rebate line: `-r-label` carries the type ("Flat Value"), `-r` the value ("SAR 1.00") - the application's own names. */
+    rebateType: 'formulary-price-history-dialog-r-label',
+    rebate: 'formulary-price-history-dialog-r',
+  },
+  /** locator-exception: repeated on every card; clicked inside a card. */
+  editRecord: 'formulary-price-history-dialog-edit-record-button',
+  editRebate: 'formulary-price-history-dialog-edit-rebate-button',
+  removeRecord: 'formulary-price-history-dialog-remove-record-button',
+  closeButton: 'formulary-price-history-dialog-close-button',
+  /** Form views: Back (header), Cancel and Save. */
+  back: 'formulary-price-history-dialog-back-to-list-button-2',
+  cancel: 'formulary-price-history-dialog-back-to-list-button',
+  submit: 'formulary-price-history-dialog-submit-button',
+} as const;
+
+/** The price record form inside the Price History drawer. */
+export const FORMULARY_PRICE_RECORD = {
+  notice: 'formulary-price-record-form-important-title-message-text',
+  baseCost: 'formulary-price-record-form-pricing-field-base-cost-input',
+  publicPrice: 'formulary-price-record-form-pricing-field-public-price-input',
+  supplierPrice: 'formulary-price-record-form-pricing-field-supplier-price-input',
+  discount: 'formulary-price-record-form-pricing-field-discount-input',
+  vat: 'formulary-price-record-form-pricing-field-vat-input',
+  netPriceMessage: 'formulary-price-record-form-pricing-vat-message-text',
+  effectiveFrom: 'formulary-price-record-form-pricing-field-effective-from-input',
+  effectiveTo: 'formulary-price-record-form-pricing-field-effective-to-input',
+  /** `formulary-price-record-form-{suffix}` - FORMULARY_TRADE_ERROR's pricing suffixes (`supplier-price-error`, `vat-error`, `effective-from-error` ...). */
+  errorPrefix: 'formulary-price-record-form-',
+} as const;
+
+/** The Edit Rebate form inside the Price History drawer. */
+export const FORMULARY_REBATE_FORM = {
+  type: 'formulary-rebate-form-pricing-field-rebate-type-select',
+  value: 'formulary-rebate-form-pricing-field-rebate-value-input',
+  valueError: 'formulary-rebate-form-rebate-value-error',
+} as const;
+
+/** The Benefit Configuration drawer (list view) and its form view. */
+export const BENEFIT_CONFIGS = {
+  root: 'benefit-configs-dialog',
+  close: 'benefit-configs-dialog-close',
+  notice: 'benefit-configs-dialog-important-title-message-text',
+  addButton: 'benefit-configs-dialog-add-button',
+  statusFilter: 'benefit-configs-dialog-status-filter-select',
+  closeButton: 'benefit-configs-dialog-close-button',
+  /** Form view: Back (header), Cancel and Save. */
+  back: 'benefit-configs-dialog-back-to-list-button-2',
+  cancel: 'benefit-configs-dialog-back-to-list-button',
+  submit: 'benefit-configs-dialog-submit-button',
+  /**
+   * `benefit-configs-dialog-card-{id}` with `-title`, `-subtitle` (the period), `-status`
+   * ("Future", or "Draft · New" for an unapproved one), `-status-badge`, `-draft-badge`,
+   * `-body`, `-footer`. A NEW draft card shows no footer actions; an approved Future one
+   * shows "Edit Benefit" / "Delete" (verified 2026-11-02).
+   */
+  cardPrefix: 'benefit-configs-dialog-card-',
+  card: { title: 'title', subtitle: 'subtitle', status: 'status', statusBadge: 'status-badge', draftBadge: 'draft-badge', footer: 'footer' },
+  /** locator-exception: every card repeats these two ids; clicked inside one card. */
+  editButton: 'benefit-configs-dialog-edit-button',
+  deleteButton: 'benefit-configs-dialog-delete-button',
+  /** locator-exception: the values repeat on every card (`benefit-configs-dialog-{field}`, e.g. `copayment-amount`); read inside one card. */
+  valuePrefix: 'benefit-configs-dialog-',
+} as const;
+
+export const BENEFIT_CONFIG_FORM = {
+  root: 'benefit-config-form',
+  /** "Provide at least one of Copayment or Coinsurance. A sublimit amount and period must be set together." */
+  notice: 'benefit-config-form-important-title-message-text',
+  nameEn: 'benefit-config-form-name-en-input',
+  nameAr: 'benefit-config-form-name-ar-input',
+  copaymentAmount: 'benefit-config-form-copayment-amount-input',
+  coinsurancePercentage: 'benefit-config-form-coinsurance-percentage-input',
+  deductible: 'benefit-config-form-deductible-input',
+  outOfPocketMaximum: 'benefit-config-form-out-of-pocket-maximum-input',
+  maximumCopayAmount: 'benefit-config-form-maximum-copay-amount-input',
+  minimumMemberContribution: 'benefit-config-form-minimum-member-contribution-input',
+  sublimitAmount: 'benefit-config-form-sublimit-amount-input',
+  benefitEffectiveDate: 'benefit-config-form-benefit-effective-date-input',
+  benefitEndDate: 'benefit-config-form-benefit-end-date-input',
+  benefitYearNote: 'benefit-config-form-benefit-year-note',
+  /** `benefit-config-form-{field}-error`, field in kebab case (`name-en`, `copayment-amount`, ...). */
+  errorPrefix: 'benefit-config-form-',
+} as const;
+
+export type BenefitConfigField = Exclude<keyof typeof BENEFIT_CONFIG_FORM, 'root' | 'notice' | 'benefitYearNote' | 'errorPrefix'>;
+
+/** The Version History tab (`formulary-detail-versions-table`) and its Version Details drawer. */
+export const FORMULARY_VERSIONS = {
+  searchInput: 'formulary-detail-versions-search-input',
+  searchFilterButton: 'formulary-detail-versions-search-filter-button',
+  advancedSearch: 'formulary-detail-versions-advanced-search',
+  chips: 'formulary-detail-versions-filter-chips',
+  table: 'formulary-detail-versions-table',
+  /** Rows `formulary-detail-versions-table-row-{id}`, cells `-cell-{version|changetype|status|requestedby|requestedon|reviewedby|reviewedon}`. */
+  rowPrefix: 'formulary-detail-versions-table-row-',
+  headerPrefix: 'formulary-detail-versions-table-th-',
+  /** locator-exception: every row's status badge and View button share these ids. */
+  statusBadge: 'formulary-detail-version-status-badge',
+  viewButton: 'formulary-detail-view-version-button',
+  /** locator-exception: "Revert to this" - every revertable row (published / superseded, not current) repeats this id (verified 2026-11-02). */
+  revertButton: 'formulary-detail-revert-button',
+  pager: 'formulary-detail-versions-table-pager',
+  drawer: {
+    root: 'formulary-detail-version-drawer',
+    title: 'formulary-detail-version-drawer-title',
+    close: 'formulary-detail-version-drawer-close',
+    /** `formulary-detail-version-drawer-{key}` - FORMULARY_VERSION_FIELD. */
+    fieldPrefix: 'formulary-detail-version-drawer-',
+  },
+} as const;
+
+export const FORMULARY_VERSION_COLUMN = {
+  version: 'version',
+  change: 'changetype',
+  status: 'status',
+  requestedBy: 'requestedby',
+  requestedOn: 'requestedon',
+  reviewedBy: 'reviewedby',
+  reviewedOn: 'reviewedon',
+} as const;
+
+export type FormularyVersionColumn = keyof typeof FORMULARY_VERSION_COLUMN;
+
+export const FORMULARY_VERSION_FIELD = {
+  approvalStatus: 'approval-status',
+  businessStatus: 'business-status',
+  nameEn: 'name-en',
+  nameAr: 'name-ar',
+  payer: 'payer',
+  effectiveDate: 'effective-date',
+  expiryDate: 'expiry-date',
+  description: 'description',
+  requestedBy: 'requested-by',
+  requestedOn: 'requested-on',
+  reviewedBy: 'reviewed-by',
+  reviewedOn: 'reviewed-on',
+} as const;
+
+export type FormularyVersionField = keyof typeof FORMULARY_VERSION_FIELD;
+
+/** The detail's Audit History tab - the shared component (components/AuditHistoryTab). */
+export const FORMULARY_AUDIT = {
+  searchInput: 'formulary-detail-audit-search-input',
+  searchPrefix: 'formulary-detail-audit',
+  advancedSearchButton: 'formulary-detail-audit-search-filter-button',
+  advancedSearch: 'formulary-detail-audit-advanced-search',
+  chips: 'formulary-detail-audit-filter-chips',
+  /** locator-exception: every entry's button shares this id; entries have none. */
+  viewButton: 'formulary-detail-view-audit-button',
+  pager: 'formulary-detail-audit-pager',
+  drawer: AUDIT_ENTRY_DRAWER,
+} as const satisfies AuditTabIds;
+
+/** The Clone Formulary drawer - two steps; under the detail's (`formulary-clone-dialog`) namespace. */
+export const FORMULARY_CLONE = {
+  root: 'formulary-clone-dialog',
+  title: 'formulary-clone-dialog-title',
+  close: 'formulary-clone-dialog-close',
+  stepPrefix: 'formulary-clone-dialog-stepper-step-',
+  /** "Cloning a formulary: This creates a NEW formulary from "<source>" ..." */
+  sourceMessage: 'formulary-clone-dialog-source-message-text',
+  nameEn: 'formulary-clone-dialog-formulary-name-en-input',
+  nameAr: 'formulary-clone-dialog-formulary-name-ar-input',
+  descriptionEn: 'formulary-clone-dialog-description-en-input',
+  descriptionAr: 'formulary-clone-dialog-description-ar-input',
+  includeTiers: 'formulary-clone-dialog-include-tiers-checkbox',
+  includeTrades: 'formulary-clone-dialog-include-trades-checkbox',
+  includePricing: 'formulary-clone-dialog-include-pricing-checkbox',
+  /** Hints under the check boxes (`-contents-{timing|pricing-range|none|blocked|trades-left-out}-hint`). */
+  hintPrefix: 'formulary-clone-dialog-contents-',
+  /** Step 2: "A clone does not inherit its source period ...". */
+  periodMessage: 'formulary-clone-dialog-period-message-text',
+  effectiveDate: 'formulary-clone-dialog-effective-date-input',
+  expiryDate: 'formulary-clone-dialog-expiry-date-input',
+  back: 'formulary-clone-dialog-back-button',
+  next: 'formulary-clone-dialog-next-button',
+  clone: 'formulary-clone-dialog-clone-button',
+  errorPrefix: 'formulary-clone-dialog-',
+} as const;
+
+/**
+ * The Deactivate Formulary drawer, under the detail's or the list's namespace
+ * (`formulary-detail-deactivate-drawer`, `formulary-list-deactivate-drawer`);
+ * suffixes below. The reason is required ("This field is required."), the
+ * notes optional; confirming stages the deactivation as a draft.
+ */
+export const FORMULARY_DEACTIVATE = {
+  detail: 'formulary-detail-deactivate-drawer',
+  list: 'formulary-list-deactivate-drawer',
+  title: 'title',
+  close: 'close',
+  /** "Needs approval: ... saves a draft — it takes effect only after ... a reviewer approves it." */
+  approvalNotice: 'approval-notice-text',
+  /** "Deactivate <name>? Plans already assigned to it keep their own status ..." */
+  warning: 'warning',
+  reason: 'reason-select',
+  reasonError: 'reason-error',
+  details: 'details-input',
+  cancel: 'cancel-button',
+  confirm: 'confirm-button',
+} as const;
 
 /** The header's notification bell and its drawer (global chrome). */
 export const NOTIFICATION_CENTRE = {

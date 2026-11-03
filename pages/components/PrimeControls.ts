@@ -32,7 +32,13 @@ async function optionsOf(page: Page, combobox: Locator): Promise<Locator> {
 export async function openSelect(page: Page, combobox: Locator): Promise<Locator> {
   await combobox.click();
   const options = await optionsOf(page, combobox);
-  await options.first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
+  const opened = await options.first().waitFor({ state: 'visible', timeout: Timeouts.short }).then(() => true, () => false);
+  // A click straight after the previous choice can land while that overlay is
+  // still closing and toggle nothing open (formulary status filter, 2026-11-02).
+  if (!opened) {
+    await combobox.click();
+    await options.first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
+  }
   return options;
 }
 

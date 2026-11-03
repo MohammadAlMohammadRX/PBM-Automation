@@ -28,8 +28,9 @@
  *   npm run test:network 21       resume from folder 21
  *   npm run test:network 03,07    exactly those folders, in that order
  *
- * The plans (MODULE=plan) and terminology (MODULE=terminology, 2026-10-29)
- * modules run the same way: `npm run test:plan`, `npm run test:terminology`.
+ * The plans (MODULE=plan), terminology (MODULE=terminology, 2026-10-29) and
+ * formulary (MODULE=formulary, 2026-11-02) modules run the same way:
+ * `npm run test:plan`, `npm run test:terminology`, `npm run test:formulary`.
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');

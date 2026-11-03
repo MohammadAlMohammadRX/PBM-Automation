@@ -268,6 +268,8 @@ export const ApiEndpoints = {
   approvalReject: '/api/Approvals/RejectRequest',
   approvalApprove: '/api/Approvals/ApproveRequest',
   approvalList: '/api/Approvals/GetApprovals',
+  /** The Reject dialog's reasons (2026-11-02). */
+  approvalRejectionReasonLookup: '/api/Lookups/Items/approvalRejectionReason',
   /** The signed-in user's notification inbox (POST `{pageNumber, rowsPerPage, unreadOnly}`). */
   myNotifications: '/api/Notifications/GetMyNotifications',
 
@@ -321,6 +323,84 @@ export const ApiEndpoints = {
   lookupList: '/api/Lookups/GetLookups',
   /** POST `{ entityType, entityId, actionType, pageNumber, rowsPerPage }` - an entity's audit trail (the terminology Audit History tab). */
   auditLogList: '/api/AuditLogs/GetAuditLogs',
+
+  // ---- Formulary module (Feature 15190, 2026-11-02) ----
+  // Paths read off the application's own formulary / benefit-config services
+  // (bundle chunk of 2026-11-02) and request bodies captured from the screens'
+  // own calls (reports/formulary/Formulary-Foundation-Notes.md). The plan-suite
+  // keys above (formularyDropdown ... formularyInactivationReasonLookup) stay.
+  /** POST `{ pageNumber, rowsPerPage, sortBy, searchText?, statusId?, ... }` -> `payload.formularies.{items, totalRows}`. */
+  formularyList: '/api/Formularies/GetFormularies',
+  /** POST `{}` -> `{ total, active, pending, inactive, expired, pendingApproval }` (the KPI tiles). */
+  formularyDashboard: '/api/Formularies/GetFormulariesDashboard',
+  /** POST `{ id, effectiveDate, expiryDate }` - what a clone would carry (counts, pricing range). */
+  formularyForClone: '/api/Formularies/GetFormularyForClone',
+  /** POST `{ sourceFormularyId, formularyNameEn/Ar, descriptionEn/Ar, effectiveDate, expiryDate, includeTiers, includeTrades, includePricing }`. */
+  formularyClone: '/api/Formularies/CloneFormulary',
+  /** POST `{ formularyId, targetVersion }` - stages the version as a new draft. */
+  formularyRevert: '/api/Formularies/RevertFormularyVersion',
+  /** GET `/GetFormularyVersions/{id}` -> the versions, newest first. */
+  formularyVersions: '/api/Formularies/GetFormularyVersions',
+  /** POST `{ formularyId, actionType, pageNumber, rowsPerPage }` -> `payload.{items, totalRows}`. */
+  formularyAuditTrail: '/api/Formularies/GetFormularyAuditTrail',
+  /** POST `{ formularyId }` -> the tiers (with `tradeCount`, `concurrencyStamp`). */
+  formularyTiers: '/api/Formularies/GetTiers',
+  /** PUT `{ id, tierNameEn, tierNameAr, tierOrder, descriptionEn, descriptionAr, defaultCoveragePercentage, concurrencyStamp }`. */
+  formularyUpdateTier: '/api/Formularies/UpdateTier',
+  /** DELETE `/DeleteTier/{id}`. */
+  formularyDeleteTier: '/api/Formularies/DeleteTier',
+  /** POST `{ formularyId, pageNumber, rowsPerPage, searchText?, tierId?, statusId? }` -> `payload.trades.{items}`, `payload.tradesWithoutPrice`. */
+  formularyTrades: '/api/Formularies/GetFormularyTrades',
+  /** PUT - a trade's tier / coverage. */
+  formularyUpdateTrade: '/api/Formularies/UpdateFormularyTrade',
+  /** POST `{ id, suspend }` - Suspend (true) / Activate (false) a formulary trade. */
+  formularySetTradeStatus: '/api/Formularies/SetFormularyTradeStatus',
+  /** DELETE `/DeleteFormularyTrade/{id}` (the card's Remove). */
+  formularyDeleteTrade: '/api/Formularies/DeleteFormularyTrade',
+  /** POST `{ formularyTradeId }` -> the price periods (`periodStatus`, `netPrice`, `rebateTypeId`, `isDraft`). */
+  formularyPriceHistory: '/api/Formularies/GetPriceHistory',
+  /** POST `{ formularyTradeId, effectiveFrom, effectiveTo, baseCost, publicPrice, supplierPrice, discountPercentage, vatPercentage }`. */
+  formularyAddPricingPeriod: '/api/Formularies/AddPricingPeriod',
+  /** PUT - the add body with `id` and `concurrencyStamp` instead of `formularyTradeId`. */
+  formularyUpdatePricingPeriod: '/api/Formularies/UpdatePricingPeriod',
+  /** DELETE `/DeletePricingPeriod/{id}`. */
+  formularyDeletePricingPeriod: '/api/Formularies/DeletePricingPeriod',
+  /** POST `{ pricingPeriodId, rebateTypeId, rebateValue }`. */
+  formularyUpsertRebate: '/api/Formularies/UpsertRebate',
+  /** POST `{ pricingPeriodId }` - the rebate form saved with "No rebate". */
+  formularyDeleteRebate: '/api/Formularies/DeleteRebate',
+  formularyImport: '/api/Formularies/ImportFormularies',
+  formularyImportTiers: '/api/Formularies/ImportFormularyTiers',
+  formularyImportTrades: '/api/Formularies/ImportFormularyTrades',
+  formularyImportTemplate: '/api/Formularies/GetFormularyImportTemplate',
+  formularyImportHistory: '/api/Formularies/GetFormularyImportHistory',
+  formularyImportResult: '/api/Formularies/DownloadFormularyImportResult',
+  formularyExport: '/api/Formularies/ExportFormularies',
+  formularyExportTiers: '/api/Formularies/ExportFormularyTiers',
+  formularyExportTrades: '/api/Formularies/ExportFormularyTrades',
+  /**
+   * The Deactivate drawer's reasons (2026-11-02). `formularyInactivationReason`
+   * (above, inferred for the plan suite) answers an EMPTY list.
+   */
+  formularyDeactivationReasonLookup: '/api/Lookups/Items/formularyDeactivationReason',
+  formularyTradeStatusLookup: '/api/Lookups/Items/formularyTradeStatus',
+  rebateTypeLookup: '/api/Lookups/Items/rebateType',
+  /** POST `{ searchText }` - the trade catalogue the Add Trade drawer offers. */
+  tradesDropdown: '/api/Trades/GetTradesDropdown',
+
+  /** POST `{ formularyTradeId, pageNumber, rowsPerPage }` -> `payload.benefitConfigs.{items}`. */
+  benefitConfigList: '/api/BenefitConfigs/GetBenefitConfigs',
+  /** POST `{ id }`. */
+  benefitConfigGet: '/api/BenefitConfigs/GetBenefitConfig',
+  benefitConfigDashboard: '/api/BenefitConfigs/GetBenefitConfigsDashboard',
+  /** POST `{ formularyTradeId, benefitConfigNameEn/Ar, benefitConfigDescriptionEn/Ar, copaymentAmount, coinsurancePercentage, deductible, outOfPocketMaximum, maximumCopayAmount, minimumMemberContribution, sublimitAmount, benefitEffectiveDate, benefitEndDate }`. */
+  benefitConfigAdd: '/api/BenefitConfigs/AddBenefitConfig',
+  /** PUT - the add body with `id` and `concurrencyStamp` instead of `formularyTradeId`. */
+  benefitConfigUpdate: '/api/BenefitConfigs/UpdateBenefitConfig',
+  /** DELETE `/DeleteBenefitConfig/{id}`. */
+  benefitConfigDelete: '/api/BenefitConfigs/DeleteBenefitConfig',
+  benefitConfigStatusLookup: '/api/Lookups/Items/benefitConfigStatus',
+  sublimitPeriodLookup: '/api/Lookups/Items/sublimitPeriod',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;
