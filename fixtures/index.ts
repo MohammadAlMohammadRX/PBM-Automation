@@ -14,6 +14,7 @@ import { test as planFormularyStateTest } from './planFormularyState.fixture';
 import { test as terminologyModuleTest } from './terminologyModule.fixture';
 import { test as formularyModuleTest } from './formularyModule.fixture';
 import { test as policyModuleTest } from './policyModule.fixture';
+import { test as facilityModuleTest } from './facilityModule.fixture';
 import { test as networkHistoryTest } from './networkHistory.fixture';
 import { test as facilityDirectoryTest } from './facilityDirectory.fixture';
 import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
@@ -55,6 +56,7 @@ export const test = mergeTests(
   terminologyModuleTest,
   formularyModuleTest,
   policyModuleTest,
+  facilityModuleTest,
   networkHistoryTest,
   facilityDirectoryTest,
   cascadeDependentsTest,

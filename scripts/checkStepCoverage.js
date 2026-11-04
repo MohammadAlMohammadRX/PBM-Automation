@@ -34,6 +34,8 @@ const PLAN_ROOT = path.join('tests', 'plan');
 const TERMINOLOGY_ROOT = path.join('tests', 'terminology');
 // The policy module (2026-11-03) likewise.
 const POLICY_ROOT = path.join('tests', 'policy');
+// The facility module (2026-11-04) likewise.
+const FACILITY_ROOT = path.join('tests', 'facility');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -223,8 +225,9 @@ if (fs.existsSync(NETWORK_ROOT)) walk(NETWORK_ROOT);
 if (fs.existsSync(PLAN_ROOT)) walk(PLAN_ROOT);
 if (fs.existsSync(TERMINOLOGY_ROOT)) walk(TERMINOLOGY_ROOT);
 if (fs.existsSync(POLICY_ROOT)) walk(POLICY_ROOT);
+if (fs.existsSync(FACILITY_ROOT)) walk(FACILITY_ROOT);
 
-const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || file.includes(POLICY_ROOT) || ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || file.includes(POLICY_ROOT) || file.includes(FACILITY_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

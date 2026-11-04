@@ -103,8 +103,12 @@ export const ApiEndpoints = {
    */
   networkSetActive: '/api/Networks/SetNetworkActive',
 
-  /** Deactivating a network (POST), the counterpart of networkSetActive. */
-  networkSetInactive: '/api/Networks/SetNetworkInactive',
+  /**
+   * Deactivating a network (POST `{ id, inactivationReasonId, inactivationDetails }`), the
+   * counterpart of networkSetActive. Renamed by the app: SetNetworkInactive answers 404 since
+   * at least 2026-11-04 (Facility 17481); InactivateNetwork takes the same fields.
+   */
+  networkSetInactive: '/api/Networks/InactivateNetwork',
 
   /**
    * Creating a payer (POST). Named for the same reason as payerUpdate: the
@@ -489,6 +493,42 @@ export const ApiEndpoints = {
   policyResetHistory: '/api/MemberAccumulators/GetResetJobHistory',
   /** POST `{ policyId, reason, attachmentUri/FileName/ContentType/SizeBytes, deductibleAmount, coinsurancePercent, outOfPocketMaximum, sublimitAmount }`. */
   policyResetBenefits: '/api/MemberAccumulators/ResetPolicyBenefits',
+
+  // ---- Facility module (Feature 15130, 2026-11-04) ----
+  // Paths read off the application's facility service (bundle chunk-3GAWWUPF,
+  // `base="/Facilities"`) and the bodies CAPTURED from the screens' own calls
+  // (reports/facility/Facility-Foundation-Notes.md). NO approval workflow: every
+  // write below takes effect at once. `FACILITY_LIST_ENDPOINT` of
+  // utils/FacilityDirectory.ts (the network suite's reader) is the same list.
+  /** POST `{ pageNumber, rowsPerPage, sortBy?, searchText?, typeId?, statusId? (effective status), providerTypeId? }` -> `payload.facilities.{items, totalRows}`. */
+  facilityList: '/api/Facilities/GetFacilities',
+  /** POST `{}` -> `{ total, active, pending, inactive, expired }` (the KPI tiles; `pending` = Future). */
+  facilityDashboard: '/api/Facilities/GetFacilitiesDashboard',
+  /** POST `{ id }` -> the facility (404 "The requested facility was not found." once deleted). */
+  facilityGet: '/api/Facilities/GetFacility',
+  /** POST - the form body (see FacilityProvisioning.FacilityBody) -> `{ id, facilityCode }`, "Facility has been created successfully." */
+  facilityCreate: '/api/Facilities/CreateFacility',
+  /** PUT - the form body + `id, concurrencyStamp` (stale stamp -> 409). */
+  facilityUpdate: '/api/Facilities/UpdateFacility',
+  /** DELETE `/{id}` - a SOFT delete (IsDeleted), applied at once; 409 while the facility is in a network (or a pending network version). */
+  facilityDelete: '/api/Facilities/DeleteFacility',
+  /** POST `{ id, isActive, inactivationReasonId?, inactivationDetails? }` - Activate / Inactivate, applied at once. */
+  facilitySetActive: '/api/Facilities/SetFacilityActive',
+  /** POST `{ facilityId, pageNumber, rowsPerPage }` -> `payload.networks.{items: {id, networkCode, networkNameEn/Ar, statusId, assignedOn}, totalRows}` (approved assignments only). */
+  facilityNetworks: '/api/Facilities/GetFacilityNetworks',
+  /** POST - the list query + `format` (1 CSV, 2 Excel); answers the WHOLE matching set as a file. */
+  facilityExport: '/api/Facilities/ExportFacilities',
+  facilityDropdown: '/api/Facilities/GetFacilitiesDropdown',
+  /** The Audit History tab reads auditLogList `{ entityType: "Facility", entityId, actionType, fromUtc?, toUtc?, searchText?, pageNumber, rowsPerPage }`. */
+  auditLogById: '/api/AuditLogs/GetAuditLogById',
+  /** clinic, hospital, pharmacy. */
+  facilityTypeLookup: '/api/Lookups/Items/facilityType',
+  /** pending (label "Future"), active, inactive, expired. */
+  facilityStatusLookup: '/api/Lookups/Items/facilityStatus',
+  /** both, integrationProvider, providerPortal. */
+  providerTypeLookup: '/api/Lookups/Items/providerType',
+  /** licenceRevoked, contractEnded, facilityClosed, relocated, accreditationLost, qualityOfCareConcern, other. */
+  facilityDeactivationReasonLookup: '/api/Lookups/Items/facilityDeactivationReason',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

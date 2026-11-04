@@ -428,6 +428,20 @@ const STORIES = [
   ['20-sublimit-deductible-oop-calculations', 'US 18370 Sublimit/Deductible/Out-of-Pocket and effective-period calculations'],
   ['21-clone-policy', 'US 18433 Clone Policy'],
   ['22-policy-approval-workflow', 'US 18434 Policy Approval Workflow'],
+  // Facility module (Feature 15130), added 2026-11-04 from reports/facility/source/facility-folder-map.json (13 stories).
+  ['01-facility-list-and-dashboard-tiles', 'US 15131 Facility list and dashboard tiles'],
+  ['02-create-a-facility', 'US 15132 Create a facility'],
+  ['03-search-and-filter-facilities-by-criteria', 'US 15133 Search and filter facilities by criteria'],
+  ['04-sort-and-export-the-facility-list', 'US 15134 Sort and export the facility list'],
+  ['05-view-facility-network-assignment-tab', 'US 15136 View Facility - Network Assignment tab'],
+  ['06-facility-map-location-control', 'US 15137 Facility map location control'],
+  ['07-view-facility-creation-and-modification-history', 'US 15138 View facility creation and modification history'],
+  ['08-license-date-with-activation-status', 'US 15139 License Date with activation status'],
+  ['09-block-deletion-a-facility', 'US 15141 Block deletion a facility'],
+  ['10-view-facility-audit-history', 'US 15142 View Facility - Audit History'],
+  ['11-edit-facility', 'US 15143 Edit facility'],
+  ['12-facility-permissions', 'US 15144 Facility Permissions'],
+  ['13-view-facility-overview', 'US 17434 View Facility - Overview'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
@@ -965,7 +979,13 @@ function stepsHtml(c) {
         <span class="st__n">${s.index}</span>
         <span class="st__s">${esc(s.status)}</span>
         <span class="st__t">${esc(s.name)}${
-        s.reason ? `<em>${codeify(clean(s.reason).split('\n')[0].slice(0, 200))}</em>` : ''
+        // A bare matcher line ("expect(received).toEqual(expected)") says nothing,
+        // so such a step shows the plain-words failure instead.
+        s.reason
+          ? `<em>${codeify(
+              (/^expect\(/.test(clean(s.reason).split('\n')[0]) ? narrateActual(s.reason) : clean(s.reason).split('\n')[0]).slice(0, 200),
+            )}</em>`
+          : ''
       }${
         s.screenshot
           ? `<em class="shot">Screenshot at this step: <code>${esc(

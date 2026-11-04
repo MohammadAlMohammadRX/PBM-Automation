@@ -178,9 +178,9 @@ function diffValues(msg, sign) {
   for (const line of clean(msg).split('\n')) {
     if (!line.startsWith(sign) || /^[+-]\s*(Expected|Received)\b/.test(line)) continue;
     const pair = line.match(/"(\w+)":\s*"([^"]*)"/);
-    const single = line.match(/^[+-]\s+"([^"]*)",?$/) || line.match(/^[+-]\s+(-?\d+(?:\.\d+)?),?$/);
+    const single = line.match(/^[+-]\s+"((?:[^"\\]|\\.)*)",?$/) || line.match(/^[+-]\s+(-?\d+(?:\.\d+)?),?$/);
     if (pair) pairs.push([pair[1], pair[2]]);
-    else if (single) singles.push(single[1]);
+    else if (single) singles.push(single[1].replace(/\\"/g, '"'));
   }
   // An object is summarised by its most telling field ("Not Live", not
   // "tone neutral"); plain values are listed as they are.
@@ -190,6 +190,50 @@ function diffValues(msg, sign) {
     singles.push(...pairs.filter(([k]) => k === key).map(([, v]) => v));
   }
   return [...new Set(singles)];
+}
+
+/**
+ * A check-object diff ({ saved: false, error: /.../ } against { saved: true,
+ * error: "" }) as "saved: expected no, found yes". Used when the quoted-value
+ * summary above has nothing to say - booleans, numbers, patterns, empty text.
+ */
+function fieldDiff(msg) {
+  const fields = new Map();
+  const lines = clean(msg).split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = lines[i].match(/^([+-])\s+"(\w+)":\s*(.+?),?$/);
+    if (!m || /^Object \{$/.test(m[3])) continue;
+    let value = m[3];
+    // A list that opens here: gather its items from the lines that follow.
+    if (/^Array \[$/.test(value)) {
+      const items = [];
+      while (i + 1 < lines.length && lines[i + 1].startsWith(m[1]) && !/^[+-]\s+\],?$/.test(lines[i + 1])) {
+        i += 1;
+        const item = lines[i].match(/^[+-]\s+"((?:[^"\\]|\\.)*)",?$/);
+        items.push(item ? item[1].replace(/\\"/g, '"') : lines[i].slice(1).trim().replace(/,$/, ''));
+      }
+      value = { items };
+    }
+    const entry = fields.get(m[2]) || {};
+    entry[m[1] === '-' ? 'want' : 'got'] = value;
+    fields.set(m[2], entry);
+  }
+  const words = (v) => {
+    if (v === undefined) return 'nothing';
+    if (typeof v === 'object') return v.items.length ? listOf(v.items) : 'none';
+    const t = v.trim();
+    if (t === 'Array []') return 'none';
+    if (t === 'true') return 'yes';
+    if (t === 'false') return 'no';
+    if (t === '""' || t === 'null' || t === 'undefined') return 'nothing';
+    const pattern = t.match(/^StringMatching (\/.*\/[a-z]*)$/);
+    if (pattern) return `wording like "${readablePattern(pattern[1])}"`;
+    const close = t.match(/^NumberCloseTo (-?[\d.]+)/);
+    if (close) return `about ${close[1]}`;
+    return `"${short(t.replace(/^"|"$/g, ''), 120)}"`;
+  };
+  const label = (k) => k.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return [...fields].map(([k, { want, got }]) => `${label(k)}: expected ${words(want)}, found ${words(got)}`);
 }
 const listOf = (items, n = 6) => {
   if (!items.length) return 'nothing';
@@ -316,6 +360,24 @@ function narrateActual(reason) {
     const plus = diffValues(msg, '+');
     const minus = diffValues(msg, '-');
     const expectedNone = /-\s*Array \[\]/.test(msg);
+    if (!(expectedNone && plus.length) && (!plus.length || !minus.length || plus.includes('') || minus.includes(''))) {
+      const fields = fieldDiff(msg);
+      const answered = server.said && !/expect\(/.test(server.said) ? serverLine : '';
+      if (fields.length) return `${ownSays ? `${cap(ownSays)}: ` : 'Not as expected - '}${fields.join('; ')}.${answered}`;
+    }
+    // The same values on both sides: only the ORDER differs, so show both orders.
+    if (plus.length && plus.length === minus.length && plus.every((v) => minus.includes(v))) {
+      const order = { want: [], got: [] };
+      for (const line of clean(msg).split('\n')) {
+        const item = line.match(/^([+-]|\s)\s+"((?:[^"\\]|\\.)*)",?$/);
+        if (!item) continue;
+        if (item[1] !== '+') order.want.push(item[2]);
+        if (item[1] !== '-') order.got.push(item[2]);
+      }
+      if (order.want.length > 1) {
+        return `${ownSays ? `${cap(ownSays)}: ` : ''}the order was ${order.got.join(' > ')} instead of ${order.want.join(' > ')}.`;
+      }
+    }
     if (expectedNone && plus.length) return `${ownSays ? `${cap(ownSays)}: ` : 'Unexpected items: '}expected none, but found ${listOf(plus)}.`;
     if (plus.length || minus.length) return `${ownSays ? `${cap(ownSays)}: ` : ''}expected ${listOf(minus)}, but found ${listOf(plus)}.`;
     if (recLine) return `${ownSays ? `${cap(ownSays)}: ` : ''}expected ${short(expLine, 120)}, but found ${short(recLine, 160)}.`;

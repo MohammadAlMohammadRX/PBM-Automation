@@ -58,6 +58,10 @@ export const AppRoutes = {
   /** A policy member's Member Benefit Accumulator: `/financial-benefits/accumulator/{policyMemberId}`. */
   memberAccumulator: '/financial-benefits/accumulator',
 
+  // ---- Facility module (Feature 15130, 2026-11-04) ----
+  /** Facility Mgmt - the list; a facility's detail is `/facility-management/{id}`. */
+  facilityManagement: '/facility-management',
+
   // ---- Terminology module (2026-10-29) ----
   /** Terminology Mgmt - the list; a terminology's detail is `/terminology-management/{id}`. */
   terminologyManagement: '/terminology-management',
