@@ -168,7 +168,22 @@ export async function suiteFormulary(page: Page, payerName: string): Promise<For
     && usable.has(f.statusId)
     && new Date(f.expiryDate).getTime() > Date.now() + 30 * 86_400_000);
   if (existing) return existing;
-  return provisionFormulary(page, { payerName });
+  // None Active: one approved (Future) suite formulary of the payer is taken
+  // Active - a new one would read Future too and could not be assigned either
+  // (policy full run 2026-11-03: 45 NUPCO cases blocked on "Only an active
+  // formulary can be assigned to a plan", and every attempt minted another
+  // Future formulary). Done once; later plans find it Active above.
+  const future = (await listFormularies(page)).find((f) =>
+    f.payerId === payerId
+    && f.formularyNameEn.startsWith(SUITE_FORMULARY_PREFIX)
+    && Boolean(f.formularyCode)
+    && !/-D-/.test(f.formularyCode ?? '')
+    && f.statusId === status.pending
+    && new Date(f.effectiveDate).getTime() < Date.now()
+    && new Date(f.expiryDate).getTime() > Date.now() + 30 * 86_400_000);
+  const chosen = future ?? (await provisionFormulary(page, { payerName }));
+  await promoteToActive(page, chosen.id, chosen.formularyNameEn);
+  return chosen;
 }
 
 // ---- plan folder 20 / 27 additions (2026-10-27) ----

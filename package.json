@@ -35,6 +35,8 @@
     "test:plan": "cross-env MODULE=plan node scripts/run-payer-module.js",
     "test:terminology": "cross-env MODULE=terminology node scripts/run-payer-module.js",
     "test:formulary": "cross-env MODULE=formulary node scripts/run-payer-module.js",
+    "test:policy": "cross-env MODULE=policy node scripts/run-payer-module.js",
+    "seed:policy": "cross-env SEED_POLICY=1 playwright test tests/seed/seed-policy-active.spec.ts --project=chromium --workers=1",
     "seed:networks": "cross-env SEED_NETWORKS=1 playwright test tests/seed/seed-networks.spec.ts --project=chromium",
     "azure:plans": "node scripts/publishToAzure.js --list-plans",
     "azure:preview": "node scripts/publishToAzure.js",

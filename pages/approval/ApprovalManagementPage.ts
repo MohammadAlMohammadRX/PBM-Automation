@@ -26,7 +26,7 @@ import type { RejectionReason } from '../../data/payers/payerTypes';
  * network-activation story needed to approve a NETWORK status change; without
  * it that story would have needed a second, near-identical Page Object.
  */
-export type ApprovalScope = 'payer' | 'network' | 'plan' | 'formulary';
+export type ApprovalScope = 'payer' | 'network' | 'plan' | 'formulary' | 'policy';
 
 const APPROVAL_SCREEN: Record<ApprovalScope, string> = {
   payer: SCREEN.approvalsPayer,
@@ -35,6 +35,8 @@ const APPROVAL_SCREEN: Record<ApprovalScope, string> = {
   plan: SCREEN.approvalsPlan,
   /** The Formulary module's tab (2026-11-02): `approvals-formulary-*`, the same component. */
   formulary: SCREEN.approvalsFormulary,
+  /** The Policy module's tab (2026-11-03): `approvals-policy-*`, the same component (Policy Name, Change Type, Status, Requested By, Requested On). */
+  policy: SCREEN.approvalsPolicy,
 };
 
 /**
@@ -648,7 +650,13 @@ export class ApprovalManagementPage extends BasePage {
 
   /** Rejects a request by id DIRECTLY, with a free-text reason. */
   async rejectRequestViaApi(requestId: string, reason: string): Promise<{ status: number; text: string; validationErrors: string[] }> {
-    return NetworkUtils.postAsSession(this.page, ApiEndpoints.approvalReject, { id: requestId, reason });
+    // The screen sends a REASON ID since the 2026-11-02 redeploy (`{id,
+    // rejectionReasonId}`, bundle chunk-37L37QPJ); text alone is answered "A
+    // reason is required when rejecting a request." The text is still sent.
+    const lookup = await NetworkUtils.requestAsSession(this.page, 'GET', ApiEndpoints.approvalRejectionReasonLookup);
+    const reasons = ((JSON.parse(lookup.text || '{}') as { payload?: { id: string; code: string }[] }).payload ?? []);
+    const rejectionReasonId = (reasons.find((r) => /other/i.test(r.code)) ?? reasons[0])?.id;
+    return NetworkUtils.postAsSession(this.page, ApiEndpoints.approvalReject, { id: requestId, reason, rejectionReasonId });
   }
 
   /**

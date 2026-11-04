@@ -401,6 +401,94 @@ export const ApiEndpoints = {
   benefitConfigDelete: '/api/BenefitConfigs/DeleteBenefitConfig',
   benefitConfigStatusLookup: '/api/Lookups/Items/benefitConfigStatus',
   sublimitPeriodLookup: '/api/Lookups/Items/sublimitPeriod',
+
+  // ---- Policy module (Feature 15164, 2026-11-03) ----
+  // Paths read off the application's policy service (bundle chunk-ZOWZ7Y6N of
+  // 2026-11-03); request bodies CAPTURED from the screens' own calls
+  // (reports/policy/Policy-Foundation-Notes.md). `payerLinkedPolicies` and
+  // `networkPolicies` (above) stay with their suites.
+  /** POST `{ pageNumber, rowsPerPage, sortBy, searchText?, statusId?, policyTypeId?, planId?, approvalStatus? }` -> `payload.policies.{items, totalRows}`. */
+  policyList: '/api/Policies/GetPolicies',
+  /** POST `{}` -> `{ total, draft, pending, active, inGracePeriod, expired, terminated, inactive }` (the KPI tiles). */
+  policyDashboard: '/api/Policies/GetPoliciesDashboard',
+  /** POST `{ id }` - carries `concurrencyStamp`, `benefitYear`, `hasDraft`, `isPendingCreate`, `versionStatusCode`, counts. */
+  policyGet: '/api/Policies/GetPolicy',
+  /** POST `{ policyNameEn, policyNameAr, planId, policyHolderId (null = Individual "self"), effectiveDate, expiryDate, gracePeriodDays, maxMembers, deductibleAmount, coinsurancePercent, outOfPocketMaximum, sublimitAmount, policyTypeId }` -> `{ id, policyNumber:null, draft:true }`. */
+  policyCreate: '/api/Policies/CreatePolicy',
+  /** PUT - the create body (no policyTypeId) + `id, concurrencyStamp, confirmRevertToDraft`. */
+  policyUpdate: '/api/Policies/UpdatePolicy',
+  /** POST `{ policyId }` - Send for Approval. */
+  policySubmit: '/api/Policies/SubmitPolicyForApproval',
+  /** POST `{ id }` - the bundle's older "Submit" (not used by the screens seen). */
+  policySubmitLegacy: '/api/Policies/SubmitPolicy',
+  /** DELETE `/{id}[?confirmRevertToDraft=true]` - a v0 is discarded at once; a published one stages the deletion. */
+  policyDelete: '/api/Policies/DeletePolicy',
+  /** POST `{ id, isActive:true, confirmRevertToDraft }` - Activate (staged). */
+  policySetActive: '/api/Policies/SetPolicyActive',
+  /** POST `{ id, inactivationReasonId, inactivationDetails, confirmRevertToDraft }` - Inactivate (staged). */
+  policyInactivate: '/api/Policies/InactivatePolicy',
+  /** POST `{ id }` -> the source as the clone drawer pre-fills it. */
+  policyForClone: '/api/Policies/GetPolicyForClone',
+  /** POST - the create body + `sourcePolicyId, includeMembers, includeNetworks, includeDocumentation` (see clonePolicy). */
+  policyClone: '/api/Policies/ClonePolicy',
+  /** GET `/{id}` -> the versions, newest first. */
+  policyVersions: '/api/Policies/GetPolicyVersions',
+  /** POST `{ policyId, targetVersion }` - stages the version as a draft. */
+  policyRevert: '/api/Policies/RevertPolicyVersion',
+  /** POST `{ policyId, actionType, pageNumber, rowsPerPage }` -> `payload.{items, totalRows}`. */
+  policyAuditTrail: '/api/Policies/GetPolicyAuditTrail',
+  /** POST `{ policyId, pageNumber, rowsPerPage, ... }` -> `payload.members.{items, totalRows}` (`rosterState`). */
+  policyMembers: '/api/Policies/GetPolicyMembers',
+  /** GET `?policyId=&searchText=` - the Add Member picker's pool (every member of the system, enrolled ones included). */
+  policyMemberCandidates: '/api/Policies/GetPolicyMemberCandidates',
+  /** POST `{ policyId, memberId, relationshipId, confirmRevertToDraft }`. */
+  policyAddMember: '/api/Policies/AddPolicyMember',
+  /** DELETE `/{policyId}/{policyMemberId}[?confirmRevertToDraft=true]`. */
+  policyRemoveMember: '/api/Policies/RemovePolicyMember',
+  /** POST `{ policyId, pageNumber, rowsPerPage }` -> `payload.{networks, totalRows, proposedNetworkIds}`. */
+  policyNetworks: '/api/Policies/GetPolicyNetworks',
+  /** POST `{ policyId, networkId, confirmRevertToDraft }`. */
+  policyAssignNetwork: '/api/Policies/AssignPolicyNetwork',
+  /** DELETE `/{policyId}/{networkId}[?confirmRevertToDraft=true]`. */
+  policyUnassignNetwork: '/api/Policies/UnassignPolicyNetwork',
+  /** POST `{ policyId }` -> `payload.endorsements[]` (`state`). */
+  policyDocuments: '/api/Policies/GetPolicyEndorsements',
+  /** POST `{ policyId, title, endorsementTypeId, effectiveDate (yyyy-mm-dd), description, attachmentUri, attachmentFileName, attachmentContentType, attachmentSizeBytes, confirmRevertToDraft }`. */
+  policyAddDocument: '/api/Policies/CreatePolicyEndorsement',
+  /** DELETE `/{policyId}/{endorsementId}[?confirmRevertToDraft=true]`. */
+  policyDeleteDocument: '/api/Policies/DeletePolicyEndorsement',
+  /** POST multipart `File` + `EntityName` ("PolicyEndorsement") -> `payload.fileUri`. */
+  fileUpload: '/api/FileUpload/UploadFile',
+  policyImport: '/api/Policies/ImportPolicies',
+  policyImportMembers: '/api/Policies/ImportPolicyMembers',
+  policyImportNetworks: '/api/Policies/ImportPolicyNetworks',
+  policyImportTemplate: '/api/Policies/GetPolicyImportTemplate',
+  policyImportHistory: '/api/Policies/GetPolicyImportHistory',
+  policyImportResult: '/api/Policies/DownloadPolicyImportResult',
+  policyExport: '/api/Policies/ExportPolicies',
+  policyExportMembers: '/api/Policies/ExportPolicyMembers',
+  policyExportNetworks: '/api/Policies/ExportPolicyNetworks',
+  /** GET `?payerId=` - the Network Assignment select's pool: ACTIVE networks of the payer only. */
+  networksDropdown: '/api/Networks/GetNetworksDropdown',
+  /** GET `?payerId=&effectiveDate=&expiryDate=&includeId=` - the policy form's plans. */
+  plansDropdown: '/api/Plans/GetPlansDropdown',
+  /** GET `?searchText=&rowsPerPage=` - the Group policy holder select (terminology). */
+  policyHoldersDropdown: '/api/Terminologies/GetPolicyHoldersDropdown',
+  policyStatusLookup: '/api/Lookups/Items/policyStatus',
+  policyTypeLookup: '/api/Lookups/Items/policyType',
+  memberRelationshipLookup: '/api/Lookups/Items/memberRelationship',
+  policyInactivationReasonLookup: '/api/Lookups/Items/policyInactivationReason',
+  policyTerminationReasonLookup: '/api/Lookups/Items/policyTerminationReason',
+  /** Rider Addition, Coverage Change, Member Change, Premium Adjustment, Other. */
+  endorsementTypeLookup: '/api/Lookups/Items/endorsementType',
+  /** POST `{ policyMemberId }` - the Member Benefit Accumulator. */
+  memberAccumulator: '/api/MemberAccumulators/GetMemberAccumulator',
+  /** POST `{ pageNumber, rowsPerPage, searchText }` -> `payload.policies.{items}` - Policies in force. */
+  policyBenefitYears: '/api/MemberAccumulators/GetPolicyBenefitYears',
+  /** The Reset history tab's feed. */
+  policyResetHistory: '/api/MemberAccumulators/GetResetJobHistory',
+  /** POST `{ policyId, reason, attachmentUri/FileName/ContentType/SizeBytes, deductibleAmount, coinsurancePercent, outOfPocketMaximum, sublimitAmount }`. */
+  policyResetBenefits: '/api/MemberAccumulators/ResetPolicyBenefits',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

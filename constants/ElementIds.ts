@@ -39,6 +39,8 @@ export const SCREEN = {
   approvalsPlan: 'approvals-plan',
   /** The Formulary tab of the hub (2026-11-02) - the same component again. */
   approvalsFormulary: 'approvals-formulary',
+  /** The Policy tab of the hub (2026-11-03) - the same component again; review drawer POLICY_APPROVAL_REVIEW. */
+  approvalsPolicy: 'approvals-policy',
   lookupItems: 'lookup-items',
   lookupItemForm: 'lookup-item-form-drawer',
 } as const;
@@ -2625,4 +2627,587 @@ export const NOTIFICATION_CENTRE = {
   title: 'notification-drawer-title',
   list: 'notification-drawer-list',
   close: 'notification-drawer-close',
+} as const;
+
+// ---- Policy module (Feature 15164) - every id below read off the live screens, 2026-11-03 ----
+// reports/policy/probe/SCREEN-MAP.md. POLICY_COLUMN and CONSUMING_SCREEN.policyList (above,
+// payer / plan suites) are kept; the blocks below extend them.
+
+/** The Policy list (`/policy-management`) - the shared list conventions (ListPageBase). */
+export const POLICY_LIST = {
+  screen: 'policy-list',
+  kpiBand: 'policy-list-kpis',
+  /**
+   * `${kpi}-label` / `${kpi}-value`. FOUR tiles live (2026-11-03): Total Policies,
+   * Active Policies, "Draft / Pending", "Expired / Terminated" - not the story's five
+   * (Total, Active, Pending, Inactive, Expired).
+   */
+  kpi: {
+    total: 'policy-list-kpi-total',
+    active: 'policy-list-kpi-active',
+    draftPending: 'policy-list-kpi-draft-pending',
+    closed: 'policy-list-kpi-closed',
+  },
+  toolbar: 'policy-list-toolbar',
+  searchInput: 'policy-list-search-input',
+  /** The Filters button beside the search box. Clicking it opened NO drawer live (2026-11-03): the list has no advanced search. */
+  searchFilterButton: 'policy-list-search-filter-button',
+  chips: 'policy-list-filter-chips',
+  /** Quick filters: "All Statuses" (Not Live, Future, Active, Inactive, Expired), "All Types", "All Plans", "All Approval States" (Draft, Pending Approval, Approved). No payer filter. */
+  filter: {
+    status: 'policy-list-filter-status-select',
+    type: 'policy-list-filter-type-select',
+    plan: 'policy-list-filter-plan-select',
+    approval: 'policy-list-filter-approval-select',
+  },
+  sortTrigger: 'policy-list-sort-trigger',
+  sortMenu: 'policy-list-sort-menu',
+  /** `policy-list-sort-option-{field}-{asc|desc}` - POLICY_SORT_FIELD. */
+  sortOptionPrefix: 'policy-list-sort-option-',
+  addButton: 'policy-list-add-button',
+  importTrigger: 'policy-list-import-trigger',
+  table: 'policy-list-table',
+  tableBody: 'policy-list-table-body',
+  pager: 'policy-list-table-pager',
+  cards: 'policy-list-cards',
+  loadMore: 'policy-list-load-more-button',
+  /** "Your policy import is still running ..." banner. */
+  bulkLock: 'policy-list-bulk-lock',
+} as const;
+
+export type PolicyKpiKey = keyof typeof POLICY_LIST.kpi;
+export type PolicyQuickFilter = keyof typeof POLICY_LIST.filter;
+
+/**
+ * Row actions (`policy-list-table-row-{id}-{suffix}`), offered by state (live 2026-11-03):
+ *   v0 Draft            View, Edit, Clone, Send for Approval, Inactivate (DISABLED "Not available until this policy is approved."), Delete
+ *   v0 Pending Approval View, Edit, Clone, Inactivate (disabled), Delete
+ *   published           View, Clone, Inactivate (+ Send for Approval while a draft exists)
+ *   Inactive            View, Clone, Activate
+ *   Expired             View, Clone
+ */
+export const POLICY_ROW_ACTION = {
+  view: 'view',
+  edit: 'edit',
+  clone: 'clone',
+  submit: 'submit-for-approval',
+  inactivate: 'inactivate',
+  activate: 'activate',
+  delete: 'delete',
+} as const;
+
+export type PolicyRowAction = keyof typeof POLICY_ROW_ACTION;
+
+/** Sort fields (`{field}-{asc|desc}`): name, number, status, effective / expiry date, Created On, Last Modified (default Created On desc). */
+export const POLICY_SORT_FIELD = {
+  name: 'policynameen',
+  number: 'policynumber',
+  status: 'statusid',
+  effectiveDate: 'effectivedate',
+  expiryDate: 'expirydate',
+  createdOn: 'createdon',
+  modifiedOn: 'modifiedon',
+} as const;
+
+export type PolicySortField = keyof typeof POLICY_SORT_FIELD;
+
+/** The list's Export control: Export Template / Selected Export / Export All Data (then the shared CSV / Excel dialog). */
+export const POLICY_EXPORT = {
+  root: 'policy-list-export',
+  trigger: 'policy-list-export-trigger',
+  menu: 'policy-list-export-menu',
+  template: 'policy-list-export-template',
+  selected: 'policy-list-export-selected',
+  all: 'policy-list-export-all',
+} as const;
+
+/** A card of the Cards view (`policy-card-{id}-{suffix}`); values have a `-label` sibling. */
+export const POLICY_CARD = {
+  prefix: 'policy-card-',
+  title: 'title',
+  versionStatus: 'version-status',
+  statusBadge: 'status-badge',
+  activeSwitch: 'active-switch',
+  number: 'policy-number',
+  type: 'policy-type',
+  plan: 'plan',
+  payer: 'payer',
+  members: 'members',
+  effectiveDate: 'effective-date',
+  expiryDate: 'expiry-date',
+  maxMembers: 'max-members',
+  action: {
+    view: 'view-button',
+    edit: 'edit-button',
+    clone: 'clone-button',
+    submit: 'submit-for-approval-button',
+    delete: 'delete-button',
+  },
+} as const;
+
+export type PolicyCardAction = keyof typeof POLICY_CARD.action;
+
+/**
+ * The bulk Import drawer (the shared component): the list's
+ * `policy-list-bulk-import` (policies) and the detail's `policy-detail-bulk-import`
+ * (Members / Networks tabs); Upload history `{scope}-bulk-history`. Suffixes as
+ * FORMULARY_IMPORT (`-title`, `-intro`, `-history-button`, `-drop-zone`,
+ * `-drop-hint`, `-file`, `-cancel-button`). The list's takes .xlsx / .csv up to 25 MB.
+ */
+export const POLICY_IMPORT = {
+  list: 'policy-list-bulk-import',
+  detail: 'policy-detail-bulk-import',
+  listHistory: 'policy-list-bulk-history',
+  detailHistory: 'policy-detail-bulk-history',
+} as const;
+
+/**
+ * The Add / Edit / Clone Policy drawer - one component under `policy-form-drawer`
+ * (add, edit) or `policy-clone-drawer` (clone); field suffixes below. Two steps:
+ * Policy Information, Coverage Period.
+ */
+export const POLICY_FORM = {
+  add: 'policy-form-drawer',
+  clone: 'policy-clone-drawer',
+  /** Suffixes (`{namespace}-{suffix}`). */
+  title: 'title',
+  close: 'close',
+  stepPrefix: 'stepper-step-',
+  nameEn: 'policy-name-en-input',
+  nameAr: 'policy-name-ar-input',
+  type: 'policy-type-id-select',
+  payer: 'payer-id-select',
+  /** Clone / edit: the payer read-only. */
+  payerTag: 'payer-id-tag',
+  plan: 'plan-id-select',
+  /** Group: the holder select (GetPolicyHoldersDropdown - Acme Corporation, Globex Corporation, Neorx). */
+  holder: 'policy-holder-id-select',
+  /** Individual: "The member themselves" in place of the select. */
+  holderStatic: 'policy-holder-static',
+  /** Step 2. */
+  deductible: 'deductible-amount-input',
+  coinsurance: 'coinsurance-percent-input',
+  outOfPocket: 'out-of-pocket-maximum-input',
+  sublimit: 'sublimit-amount-input',
+  gracePeriod: 'grace-period-days-input',
+  maxMembers: 'max-members-input',
+  effectiveDate: 'effective-date-input',
+  expiryDate: 'expiry-date-input',
+  benefitYearNote: 'benefit-year-note',
+  /** Clone step 1: "Cloning a policy: This creates a NEW policy from ..." */
+  cloneSourceMessage: 'clone-source-message-text',
+  includeMembers: 'include-members-checkbox',
+  includeNetworks: 'include-networks-checkbox',
+  includeDocumentation: 'include-documentation-checkbox',
+  cloneTimingHint: 'clone-timing-hint',
+  /** Clone step 2: "The selected plan is in force for ... The period below has to overlap it." */
+  clonePlanPeriodHint: 'clone-plan-period-hint',
+  /** Step 1: Cancel; step 2: Back. */
+  back: 'back-button',
+  next: 'next-button',
+  /** Step 2 of add, edit AND clone (the clone drawer has no "-clone-button"). */
+  save: 'save-button',
+} as const;
+
+/** Field error suffixes of the policy drawer ("This field is required.", "Select a policy holder."). */
+export const POLICY_FORM_ERROR = {
+  nameEn: 'policy-name-en-error',
+  nameAr: 'policy-name-ar-error',
+  type: 'policy-type-id-error',
+  payer: 'payer-id-error',
+  plan: 'plan-id-error',
+  holder: 'policy-holder-id-error',
+  deductible: 'deductible-amount-error',
+  coinsurance: 'coinsurance-percent-error',
+  outOfPocket: 'out-of-pocket-maximum-error',
+  sublimit: 'sublimit-amount-error',
+  gracePeriod: 'grace-period-days-error',
+  maxMembers: 'max-members-error',
+  effectiveDate: 'effective-date-error',
+  expiryDate: 'expiry-date-error',
+} as const;
+
+export type PolicyFormField = keyof typeof POLICY_FORM_ERROR;
+
+/** The policy detail screen (`/policy-management/{id}`). */
+export const POLICY_DETAIL = {
+  root: 'policy-detail',
+  headerCard: 'policy-detail-header-card',
+  name: 'policy-detail-name',
+  statusBadge: 'policy-detail-status-badge',
+  versionBadge: 'policy-detail-version-badge',
+  loading: 'policy-detail-loading',
+  tabs: 'policy-detail-tabs',
+  /** "Your policy import is still running ..." banner. */
+  bulkLock: 'policy-detail-bulk-lock',
+  /**
+   * Header actions, by state (live 2026-11-03):
+   *   v0 Draft / Pending   Edit, Clone, Send for Approval (draft only), Inactivate (disabled), Delete
+   *   published (Future)   Clone, Inactivate (+ Send for Approval while a draft exists) - NO Edit, NO Delete
+   *   Inactive             Clone, Activate
+   */
+  action: {
+    edit: 'policy-detail-edit-button',
+    clone: 'policy-detail-clone-button',
+    submit: 'policy-detail-submit-for-approval-button',
+    inactivate: 'policy-detail-inactivate-button',
+    activate: 'policy-detail-activate-button',
+    delete: 'policy-detail-delete-button',
+  },
+  /** Renewal links (bundle) - "Renewed from / to POL-...". */
+  openRenewedFrom: 'policy-detail-open-policy-button',
+  openRenewedTo: 'policy-detail-open-policy-button-2',
+  tab: {
+    overview: 'policy-detail-tab-overview',
+    members: 'policy-detail-tab-members',
+    networks: 'policy-detail-tab-network',
+    /** Labelled "Documentation (n)" - the application's own name is "endorsements". */
+    documents: 'policy-detail-tab-endorsements',
+    versions: 'policy-detail-tab-versions',
+    audit: 'policy-detail-tab-audit',
+  },
+  /** Overview values (`policy-detail-overview-{key}`). There is NO English-name value: the header carries it. */
+  overview: {
+    number: 'policy-detail-overview-policy-number',
+    nameAr: 'policy-detail-overview-policy-name-ar',
+    type: 'policy-detail-overview-policy-type',
+    plan: 'policy-detail-overview-plan',
+    payer: 'policy-detail-overview-payer',
+    holder: 'policy-detail-overview-policy-holders',
+    status: 'policy-detail-overview-status',
+    /** "n / limit" (e.g. "4 / 4"). */
+    members: 'policy-detail-overview-members',
+    effectiveDate: 'policy-detail-overview-effective-date',
+    expiryDate: 'policy-detail-overview-expiry-date',
+    gracePeriod: 'policy-detail-overview-grace-period-days',
+    maxMembers: 'policy-detail-overview-max-members',
+    deductible: 'policy-detail-overview-deductible-amount',
+    coinsurance: 'policy-detail-overview-coinsurance-percent',
+    outOfPocket: 'policy-detail-overview-out-of-pocket-maximum',
+    sublimit: 'policy-detail-overview-sublimit-amount',
+    benefitYear: 'policy-detail-overview-benefit-year',
+    benefitYearNote: 'policy-detail-overview-benefit-year-note',
+    inactivationReason: 'policy-detail-overview-inactivation-reason',
+    inactivationDetails: 'policy-detail-overview-inactivation-details',
+    inactivatedOn: 'policy-detail-overview-inactivated-on',
+    terminationDate: 'policy-detail-overview-termination-date',
+    terminationDetails: 'policy-detail-overview-termination-details',
+  },
+} as const;
+
+export type PolicyDetailAction = keyof typeof POLICY_DETAIL.action;
+export type PolicyDetailTab = keyof typeof POLICY_DETAIL.tab;
+export type PolicyOverviewField = keyof typeof POLICY_DETAIL.overview;
+
+/**
+ * The Members tab: toolbar, the members table (`policy-detail-members-table-row-{policyMemberId}`,
+ * cells `-cell-{membercode|name|relationship|documentid|state}`), the advanced search
+ * (Member Number, Name, Document ID, Relationship). The "n / limit" chip and the
+ * "Members can be added once the group policy is active." hint carry no id.
+ */
+export const POLICY_MEMBERS = {
+  addButton: 'policy-detail-add-member-button',
+  searchInput: 'policy-detail-members-search-input',
+  searchFilterButton: 'policy-detail-members-search-filter-button',
+  advancedSearch: 'policy-detail-members-advanced-search',
+  chips: 'policy-detail-members-filter-chips',
+  importTrigger: 'policy-detail-members-import-trigger',
+  export: {
+    root: 'policy-detail-members-export',
+    trigger: 'policy-detail-members-export-trigger',
+    menu: 'policy-detail-members-export-menu',
+    /** Export Template / Export as CSV / Export as Excel (no Selected / All - verified 2026-11-03). */
+    template: 'policy-detail-members-export-template',
+    csv: 'policy-detail-members-export-csv',
+    excel: 'policy-detail-members-export-excel',
+  },
+  table: 'policy-detail-members-table',
+  rowPrefix: 'policy-detail-members-table-row-',
+  pager: 'policy-detail-members-table-pager',
+  /** locator-exception: every row repeats these ids; read / clicked inside one row. */
+  stateBadge: 'policy-detail-member-state-badge',
+  viewAccumulator: 'policy-detail-view-accumulator-button',
+  remove: 'policy-detail-remove-member-button',
+} as const;
+
+export const POLICY_MEMBER_COLUMN = {
+  number: 'membercode',
+  name: 'name',
+  relationship: 'relationship',
+  documentId: 'documentid',
+  state: 'state',
+} as const;
+
+export type PolicyMemberColumn = keyof typeof POLICY_MEMBER_COLUMN;
+
+/** Members advanced-search fields (`policy-detail-members-advanced-search-field-{key}-input`). */
+export const POLICY_MEMBER_FILTER_FIELD = { number: 'membercode', name: 'membername', documentId: 'documentid', relationship: 'relationshipid' } as const;
+
+/**
+ * The Add Member drawer. The member picker's results (`li[role=option].patient-picker__result`,
+ * name + document id) carry NO id - see PolicyMemberDrawer.
+ */
+export const POLICY_MEMBER_DRAWER = {
+  root: 'policy-member-form-drawer',
+  title: 'policy-member-form-drawer-title',
+  close: 'policy-member-form-drawer-close',
+  /** "Search by name or document ID…" - results from 2 characters (GetPolicyMemberCandidates). */
+  search: 'policy-patient-picker-search-input',
+  relationship: 'policy-member-form-drawer-relationship-id-select',
+  /** "Select a member." */
+  memberError: 'policy-member-form-drawer-patient-error',
+  relationshipError: 'policy-member-form-drawer-relationship-id-error',
+  cancel: 'policy-member-form-drawer-cancel-button',
+  save: 'policy-member-form-drawer-save-button',
+} as const;
+
+/** The Member Benefit Accumulator page (`/financial-benefits/accumulator/{policyMemberId}`). Section values carry no id. */
+export const MEMBER_ACCUMULATOR = {
+  root: 'member-accumulator',
+  back: 'member-accumulator-back-button',
+  /** The "Benefit Period" select ("dd/mm/yyyy – dd/mm/yyyy (current)"). */
+  periodSelect: 'member-accumulator-benefit-year-select',
+  periodRange: 'member-accumulator-period-range',
+  periodEnds: 'member-accumulator-period-ends',
+  thresholdSource: 'member-accumulator-threshold-source',
+} as const;
+
+/**
+ * The Network Assignment tab: the assign select + Assign button (no drawer), the
+ * table (`policy-detail-networks-table-row-{networkId}`, cells
+ * `-cell-{networkcode|name|status|assignmentstate|assignedon}`), advanced search
+ * (Network Code, Network, Status, Assignment).
+ */
+export const POLICY_NETWORKS = {
+  select: 'policy-detail-network-to-assign-select',
+  assign: 'policy-detail-assign-network-button',
+  searchInput: 'policy-detail-networks-search-input',
+  searchFilterButton: 'policy-detail-networks-search-filter-button',
+  advancedSearch: 'policy-detail-networks-advanced-search',
+  chips: 'policy-detail-networks-filter-chips',
+  importTrigger: 'policy-detail-networks-import-trigger',
+  export: {
+    root: 'policy-detail-networks-export',
+    trigger: 'policy-detail-networks-export-trigger',
+    menu: 'policy-detail-networks-export-menu',
+    /** Export Template / Export as CSV / Export as Excel (no Selected / All - verified 2026-11-03). */
+    template: 'policy-detail-networks-export-template',
+    csv: 'policy-detail-networks-export-csv',
+    excel: 'policy-detail-networks-export-excel',
+  },
+  table: 'policy-detail-networks-table',
+  rowPrefix: 'policy-detail-networks-table-row-',
+  pager: 'policy-detail-networks-table-pager',
+  /** locator-exception: every row repeats these ids; read / clicked inside one row. */
+  statusBadge: 'policy-detail-network-status-badge',
+  stateBadge: 'policy-detail-network-state-badge',
+  remove: 'policy-detail-unassign-network-button',
+} as const;
+
+export const POLICY_NETWORK_COLUMN = {
+  code: 'networkcode',
+  name: 'name',
+  status: 'status',
+  assignment: 'assignmentstate',
+  assignedOn: 'assignedon',
+} as const;
+
+export type PolicyNetworkColumn = keyof typeof POLICY_NETWORK_COLUMN;
+
+export const POLICY_NETWORK_FILTER_FIELD = { code: 'networkcode', name: 'networkname', status: 'networkstatusid', assignment: 'assignmentstate' } as const;
+
+/**
+ * The Documentation tab ("endorsements"): Add Documentation and a LIST of cards
+ * (`li.policy-detail__endorsement`: title, type, state badge, description, effective
+ * date, created on, user, delete icon). The cards carry no id of their own - no
+ * table, no Edit, no Status / Approval Status columns (live 2026-11-03).
+ */
+export const POLICY_DOCUMENTS = {
+  addButton: 'policy-detail-add-endorsement-button',
+  /** locator-exception: every card repeats these ids; read / clicked inside one card. */
+  stateBadge: 'policy-detail-endorsement-state-badge',
+  delete: 'policy-detail-delete-endorsement-button',
+} as const;
+
+/** The Add Documentation drawer. */
+export const POLICY_DOCUMENT_DRAWER = {
+  root: 'endorsement-form-drawer',
+  title: 'endorsement-form-drawer-title',
+  close: 'endorsement-form-drawer-close',
+  titleInput: 'endorsement-form-drawer-title-input',
+  /** Rider Addition, Coverage Change, Member Change, Premium Adjustment, Other. */
+  type: 'endorsement-form-drawer-type-id-select',
+  /** `DD/MM/YYYY` (date only). */
+  effectiveDate: 'endorsement-form-drawer-effective-date-input',
+  /** maxlength 2000. */
+  description: 'endorsement-form-drawer-description-input',
+  /** accept=".pdf,.doc,.docx,image/*". */
+  attachment: 'endorsement-form-drawer-attachment-input',
+  clearFile: 'endorsement-form-drawer-clear-file-button',
+  cancel: 'endorsement-form-drawer-cancel-button',
+  save: 'endorsement-form-drawer-save-button',
+  errorPrefix: 'endorsement-form-drawer-',
+} as const;
+
+/** Add Documentation field error suffixes (`endorsement-form-drawer-{suffix}`). */
+export const POLICY_DOCUMENT_ERROR = {
+  title: 'title-error',
+  type: 'type-id-error',
+  effectiveDate: 'effective-date-error',
+  description: 'description-error',
+  attachment: 'attachment-error',
+} as const;
+
+export type PolicyDocumentField = keyof typeof POLICY_DOCUMENT_ERROR;
+
+/** The Version History tab and its Version Details drawer. */
+export const POLICY_VERSIONS = {
+  searchInput: 'policy-detail-versions-search-input',
+  searchFilterButton: 'policy-detail-versions-search-filter-button',
+  advancedSearch: 'policy-detail-versions-advanced-search',
+  chips: 'policy-detail-versions-filter-chips',
+  table: 'policy-detail-versions-table',
+  /** Rows `policy-detail-versions-table-row-{versionId}`, cells POLICY_VERSION_COLUMN. */
+  rowPrefix: 'policy-detail-versions-table-row-',
+  headerPrefix: 'policy-detail-versions-table-th-',
+  /** locator-exception: every row repeats these ids. */
+  statusBadge: 'policy-detail-version-status-badge',
+  changeTypeTag: 'policy-detail-version-change-type-tag',
+  viewButton: 'policy-detail-view-version-button',
+  /** locator-exception: "Revert to this" on a published / superseded row that is not current (bundle). */
+  revertButton: 'policy-detail-revert-button',
+  pager: 'policy-detail-versions-table-pager',
+  drawer: {
+    root: 'policy-detail-version-drawer',
+    title: 'policy-detail-version-drawer-title',
+    close: 'policy-detail-version-drawer-close',
+    fieldPrefix: 'policy-detail-version-drawer-',
+  },
+} as const;
+
+/** Version columns: Version, Approval Status, Change, Networks, Requested By/On, Reviewed By/On (NO Members column). */
+export const POLICY_VERSION_COLUMN = {
+  version: 'version',
+  status: 'status',
+  change: 'changetype',
+  networks: 'networks',
+  requestedBy: 'requestedby',
+  requestedOn: 'requestedon',
+  reviewedBy: 'reviewedby',
+  reviewedOn: 'reviewedon',
+} as const;
+
+export type PolicyVersionColumn = keyof typeof POLICY_VERSION_COLUMN;
+
+/** Version Details drawer values (`policy-detail-version-drawer-{key}`). */
+export const POLICY_VERSION_FIELD = {
+  changeType: 'change-type-tag',
+  approvalStatus: 'approval-status',
+  businessStatus: 'business-status',
+  nameEn: 'policy-name-en',
+  nameAr: 'policy-name-ar',
+  type: 'policy-type',
+  holder: 'policy-holder',
+  plan: 'plan',
+  payer: 'payer',
+  effectiveDate: 'effective-date',
+  expiryDate: 'expiry-date',
+  gracePeriod: 'grace-period',
+  networks: 'networks',
+  reviewNote: 'review-note',
+  terminationReason: 'termination-reason',
+  terminationDate: 'termination-date',
+  terminationDetails: 'termination-details',
+} as const;
+
+export type PolicyVersionField = keyof typeof POLICY_VERSION_FIELD;
+
+/** Version advanced-search fields (`policy-detail-versions-advanced-search-field-{key}-input`). */
+export const POLICY_VERSION_FILTER_FIELD = { status: 'status', change: 'changetype', requestedBy: 'requestedby', reviewedBy: 'reviewedby', requestedOn: 'requestedon' } as const;
+
+export type PolicyVersionFilterKey = keyof typeof POLICY_VERSION_FILTER_FIELD;
+
+/** The Audit History tab - the shared component (components/AuditHistoryTab); filters Action Type, Performed By, Date Range. */
+export const POLICY_AUDIT = {
+  searchInput: 'policy-detail-audit-search-input',
+  searchPrefix: 'policy-detail-audit',
+  advancedSearchButton: 'policy-detail-audit-search-filter-button',
+  advancedSearch: 'policy-detail-audit-advanced-search',
+  chips: 'policy-detail-audit-filter-chips',
+  /** locator-exception: every entry's button shares this id; entries have none. */
+  viewButton: 'policy-detail-view-audit-button',
+  pager: 'policy-detail-audit-pager',
+  drawer: AUDIT_ENTRY_DRAWER,
+} as const satisfies AuditTabIds;
+
+/** The Inactivate Policy drawer - the network / plan drawer component (reason lookup `policyInactivationReason`, details max 500). */
+export const POLICY_INACTIVATE = {
+  root: 'policy-inactivate-dialog',
+  title: 'policy-inactivate-dialog-title',
+  close: 'policy-inactivate-dialog-close',
+  reasonSelect: 'policy-inactivate-dialog-reason-id-select',
+  reasonError: 'policy-inactivate-dialog-reason-id-error',
+  detailsInput: 'policy-inactivate-dialog-details-input',
+  detailsError: 'policy-inactivate-dialog-details-error',
+  approvalNotice: 'policy-inactivate-dialog-approval-notice-text',
+  cancel: 'policy-inactivate-dialog-cancel-button',
+  /** Labelled "Inactivate". */
+  save: 'policy-inactivate-dialog-save-button',
+} as const satisfies InactivateDialogIds;
+
+/** Policy Benefit Resets (`/financial-benefits/reset-history`, System Settings > Policy Benefit Resets). */
+export const BENEFIT_RESETS = {
+  root: 'reset-job-history',
+  title: 'reset-job-history-title',
+  subtitle: 'reset-job-history-subtitle',
+  tab: {
+    policies: 'reset-job-history-tab-policies',
+    history: 'reset-job-history-tab-history',
+  },
+  /** "Search by policy number, name or payer" (Policies in force). */
+  policiesSearch: 'reset-job-history-policies-input',
+  policiesTable: 'reset-job-history-policies-table',
+  /** In-force rows `reset-job-history-policy-row-{policyId}-{suffix}`: `row`, `period`, `next-reset`, `members`, `used`, `reset-button`. */
+  policyRowPrefix: 'reset-job-history-policy-row-',
+  /** The Reset history tab's namespace (its table / rows under `reset-job-history-history-*`, from the bundle). */
+  historyPrefix: 'reset-job-history-history',
+} as const;
+
+/** The Reset policy benefits drawer ("Reset now"). */
+export const POLICY_RESET = {
+  root: 'policy-reset-dialog',
+  title: 'policy-reset-dialog-title',
+  close: 'policy-reset-dialog-close',
+  /** "POL-... — name:" */
+  noticeTitle: 'policy-reset-dialog-notice-title',
+  /** "Every member of this policy (n) starts a fresh benefit period today ..." */
+  notice: 'policy-reset-dialog-notice-text',
+  /** "Used so far in the current period — Deductible: SAR x / SAR y ..." */
+  used: 'policy-reset-dialog-used',
+  /** maxlength 1000, required. */
+  reason: 'policy-reset-dialog-reason-input',
+  reasonError: 'policy-reset-dialog-reason-error',
+  /** accept=".pdf,application/pdf". */
+  attachment: 'policy-reset-dialog-attachment-input',
+  deductible: 'policy-reset-dialog-deductible-amount-input',
+  coinsurance: 'policy-reset-dialog-coinsurance-percent-input',
+  outOfPocket: 'policy-reset-dialog-out-of-pocket-maximum-input',
+  sublimit: 'policy-reset-dialog-sublimit-amount-input',
+  cancel: 'policy-reset-dialog-cancel-button',
+  /** Labelled "Reset benefits". */
+  save: 'policy-reset-dialog-save-button',
+} as const;
+
+/** The approvals hub's Policy tab review drawer (`approvals-policy-review-drawer-*`; diff rows `-diff-row-{field}` with `-field` / `-value`). */
+export const POLICY_APPROVAL_REVIEW = {
+  root: 'approvals-policy-review-drawer',
+  title: 'approvals-policy-review-drawer-title',
+  name: 'approvals-policy-review-drawer-name',
+  requestedBy: 'approvals-policy-review-drawer-requested-by',
+  requestedOn: 'approvals-policy-review-drawer-requested-on',
+  diff: 'approvals-policy-review-drawer-diff',
+  diffRowPrefix: 'approvals-policy-review-drawer-diff-row-',
+  close: 'approvals-policy-review-drawer-close-button',
+  reject: 'approvals-policy-review-drawer-reject-button',
+  approve: 'approvals-policy-review-drawer-approve-button',
 } as const;

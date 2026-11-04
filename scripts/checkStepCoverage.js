@@ -32,6 +32,8 @@ const NETWORK_ROOT = path.join('tests', 'network');
 const PLAN_ROOT = path.join('tests', 'plan');
 // The terminology module (2026-10-29) likewise.
 const TERMINOLOGY_ROOT = path.join('tests', 'terminology');
+// The policy module (2026-11-03) likewise.
+const POLICY_ROOT = path.join('tests', 'policy');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -90,6 +92,11 @@ const ASSERTS_INTERNALLY = [
   ['.openDetails(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
   ['DetailPage.open(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
   ['terminologyDetail.open(', 'asserts the terminology detail screen loaded (waitForLoaded)'],
+  // ---- policy module (2026-11-03) ----
+  ['.openTable()', 'opens the policy list through open() (asserts its table rendered), then waits for the rows'],
+  ['openScopedPolicies(', 'opens the shaped session policy list through open() (asserts its table rendered)'],
+  ['enrolInto(', 'policy members spec: asserts the enrolment answered 200 and the member is on the policy'],
+  ['expectAllShown(', 'policy members spec: asserts the Members tab shows every stored member'],
   ['.openAddForm()', 'asserts the Add Terminology drawer opened'],
   ['.openImport()', 'asserts the Upload Data drawer opened'],
   ['.addField()', 'polls until the new field card is rendered'],
@@ -106,6 +113,7 @@ const ASSERTS_INTERNALLY = [
  * reason, rather than slipping in unnoticed.
  */
 const ALLOWED_ACTIONS = [
+  ['steps.blocked(', 'records the step BLOCKED with its reason - the environment cannot provide its precondition'],
   ['NetworkUtils.failEndpoint', 'fault injection - nothing about the app to assert yet'],
   ['NetworkUtils.abortEndpoint', 'fault injection'],
   ['NetworkUtils.restoreEndpoint', 'fault removal - recovery is asserted in a later step'],
@@ -214,8 +222,9 @@ walk(TEST_ROOT);
 if (fs.existsSync(NETWORK_ROOT)) walk(NETWORK_ROOT);
 if (fs.existsSync(PLAN_ROOT)) walk(PLAN_ROOT);
 if (fs.existsSync(TERMINOLOGY_ROOT)) walk(TERMINOLOGY_ROOT);
+if (fs.existsSync(POLICY_ROOT)) walk(POLICY_ROOT);
 
-const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || file.includes(POLICY_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

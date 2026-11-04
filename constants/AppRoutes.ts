@@ -51,6 +51,13 @@ export const AppRoutes = {
   /** Formulary Mgmt - the list; a formulary's detail is `/formulary-pricing/{id}`. */
   formularyManagement: '/formulary-pricing',
 
+  // ---- Policy module additions (2026-11-03) ----
+
+  /** System Settings > Policy Benefit Resets: Policies in force / Reset history (fin.resetJob). */
+  policyBenefitResets: '/financial-benefits/reset-history',
+  /** A policy member's Member Benefit Accumulator: `/financial-benefits/accumulator/{policyMemberId}`. */
+  memberAccumulator: '/financial-benefits/accumulator',
+
   // ---- Terminology module (2026-10-29) ----
   /** Terminology Mgmt - the list; a terminology's detail is `/terminology-management/{id}`. */
   terminologyManagement: '/terminology-management',

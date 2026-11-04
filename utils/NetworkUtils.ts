@@ -569,6 +569,11 @@ export class NetworkUtils {
     path: string,
     data?: unknown,
   ): Promise<{ status: number; text: string; validationErrors: string[] }> {
+    // ON THE APP FIRST. The token lives in the app's localStorage, which a page
+    // still on about:blank cannot read (SecurityError) - every case that builds
+    // its data before navigating hit it (payer 2026-10-11, formulary 2026-11-02,
+    // policy 2026-11-03: eleven create cases), so the callers no longer need to.
+    if (!page.url().startsWith('http')) await page.goto(env.baseUrl, { waitUntil: 'domcontentloaded' });
     const token = await page.evaluate(
       (key) => window.localStorage.getItem(key),
       ACCESS_TOKEN_KEY,

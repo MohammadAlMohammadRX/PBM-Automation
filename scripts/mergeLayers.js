@@ -115,8 +115,19 @@ for (const f of fs.readdirSync(dirs[0]).filter((x) => /^\d\d\.json$/.test(x))) {
   if (s.startTime && (!stats.startTime || s.startTime < stats.startTime)) stats.startTime = s.startTime;
 }
 
+// Workers: the most any layer's partial ran with (2026-11-04 - a null config made the
+// report's Workers tile read "-"). Every layer runs WORKERS=1, so this reads 1.
+let workers = 0;
+for (const dir of dirs) {
+  for (const f of fs.readdirSync(dir).filter((x) => /^\d\d\.json$/.test(x))) {
+    const c = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).config || {};
+    workers = Math.max(workers, Number(c.metadata?.actualWorkers ?? c.workers) || 0);
+  }
+}
+const config = workers ? { workers, metadata: { actualWorkers: workers } } : null;
+
 const byLayer = {};
 for (const { spec } of cases.values()) byLayer[spec._layer] = (byLayer[spec._layer] || 0) + 1;
-fs.writeFileSync(out, JSON.stringify({ config: null, suites: [...files.values()], errors: [], stats }, null, 2));
+fs.writeFileSync(out, JSON.stringify({ config, suites: [...files.values()], errors: [], stats }, null, 2));
 console.log(`merged ${cases.size} case(s) from ${dirs.length} layer(s) -> ${out}`);
 console.log(`  results by layer: ${JSON.stringify(byLayer)}`);
