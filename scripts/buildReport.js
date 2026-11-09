@@ -298,9 +298,11 @@ const STORIES = [
   ['06-sort-network-directory-by-columns', 'US 14123 Sort network directory by columns'],
   ['07-deactivate-network-with-a-documented-reason', 'US 14127 Deactivate network with a documented reason'],
   ['08-activate-network-manually-from-inactive-status', 'US 14128 Activate network manually from Inactive status'],
+  ['09-automatically-activate-network-on-effective-date', 'US 14129 Automatically activate network on effective date'],
   ['10-specify-network-type-and-effective-period', 'US 14124 Specify network type and effective period'],
   ['11-edit-existing-network-details', 'US 14125 Edit existing network details'],
   ['12-view-network-overview-and-details', 'US 14126 View network overview and details'],
+  ['13-automatically-expire-network-after-expiry-date', 'US 14130 Automatically expire network after expiry date'],
   ['14-propose-pharmacy-facility-assignments-for-approval', 'US 14131 Propose pharmacy facility assignments for approval'],
   ['15-remove-pharmacy-facility-from-network', 'US 14132 Remove pharmacy facility from network'],
   ['16-view-assigned-facilities-for-a-network', 'US 14133 View assigned facilities for a network'],
@@ -317,7 +319,9 @@ const STORIES = [
   ['27-prevent-removing-a-network-s-last-pharmacy-while-it-is-active', 'US 14304 Prevent removing a network\'s last pharmacy while it is active'],
   ['28-search-and-filter-the-assigned-facilities-list', 'US 14306 Search and filter the assigned facilities list'],
   ['29-track-the-approval-state-of-pending-pharmacy-assignment-changes', 'US 14307 Track the approval state of pending pharmacy assignment changes'],
+  ['30-automatically-expire-an-inactive-network-once-its-expiry-date-passes', 'US 14308 Automatically expire an inactive network once its expiry date passes'],
   ['31-reactivate-an-expired-network-when-its-expiry-date-is-extended', 'US 14309 Reactivate an expired network when its expiry date is extended'],
+  ['32-make-the-daily-network-status-job-configurable-and-date-aware', 'US 14310 Make the daily network status job configurable and date-aware'],
   ['33-warn-users-when-saving-a-network-that-changed-since-it-was-opened', 'US 14312 Warn users when saving a network that changed since it was opened'],
   ['34-submit-network-changes-for-approval-before-they-go-live', 'US 14313 Submit network changes for approval before they go live'],
   ['35-approve-or-reject-a-submitted-network-change', 'US 14314 Approve or reject a submitted network change'],
@@ -329,8 +333,9 @@ const STORIES = [
   ['41-review-and-approve-or-reject-pending-network-changes', 'US 14320 Review and approve or reject pending network changes'],
   ['42-view-network-version-history-and-revert-to-a-previous-version', 'US 14321 View network version history and revert to a previous version'],
   ['43-restrict-role-payer-assignments-to-a-defined-scope', 'US 14322 Restrict role payer assignments to a defined scope'],
-  // Plans module (Feature 14144), added 2026-10-27. Stories 14156, 14330 and 14338 are Manual and
-  // have no folder; 14167, 14175, 14333, 14341 and 15212 have no test cases.
+  ['44-notify-administrators-when-a-network-becomes-expired-or-inactive', 'US 14323 Notify administrators when a network becomes Expired or Inactive'],
+  // Plans module (Feature 14144), added 2026-10-27. Stories 14156, 14330 and 14338 (job-driven) were
+  // Manual until 2026-11-08 and are now folders 31-33; 14167, 14175, 14333, 14341 and 15212 have no test cases.
   ['01-view-plan-directory-with-kpi-tiles-and-filtering', 'US 14145 View plan directory with KPI tiles and filtering'],
   ['02-edit-a-plans-attributes-through-the-approval-workflow', 'US 14146 Edit a plan\'s attributes through the approval workflow'],
   ['03-create-new-insurance-plan-with-bilingual-attributes', 'US 14147 Create new insurance plan with bilingual attributes'],
@@ -361,6 +366,9 @@ const STORIES = [
   ['28-manage-conflicting-requests-during-the-approval-workflow', 'US 14343 Manage conflicting requests during the approval workflow'],
   ['29-revert-a-plan-to-a-prior-version', 'US 14345 Revert a plan to a prior version'],
   ['30-keep-activation-and-deactivation-changes-isolated-to-the-plan', 'US 16775 Keep activation and deactivation changes isolated to the plan itself'],
+  ['31-expire-active-plan-versions-automatically-by-date', 'US 14156 Expire active plan versions automatically by date'],
+  ['32-automatically-expire-an-inactive-plan-once-its-expiry-date-passes', 'US 14330 Automatically expire an inactive plan once its expiry date passes'],
+  ['33-determine-plan-status-automatically-from-approval-effective-date-and-payer-status', 'US 14338 Determine plan status automatically from approval, effective date, and payer status'],
   // Terminology module (Feature 15145), added 2026-10-29 from test_cases_pushed_2026-10-29 Terminology.csv
   // (19 stories, 238 cases), folders in sheet order.
   ['01-view-terminology-list-with-usage-details', 'US 15149 View Terminology list with Usage Details'],
@@ -442,6 +450,44 @@ const STORIES = [
   ['11-edit-facility', 'US 15143 Edit facility'],
   ['12-facility-permissions', 'US 15144 Facility Permissions'],
   ['13-view-facility-overview', 'US 17434 View Facility - Overview'],
+  // Member module (Feature 14375), added 2026-11-05 from reports/member/source/member-folder-map.json (16 stories).
+  ['01-member-list-dashboard-counters', 'US 14376 Member List - Dashboard Counters'],
+  ['02-member-list', 'US 14377 Member List'],
+  ['03-sorting-member', 'US 14378 Sorting Member'],
+  ['04-search-and-filter-members', 'US 14379 Search and Filter Members'],
+  ['05-create-member', 'US 14380 Create Member'],
+  ['06-export-member', 'US 14381 Export Member'],
+  ['07-edit-member', 'US 14382 Edit Member'],
+  ['08-view-member', 'US 14383 View Member'],
+  ['09-view-member-coordination-of-benefits-ordering-tab', 'US 14384 Veiw Member - Coordination of Benefits Ordering Tab'],
+  ['10-delete-member', 'US 14385 Delete Member'],
+  ['11-activate-deactivate-member', 'US 14386 Activate/Deactivate Member'],
+  ['12-view-member-audit-history', 'US 14387 View Member - Audit History'],
+  ['13-member-permissions', 'US 14389 Member Permissions'],
+  ['14-view-member-accumulator-dashboard-tab', 'US 15207 View Member - Accumulator Dashboard Tab'],
+  ['15-view-member-accumulator-dashboard-member-benefit-accumulator', 'US 15208 View Member - Accumulator Dashboard - Member Benefit Accumulator'],
+  ['16-member-bulk-import', 'US 17727 Member Bulk import'],
+  // User Management module (Feature 12972), added 2026-11-08 from reports/user/source/user-folder-map.json
+  // (19 automated stories; 20420 Manage Invitation Status Lifecycle and 20422 Register via Invitation Link are MANUAL - no folder).
+  ['01-validate-payer-assignments-when-configuring-role-scope', 'US 14293 Validate Payer Assignments When Configuring Role Scope'],
+  ['02-user-list-dashboard-counters', 'US 20408 User List - Dashboard Counters'],
+  ['03-search-and-filter-users', 'US 20409 Search and Filter Users'],
+  ['04-assign-roles-and-payers-to-user', 'US 20410 Assign Roles and Payers to User'],
+  ['05-create-user', 'US 20411 Create User'],
+  ['06-sort-and-export-users', 'US 20412 Sort and Export Users'],
+  ['07-view-user-profile', 'US 20413 View User - Profile'],
+  ['08-delete-user', 'US 20414 Delete User'],
+  ['09-edit-user', 'US 20415 Edit User'],
+  ['10-activate-and-deactivate-user', 'US 20416 Activate and Deactivate User'],
+  ['11-sort-and-export-invitations', 'US 20417 Sort and Export Invitations'],
+  ['12-create-invitation', 'US 20418 Create Invitation'],
+  ['13-search-and-filter-invitations', 'US 20419 Search and Filter Invitations'],
+  ['14-sign-in-to-the-platform', 'US 20421 Sign In to the Platform'],
+  ['15-view-and-edit-my-profile', 'US 20423 View and Edit My Profile'],
+  ['16-reset-forgotten-password', 'US 20424 Reset Forgotten Password'],
+  ['17-change-password', 'US 20425 Change Password'],
+  ['18-edit-password-policy', 'US 20426 Edit Password Policy'],
+  ['19-logout-and-session-expiry', 'US 20427 Logout and Session Expiry'],
 ];
 
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];

@@ -4,7 +4,8 @@ import { BasePage } from '../BasePage';
 import { AppRoutes } from '../../constants/AppRoutes';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import { Timeouts } from '../../constants/Timeouts';
-import { SETTINGS_GENERAL, type LifecycleJob } from '../../constants/ElementIds';
+import { SETTINGS_GENERAL, SETTINGS_JOBS, type LifecycleJob } from '../../constants/ElementIds';
+import { jobIdFragment, type JobKey } from '../../utils/JobClock';
 import { Logger } from '../../utils/Logger';
 
 /** What a save attempt produced: the server's answer, the toast, and the drawer. */
@@ -178,8 +179,10 @@ export class SettingsPage extends BasePage {
 
   /** Closes the drawer if it is open - the cleanup hook's tool. */
   async closeDrawerIfOpen(): Promise<void> {
-    if (!(await this.isDrawerOpen())) return;
-    await this.byId(SETTINGS_GENERAL.drawerClose).click();
+    // A successful save closes the drawer itself (animated): let it go first (2026-11-08).
+    await this.drawerTitle().waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => undefined);
+    if (!(await this.drawerTitle().isVisible().catch(() => false))) return;
+    await this.byId(SETTINGS_GENERAL.drawerClose).click({ timeout: Timeouts.short }).catch(() => undefined);
     await this.drawerTitle().waitFor({ state: 'hidden', timeout: Timeouts.short }).catch(() => undefined);
   }
 
@@ -202,5 +205,112 @@ export class SettingsPage extends BasePage {
   async getGeneralSectionText(): Promise<string> {
     await this.open();
     return (await this.byId('app-layout-outlet').innerText()).replace(/\s+/g, ' ').trim();
+  }
+
+  // ---- Scheduled Jobs section (2026-11-08, job-driven Network / Plans cases) ----
+  // The 2026-11-08 build shows each job as a Frequency select + a Riyadh-time
+  // picker (+ a "Runs at hh:mm UTC" hint) instead of the CRON text inputs the
+  // methods above were written for. Keyed by the setting key (utils/JobClock).
+
+  /** What the drawer shows for one job. */
+  async readJobSchedule(key: JobKey): Promise<{ frequency: string; time: string; utcHint: string; customCron: string; hasFrequency: boolean }> {
+    await this.openGeneralEdit();
+    const f = jobIdFragment(key);
+    const frequency = this.byId(SETTINGS_JOBS.frequency(f));
+    const hasFrequency = (await frequency.count()) > 0;
+    const text = async (id: string): Promise<string> => {
+      const el = this.byId(id);
+      if ((await el.count()) === 0) return '';
+      const value = await el.inputValue().catch(async () => el.innerText());
+      return value.replace(/\s+/g, ' ').trim();
+    };
+    return {
+      frequency: hasFrequency ? (await frequency.innerText()).replace(/\s+/g, ' ').trim() : '',
+      time: await text(SETTINGS_JOBS.time(f)),
+      utcHint: await text(SETTINGS_JOBS.utcHint(f)),
+      customCron: await text(SETTINGS_JOBS.input(f)),
+      hasFrequency,
+    };
+  }
+
+  /** Picks a Frequency option by its label ("Every minute" ... "Once a day") - NOT saved until `save()`. */
+  async setJobFrequency(key: JobKey, label: string): Promise<void> {
+    await this.openGeneralEdit();
+    const select = this.byId(SETTINGS_JOBS.frequency(jobIdFragment(key)));
+    await select.scrollIntoViewIfNeeded();
+    await select.click();
+    await this.chooseOption(label);
+  }
+
+  /** The option labels the Frequency select offers for a job ([] when it has none - the daily-only job). */
+  async readJobFrequencyOptions(key: JobKey): Promise<string[]> {
+    await this.openGeneralEdit();
+    const select = this.byId(SETTINGS_JOBS.frequency(jobIdFragment(key)));
+    if ((await select.count()) === 0) return [];
+    await select.scrollIntoViewIfNeeded();
+    await select.click();
+    const options = this.page.getByRole('option').filter({ visible: true });
+    await options.first().waitFor({ timeout: Timeouts.short });
+    const labels = (await options.allInnerTexts()).map((s) => s.trim()).filter(Boolean);
+    await this.page.keyboard.press('Escape');
+    return labels;
+  }
+
+  /**
+   * Sets a job's daily time in the picker ("hh:mm AM|PM", Riyadh) with the
+   * picker's up / down arrows - typing is ignored by the control (verified
+   * 2026-11-04 / 2026-11-08). NOT saved until `save()`. Returns what the
+   * picker shows afterwards.
+   *
+   * locator-exception: the PrimeNG time panel and its arrow buttons carry no
+   * ids; the panel is found as the visible date-picker overlay holding a
+   * minute column, the arrows as each column's first (up) / last (down) button.
+   */
+  async setJobTime(key: JobKey, target: string): Promise<string> {
+    await this.openGeneralEdit();
+    const parse = (s: string): { h: number; m: number; pm: boolean } => {
+      const m = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(s);
+      if (!m) throw new Error(`"${s}" is not hh:mm AM|PM`);
+      return { h: Number(m[1]) % 12, m: Number(m[2]), pm: /PM/i.test(m[3]) };
+    };
+    const want = parse(target);
+    const input = this.byId(SETTINGS_JOBS.time(jobIdFragment(key)));
+    await input.scrollIntoViewIfNeeded();
+    await input.click();
+    const panel = this.page
+      .locator('[class*="datepicker-panel"], .p-datepicker:not(.p-inputwrapper)') // locator-exception: PrimeNG time overlay, no id
+      .filter({ has: this.page.locator('[class*="minute-picker"]') }) // locator-exception: PrimeNG minute column, no id
+      .last();
+    await panel.waitFor({ timeout: Timeouts.default });
+    const arrow = (column: 'hour' | 'minute' | 'ampm', up: boolean): Locator => {
+      const buttons = panel.locator(`[class*="${column}-picker"] button`); // locator-exception: PrimeNG column arrows, no id
+      return up ? buttons.first() : buttons.last();
+    };
+    for (let guard = 0; guard < 120; guard += 1) {
+      const cur = parse(await input.inputValue());
+      if (cur.pm !== want.pm) await arrow('ampm', true).click();
+      else if (cur.h !== want.h) await arrow('hour', want.h > cur.h).click();
+      else if (cur.m !== want.m) await arrow('minute', want.m > cur.m).click();
+      else break;
+    }
+    await this.drawerTitle().click();
+    const shown = (await input.inputValue()).trim();
+    Logger.step(`Job ${key} picker now shows "${shown}"`);
+    return shown;
+  }
+
+  /**
+   * What the READ view says for a job ("Every day at 12:15 am (Riyadh)",
+   * "Every 5 minutes"), found by the job's description label.
+   *
+   * locator-exception: the read view's values carry no ids; the outlet's text
+   * is read and the line after the label returned.
+   */
+  async readJobDisplay(label: string): Promise<string> {
+    await this.closeDrawerIfOpen();
+    await this.open();
+    const lines = (await this.byId('app-layout-outlet').innerText()).split('\n').map((s) => s.trim()).filter(Boolean);
+    const at = lines.indexOf(label);
+    return at >= 0 ? lines[at + 1] ?? '' : '';
   }
 }

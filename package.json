@@ -37,12 +37,16 @@
     "test:formulary": "cross-env MODULE=formulary node scripts/run-payer-module.js",
     "test:policy": "cross-env MODULE=policy node scripts/run-payer-module.js",
     "test:facility": "cross-env MODULE=facility node scripts/run-payer-module.js",
+    "test:member": "cross-env MODULE=member node scripts/run-payer-module.js",
+    "test:user": "cross-env MODULE=user PLAYWRIGHT_NO_COPY_PROMPT=1 node scripts/run-payer-module.js",
     "seed:policy": "cross-env SEED_POLICY=1 playwright test tests/seed/seed-policy-active.spec.ts --project=chromium --workers=1",
     "seed:facility": "cross-env SEED_FACILITY=1 playwright test tests/seed/seed-facility-dates.spec.ts --project=chromium --workers=1",
     "seed:networks": "cross-env SEED_NETWORKS=1 playwright test tests/seed/seed-networks.spec.ts --project=chromium",
     "azure:plans": "node scripts/publishToAzure.js --list-plans",
     "azure:preview": "node scripts/publishToAzure.js",
-    "azure:publish": "node scripts/publishToAzure.js --publish"
+    "azure:publish": "node scripts/publishToAzure.js --publish",
+    "seed:network-jobs": "cross-env SEED_NETWORK_JOBS=1 playwright test tests/seed/seed-network-jobs.spec.ts --project=chromium --workers=1",
+    "seed:plan-jobs": "cross-env SEED_PLAN_JOBS=1 playwright test tests/seed/seed-plan-jobs.spec.ts --project=chromium --workers=1"
   },
   "keywords": [
     "playwright",

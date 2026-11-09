@@ -772,7 +772,16 @@ export class ApprovalManagementPage extends BasePage {
     const title = this.page.locator(`#${prefix}-title`);
     await expect(title, 'the Review panel should open').toBeVisible({ timeout: Timeouts.default });
     const panel = title.locator('xpath=ancestor::*[contains(@class,"drawer")][1]');
-    const text = (await panel.innerText().catch(async () => this.page.locator(`[id^="${prefix}"]`).allInnerTexts().then((t) => t.join('\n')))).trim();
+    let text = (await panel.innerText().catch(async () => this.page.locator(`[id^="${prefix}"]`).allInnerTexts().then((t) => t.join('\n')))).trim();
+    // The nearest "drawer" ancestor can be the drawer's HEADER, whose text is
+    // only the title ("Review Submission", 17912 on 2026-11-08); the review body
+    // then sits in the outermost drawer element and may still be loading.
+    const titleText = (await title.innerText().catch(() => '')).trim();
+    const outer = title.locator('xpath=ancestor::*[contains(@class,"drawer")][last()]');
+    for (let i = 0; i < 20 && text.replace(titleText, '').trim().length < 20; i += 1) {
+      text = (await outer.innerText().catch(() => text)).trim();
+      if (text.replace(titleText, '').trim().length < 20) await this.page.waitForTimeout(500);
+    }
     await this.page.locator(buttonSelector(`${prefix}-close`)).first().click().catch(() => undefined);
     return text;
   }

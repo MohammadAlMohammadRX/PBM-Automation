@@ -39,6 +39,9 @@ export class MemberAccumulatorPage extends BasePage {
 
   async waitForLoaded(): Promise<void> {
     await expect(this.byId(MEMBER_ACCUMULATOR.root), 'the accumulator page should load').toBeVisible({ timeout: Timeouts.default });
+    // The root renders at once with a "Loading..." placeholder; wait for the member's data (2026-11-05: read while still loading).
+    await expect.poll(async () => (await this.byId(MEMBER_ACCUMULATOR.root).innerText().catch(() => '')).replace(/\s+/g, ' ').trim(), { message: 'the accumulator page should finish loading', timeout: Timeouts.default })
+      .not.toMatch(/^(Loading\b.*)?$/i);
     await this.waitForPageReady();
   }
 

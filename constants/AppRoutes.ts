@@ -62,6 +62,26 @@ export const AppRoutes = {
   /** Facility Mgmt - the list; a facility's detail is `/facility-management/{id}`. */
   facilityManagement: '/facility-management',
 
+  // ---- Member module (Feature 14375, 2026-11-05) ----
+  /** Member Mgmt - the list; a member's view page is `/member-management/{id}` (tabs, no route per tab). */
+  memberManagement: '/member-management',
+  /** The Integration Portal (nav `app-nav-engine-portal-link`): its Simulator is READ-ONLY (nothing is posted). */
+  enginePortal: '/engine-portal',
+
+  // ---- User Management module (Feature 12972, 2026-11-08) ----
+  /** Users Mgmt > Users Administration - the list; a user's profile is `/users-management/users-administration/profile/{id}`. */
+  usersAdministration: '/users-management/users-administration',
+  /** Users Mgmt > Invitations. */
+  invitations: '/users-management/invitations',
+  /** The signed-in user's own profile (header user menu > My Profile). */
+  myProfile: '/my-profile',
+  /** Unauthenticated: step 1 (e-mail), or step 2 with `?email=&code=` from the reset link. */
+  resetPassword: '/reset-password',
+  /** Unauthenticated: the invitation registration page (`?token=`) - story 20422 is MANUAL, never automated. */
+  acceptInvitation: '/accept-invitation',
+  /** Approval Management on its Registrations tab (the invitations list's "Approvals List (N)"). */
+  invitationApprovals: '/approval-management?tab=invitation',
+
   // ---- Terminology module (2026-10-29) ----
   /** Terminology Mgmt - the list; a terminology's detail is `/terminology-management/{id}`. */
   terminologyManagement: '/terminology-management',

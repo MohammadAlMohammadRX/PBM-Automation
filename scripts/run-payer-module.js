@@ -52,7 +52,8 @@ const MODULE = (process.env.MODULE || 'payer').replace(/[^a-z]/g, '');
 const IS_PAYER = MODULE === 'payer';
 const TITLE = `${MODULE.charAt(0).toUpperCase()}${MODULE.slice(1)}`;
 const PARTIALS = path.join(ROOT, 'reports', LABEL ? `partials-${LABEL}` : IS_PAYER ? 'partials' : `partials-${MODULE}`);
-const RESULTS = path.join(ROOT, 'reports', 'results.json');
+// RESULTS_FILE (same variable as playwright.config.ts) keeps side-by-side runs apart.
+const RESULTS = process.env.RESULTS_FILE ? path.resolve(ROOT, process.env.RESULTS_FILE) : path.join(ROOT, 'reports', 'results.json');
 const BASE = LABEL ? `PBM-${TITLE}-Module-${LABEL}` : `PBM-${TITLE}-Module-Full-Run`;
 // ".merged.json", not ".json": buildReport writes its own data file next to the
 // HTML under the HTML's name, which used to be this exact path - so the merged

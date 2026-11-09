@@ -41,7 +41,8 @@ const browserProjects = browsersToRun.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
-  outputDir: './test-results',
+  // PW_OUTPUT_DIR: a side-by-side run gets its own folder (Playwright wipes this one at start).
+  outputDir: process.env.PW_OUTPUT_DIR || './test-results',
   // The payer wizard is multi-step and the app slows noticeably under parallel
   // load, so a single test needs more than the default budget end-to-end.
   //
@@ -99,13 +100,15 @@ export default defineConfig({
    * and list reporters are harmless either way and stay unconditional.
    */
   reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['html', { outputFolder: process.env.PW_HTML_DIR || 'playwright-report', open: 'never' }],
     ['list'],
     // Machine-readable results consumed by the report scripts. Written to
     // reports/ (not the volatile test-results/, which Playwright wipes each run).
     ...(process.argv.includes('--list')
       ? []
-      : [['json', { outputFile: 'reports/results.json' }] as const]),
+      // RESULTS_FILE lets two runs (e.g. network and plan) work side by side
+      // without overwriting each other's results; the default is unchanged.
+      : [['json', { outputFile: process.env.RESULTS_FILE || 'reports/results.json' }] as const]),
   ],
 
   use: {

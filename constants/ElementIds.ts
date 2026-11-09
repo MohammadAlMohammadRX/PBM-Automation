@@ -1195,6 +1195,22 @@ export const SETTINGS_GENERAL = {
 
 export type LifecycleJob = keyof typeof SETTINGS_GENERAL.jobs;
 
+/**
+ * The Scheduled Jobs section of the General drawer (verified 2026-11-08). Each
+ * job is addressed by its key's fragment (`Jobs.NetworkLifecycleCron` ->
+ * `networklifecyclecron`, utils/JobClock.jobIdFragment):
+ *   frequency  select (Every minute ... Every hour / Once a day; absent for the daily-only accumulator job)
+ *   time       time-only picker, Riyadh time ("12:15 AM"), arrows only
+ *   utcHint    "Runs at 21:15 UTC"
+ *   input      text input shown instead of the picker for a CRON the screen cannot parse ("Custom (CRON)")
+ */
+export const SETTINGS_JOBS = {
+  frequency: (fragment: string): string => `settings-general-jobs-${fragment}-frequency`,
+  time: (fragment: string): string => `settings-general-jobs-${fragment}-time`,
+  utcHint: (fragment: string): string => `settings-general-jobs-${fragment}-utc-hint`,
+  input: (fragment: string): string => `settings-general-jobs-${fragment}-input`,
+} as const;
+
 // ---------------------------------------------------------------------------
 // System Settings > Audit Logs
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import type { Dialog, Locator, Page } from '@playwright/test';
+import type { BrowserContext, Dialog, Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { env } from '../constants/EnvironmentConfig';
 import { Timeouts } from '../constants/Timeouts';
@@ -9,6 +9,18 @@ import { AppRoutes } from '../constants/AppRoutes';
 import { AUTH_STORAGE_STATE_PATH } from '../constants/Paths';
 import * as fs from 'fs';
 import { PayerScopeDialog } from './components/PayerScopeDialog';
+
+/**
+ * Windows that must NEVER be signed in as the admin by `recoverIfSignedOut`:
+ * the User module's suite-user and signed-out windows (2026-11-08). A logout,
+ * session-expiry or sign-in case lands on /login ON PURPOSE there, and the
+ * recovery would otherwise type the admin's credentials into that window and
+ * carry on as the admin.
+ */
+const NO_AUTO_SIGN_IN = new WeakSet<BrowserContext>();
+export function disableAdminAutoSignIn(context: BrowserContext): void {
+  NO_AUTO_SIGN_IN.add(context);
+}
 
 /**
  * Base class for every Page Object in the framework.
@@ -104,6 +116,8 @@ export abstract class BasePage {
   private async recoverIfSignedOut(relativePath: string, targetUrl: string): Promise<void> {
     // Navigating to the login screen on purpose is not a signed-out state.
     if (relativePath.includes(AppRoutes.login)) return;
+    // A suite-user / signed-out window stays where the app put it (see NO_AUTO_SIGN_IN).
+    if (NO_AUTO_SIGN_IN.has(this.page.context())) return;
     // The bounce to /login is CLIENT-SIDE and lands after domcontentloaded, so
     // the URL read at that instant still names the target route. VERIFIED: an
     // expired session an hour into a run passed the URL check here, then every

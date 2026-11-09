@@ -529,6 +529,137 @@ export const ApiEndpoints = {
   providerTypeLookup: '/api/Lookups/Items/providerType',
   /** licenceRevoked, contractEnded, facilityClosed, relocated, accreditationLost, qualityOfCareConcern, other. */
   facilityDeactivationReasonLookup: '/api/Lookups/Items/facilityDeactivationReason',
+
+  // ---- Member module (Feature 14375, 2026-11-05) ----
+  // Paths read off the application's member service (bundle chunk-HXOODTP3,
+  // the COB service in chunk-7RKTX6PS, the bulk config in chunk-OFJQQA5O) and
+  // verified in the screens' traffic (reports/member/Member-Foundation-Notes.md).
+  // NO approval workflow: every write below takes effect at once. The payer
+  // scope select sends the header `X-Selected-Payer-Id` on /api/Members/* calls.
+  /** POST `{ pageNumber, rowsPerPage, sortBy, searchText?, isActive (true|false|null), nationalityId? }` -> `payload.members.{currentPage, totalPages, totalRowsPerPage, totalRows, items}`. */
+  memberList: '/api/Members/GetMembers',
+  /** POST `{ payerId? }` -> `{ total, active, inactive, specialNeeds }`. */
+  memberDashboard: '/api/Members/GetMembersDashboard',
+  /** POST `{ id }` -> the member + `benefitPolicies` (the PBM Accumulator Dashboard tab) + `emergencyContacts`; 404 "Unable to load member." once deleted. */
+  memberGet: '/api/Members/GetMember',
+  /** POST `{ id }` -> the wizard's Edit load (body fields + concurrencyStamp, policyHolderIds). */
+  memberGetForEdit: '/api/Members/GetMemberForEdit',
+  /** POST - the wizard body (see MemberProvisioning.MemberBody) -> `{ id, memberCode }`, "Member has been created successfully." */
+  memberCreate: '/api/Members/CreateMember',
+  /** PUT - the body + `id, concurrencyStamp` (contacts keep their `id`); stale stamp 409. */
+  memberUpdate: '/api/Members/UpdateMember',
+  /** DELETE `/{id}` - a SOFT delete, refused while the member holds a policy enrolment. */
+  memberDelete: '/api/Members/DeleteMember',
+  /** POST `{ id, isActive, inactivationReasonId, inactivationDetails }` (reason required to deactivate; details required for Other). */
+  memberSetActive: '/api/Members/SetMemberActive',
+  /** GET `?searchText=` - the members picker of other modules (and the engine simulator). */
+  memberDropdown: '/api/Members/GetMembersDropdown',
+  /** GET `?email=&excludeMemberId=` -> payload true / false (the wizard's on-blur check; the server itself accepts a duplicate e-mail). */
+  memberCheckEmail: '/api/Members/CheckEmailExists',
+  /** GET `?documentId=&excludeMemberId=` -> payload true / false. */
+  memberCheckDocumentId: '/api/Members/CheckDocumentIdExists',
+  /** POST - the list query + `scope` ("All" | "Filtered" | "CurrentPage") + `format` ("Csv" | "Excel") -> the file. */
+  memberExport: '/api/Members/ExportMembers',
+  /** POST `{ entity: "Member", format: "Csv" | "Excel" }` -> Members_Template.xlsx / .csv (GET answers 405). */
+  memberImportTemplate: '/api/Members/GetMemberImportTemplate',
+  /** POST multipart `file` -> the bulk operation (tracked through bulkOperationsStatus). */
+  memberImport: '/api/Members/ImportMembers',
+  /** POST `{ pageNumber, rowsPerPage }` -> `payload.{items: {fileName, totalRows, succeededRows, failedRows, createdRows, updatedRows, unchangedRows, status, errorMessage, hasResultFile, canDownloadResult}, totalRows}`. */
+  memberImportHistory: '/api/Members/GetMemberImportHistory',
+  /** POST `{ operationId, format }` -> the result (error) file of an import. */
+  memberImportResult: '/api/Members/DownloadMemberImportResult',
+  /** POST `{ ids: [operationId] }` -> the operations' progress (shared bulk service). */
+  bulkOperationsStatus: '/api/BulkOperations/GetBulkOperationsStatus',
+  /** POST `{ memberId }` -> `payload.entries[]` (current ordering + History; every entry's `id` is the empty GUID). */
+  cobTimeline: '/api/Cob/GetMemberCobTimeline',
+  /** PUT `{ memberId, policyIds }` (primary first) - what a drop on the Coverage Ordering tab sends. */
+  cobReorder: '/api/Cob/ReorderMemberCoverage',
+  /** GET `?gregorianDate=YYYY-MM-DD` -> `{ hijriYear, hijriMonth, hijriDay, hijri: "YYYY/MM/DD", gregorianDate }`. */
+  hijriFromGregorian: '/api/HijriDates/ConvertToHijri',
+  /** GET `?hijriYear=&hijriMonth=&hijriDay=` -> `{ gregorianDate, ... }`. */
+  hijriToGregorian: '/api/HijriDates/ConvertToGregorian',
+  /** GET `/{lookupName}` - every lookup's items (identityType, nationality, gender, patientStatus, maritalStatus, ...). */
+  lookupItems: '/api/Lookups/Items',
+  /** GET - the address countries (Jordan, Saudi Arabia, United Arab Emirates on 2026-11-05). */
+  countriesDropdown: '/api/Terminologies/GetCountriesDropdown',
+  /** GET - every system setting (`{ key, value }`), the Jobs.* CRONs among them. */
+  systemSettingsGet: '/api/SystemSettings/GetSystemSettings',
+  /** POST `{ pageNumber, rowsPerPage }` - the PBM engine's authorizations (0 on 2026-11-05); posting one needs the partner API. */
+  engineAuthorizations: '/api/Engine/GetAuthorizations',
+
+  // ---- User Management module (Feature 12972) - every path observed in the live traffic 2026-11-08 ----
+  /** POST `{pageNumber, rowsPerPage, sortBy, searchText?, isActive?, name?, documentId?, nationalityId?, identityTypeId?, mobileNumber?, genderId?}` -> `payload.users.{items, totalRows}`. */
+  userList: '/api/identity/Users/GetUsers',
+  /** POST `{}` -> `{ total, active, inactive, pendingApproval }`. */
+  userDashboard: '/api/identity/Users/GetUsersDashboard',
+  /** POST `{ id }` -> the user + `assignedRoles[{id, name, hasAssignedPayers, assignedPayers[]}]` + concurrencyStamp; 404 "Unable to load user." once deleted. */
+  userGet: '/api/identity/Users/GetUser',
+  /** POST - the drawer body (UserProvisioning.UserBody) -> `{ id }` "User has been created successfully.". NO password field: the system issues one. */
+  userCreate: '/api/identity/Users/CreateUser',
+  /** PUT - the create body + `id, userName (= documentId), concurrencyStamp` -> "User has been updated successfully." (?). */
+  userUpdate: '/api/identity/Users/UpdateUser',
+  /** DELETE `?id=` -> "User has been deleted successfully."; GetUser then 404. */
+  userDelete: '/api/identity/Users/DeleteUser',
+  /** GET `?documentId=&excludeUserId=` -> payload true / false. */
+  userCheckDocumentId: '/api/identity/Users/CheckDocumentIdExists',
+  /** POST `{ id, isActive, inactivationReasonId, inactivationDetails }` (Activate / Deactivate; the first activation issues the system password + "First Activation" e-mail). */
+  userToggleActivation: '/api/identity/Users/ToggleUserActivation',
+  /** POST - the list query (filters only for "Filtered results") + `format` 1 = CSV / 2 = Excel -> `Users_YYYYMMDD_HHmmss.csv|xlsx`. */
+  userExport: '/api/identity/Users/ExportUsers',
+  /** POST `{ rowsPerPage }` - every role (Role Administration). */
+  roleList: '/api/identity/Roles/GetRoles',
+  /** POST `{ rowsPerPage }` - the roles the signed-in user may assign (includes INACTIVE roles in the answer; the user drawer filters them, the invitation drawer does not). */
+  roleAssignable: '/api/identity/Roles/GetAssignableRoles',
+  /** POST `{ id }` -> the role + concurrencyStamp + assignableRoleIds. */
+  roleGet: '/api/identity/Roles/GetRole',
+  /** POST `{ roleId, loadingOnDemand: false }` -> `{ requestedPermissions: [catalogue tree], selectedPermissions: [{id, key}] }`. */
+  rolePermissions: '/api/identity/Roles/GetRolePermissions',
+  /** POST `{ name, arabicName, englishDescription, arabicDescription, isActive, hasAssignedPayers, canApproveOwnRequests, selectedPermissionIds, assignableRoleIds }` -> `{ id }`. */
+  roleCreate: '/api/identity/Roles/CreateRole',
+  /** PUT - the create body + `id, concurrencyStamp` (OBSERVED 2026-11-08; the older `roleUpdate` above is a guessed path). A role edit reaches its holders AT ONCE (same session). */
+  roleUpdateIdentity: '/api/identity/Roles/UpdateRole',
+  /** DELETE `?id=`. */
+  roleDelete: '/api/identity/Roles/DeleteRole',
+  /** POST `{pageNumber, rowsPerPage, sortBy, searchText?, email?, roleId?, payerId?, status? (enum number)}` -> `payload.invitations.{items, totalRows}`. */
+  invitationList: '/api/identity/Invitations/GetInvitations',
+  /** POST `{ email, roleId, payerId, expiryDays: 5 }` (one call per e-mail chip) -> `{ id }` "Invitation has been sent successfully."; duplicate -> 409. */
+  invitationCreate: '/api/identity/Invitations/CreateInvitation',
+  /** POST `{ id, isActive }` - Pause (false) / Resume (true). Story 20420 (MANUAL). */
+  invitationSetStatus: '/api/identity/Invitations/SetInvitationStatus',
+  /** POST `{ id, expiryDays: 5 }`. Story 20420 (MANUAL). */
+  invitationResend: '/api/identity/Invitations/ResendInvitation',
+  /** DELETE `/DeleteInvitation/{id}`. */
+  invitationDelete: '/api/identity/Invitations/DeleteInvitation',
+  /** POST - the list query + `format` (1 CSV / 2 Excel) -> `Invitations_YYYYMMDD_HHmmss.csv|xlsx`. */
+  invitationExport: '/api/identity/Invitations/ExportInvitations',
+  /** POST `{ pageNumber, rowsPerPage }` - registrations waiting in Approval Management (Registrations tab). */
+  invitationApprovals: '/api/identity/Invitations/GetInvitationApprovals',
+  /** POST `{ email, password }` -> `payload.{requiresTwoFactor, authResponse{accessToken, refreshToken}, lockoutUntil, ...}`; a refusal answers 500 + ErrorMessage. */
+  accountLogin: '/api/Account/Login',
+  accountLogout: '/api/Account/Logout',
+  /** POST `{ email }` -> "Password reset link was sent. Please check your email." + `payload.code` (the reset code itself, null for an unknown address). */
+  accountForgotPassword: '/api/Account/ForgotPassword',
+  /** POST `{ email, password, confirmPassword, code }` -> "Your password has been reset". */
+  accountResetPassword: '/api/Account/ResetPassword',
+  accountRefreshToken: '/api/Account/RefreshToken',
+  /** GET - the signed-in user's own record (My Profile). */
+  manageCurrentUser: '/api/Manage/GetCurrentUser',
+  /** GET -> `{ roles, permissions }` of the signed-in user. */
+  manageCurrentPermissions: '/api/Manage/GetCurrentUserRolesAndPermissions',
+  /** PUT - one My Profile field at a time. */
+  manageUpdateProfile: '/api/Manage/UpdateUserProfile',
+  /** POST `{ oldPassword, newPassword, confirmPassword }`; wrong current -> 500 ValidationErrors PasswordMismatch "Incorrect password.". */
+  manageChangePassword: '/api/Manage/ChangePassword',
+  /** GET -> `{ requiredLength, maximumLength, requiredUniqueChars, requireNonAlphanumeric, requireLowercase, requireUppercase, requireDigit, requireChangeForNewUsers, passwordHistoryCount, expiryDays, concurrencyStamp }`. */
+  passwordPolicyGet: '/api/SystemSettings/GetPasswordPolicy',
+  /** PUT - the policy + concurrencyStamp -> "Identity settings have been updated successfully."; out of range -> 422. */
+  passwordPolicyUpdate: '/api/SystemSettings/UpdatePasswordPolicy',
+  /** POST `{}` -> 2FA settings (authenticateBy "None" on 2026-11-08) + user exceptions. */
+  twoFactorConfig: '/api/TwoFactorAuthenticationConfiguration/GetConfig',
+  /** POST `{ pageNumber, rowsPerPage }` -> every e-mail / SMS the platform tried to send (`recipientAddress`, `triggerName`, `status`). */
+  triggerExecutions: '/api/TriggersAudit/GetTriggerExecutions',
+  /** POST `{ id }` -> one execution with `subject` and `body` (HTML; the temporary password is masked "**********"). */
+  triggerExecution: '/api/TriggersAudit/GetTriggerExecution',
 } as const;
 
 export type ApiEndpointKey = keyof typeof ApiEndpoints;

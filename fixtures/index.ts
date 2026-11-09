@@ -15,6 +15,9 @@ import { test as terminologyModuleTest } from './terminologyModule.fixture';
 import { test as formularyModuleTest } from './formularyModule.fixture';
 import { test as policyModuleTest } from './policyModule.fixture';
 import { test as facilityModuleTest } from './facilityModule.fixture';
+import { test as memberModuleTest } from './memberModule.fixture';
+import { test as userModuleTest } from './userModule.fixture';
+import { test as jobClockTest } from './jobClock.fixture';
 import { test as networkHistoryTest } from './networkHistory.fixture';
 import { test as facilityDirectoryTest } from './facilityDirectory.fixture';
 import { test as cascadeDependentsTest } from './cascadeDependents.fixture';
@@ -57,6 +60,9 @@ export const test = mergeTests(
   formularyModuleTest,
   policyModuleTest,
   facilityModuleTest,
+  memberModuleTest,
+  userModuleTest,
+  jobClockTest,
   networkHistoryTest,
   facilityDirectoryTest,
   cascadeDependentsTest,
