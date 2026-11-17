@@ -40,6 +40,10 @@ const FACILITY_ROOT = path.join('tests', 'facility');
 const MEMBER_ROOT = path.join('tests', 'member');
 // The user module (2026-11-08) likewise.
 const USER_ROOT = path.join('tests', 'user');
+const SETTINGS_ROOT = path.join('tests', 'settings');
+const LOOKUP_ROOT = path.join('tests', 'lookup');
+const NOTIFICATION_ROOT = path.join('tests', 'notification');
+const ROLE_ROOT = path.join('tests', 'role');
 
 /**
  * Calls whose assertion is INSIDE the Page Object.
@@ -232,8 +236,12 @@ if (fs.existsSync(POLICY_ROOT)) walk(POLICY_ROOT);
 if (fs.existsSync(FACILITY_ROOT)) walk(FACILITY_ROOT);
 if (fs.existsSync(MEMBER_ROOT)) walk(MEMBER_ROOT);
 if (fs.existsSync(USER_ROOT)) walk(USER_ROOT);
+if (fs.existsSync(SETTINGS_ROOT)) walk(SETTINGS_ROOT);
+if (fs.existsSync(LOOKUP_ROOT)) walk(LOOKUP_ROOT);
+if (fs.existsSync(NOTIFICATION_ROOT)) walk(NOTIFICATION_ROOT);
+if (fs.existsSync(ROLE_ROOT)) walk(ROLE_ROOT);
 
-const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || file.includes(POLICY_ROOT) || file.includes(FACILITY_ROOT) || file.includes(MEMBER_ROOT) || file.includes(USER_ROOT) || ENFORCED.some((dir) => file.includes(dir));
+const isEnforced = (file) => file.includes(NETWORK_ROOT) || file.includes(PLAN_ROOT) || file.includes(TERMINOLOGY_ROOT) || file.includes(POLICY_ROOT) || file.includes(FACILITY_ROOT) || file.includes(MEMBER_ROOT) || file.includes(USER_ROOT) || file.includes(SETTINGS_ROOT) || file.includes(LOOKUP_ROOT) || file.includes(NOTIFICATION_ROOT) || file.includes(ROLE_ROOT) || ENFORCED.some((dir) => file.includes(dir));
 
 const offenders = [];
 const legacy = [];

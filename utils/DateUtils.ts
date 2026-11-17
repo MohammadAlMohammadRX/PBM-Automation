@@ -22,6 +22,21 @@ export class DateUtils {
     return DateUtils.formatDate(date);
   }
 
+  /**
+   * A date AND time `minutes` from now, "DD/MM/YYYY HH:mm" (the payer pickers' format).
+   *
+   * Since the build of 2026-11-14 21:30 UTC a new payer's effective date may not be earlier than today
+   * ("Effective date cannot be earlier than today." - verified 2026-11-15), so the suite's old way to a payer
+   * that is Active on approval (effective 30 days back) is refused. An effective time a few minutes ahead is
+   * the earliest the form accepts and still leaves the payer due well before any case reads it.
+   */
+  static minutesFromNow(minutes: number): string {
+    const date = new Date(Date.now() + minutes * 60_000);
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mi = String(date.getMinutes()).padStart(2, '0');
+    return `${DateUtils.formatDate(date)} ${hh}:${mi}`;
+  }
+
   /** Returns a date `days` in the past, formatted as DD/MM/YYYY. */
   static pastDate(days: number): string {
     const date = new Date();

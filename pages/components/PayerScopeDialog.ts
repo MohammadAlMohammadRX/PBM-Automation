@@ -118,7 +118,8 @@ export class PayerScopeDialog {
     const wanted = env.scopePayer;
     if (!wanted) return null;
     if (offered.includes(wanted)) return wanted;
-    const overlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true }).first();
+    // PrimeNG overlay, or the custom pbm-select panel (build of 2026-11-14 21:30 UTC) - see BasePage.scopeTo.
+    const overlay = this.page.locator('[data-pc-section="overlay"], .pbm-overlay__content').filter({ visible: true }).first();
     const filter = overlay.getByRole('searchbox'); // locator-exception: PrimeNG's overlay filter has no id; scoped to the open overlay
     if ((await filter.count()) === 0) return null;
     await filter.fill(wanted);

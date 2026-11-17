@@ -47,10 +47,13 @@ export class AssignNetworkDrawer {
     // has to land on the widget WRAPPING it. Walking up from the id is exact -
     // the previous form ("any multiselect inside the drawer") would silently
     // pick a different control if the drawer ever gained one.
+    // Since the build of 2026-11-14 21:30 UTC the control is the custom `pbm-multiselect`: the id sits on its
+    // `input[role=combobox]`, wrapped by `div.pbm-multiselect` (neither class contains "p-multiselect").
     return this.page
       .locator(`#${this.prefix}-networks-multiselect`)
       .locator(
-        'xpath=ancestor::*[contains(@class,"p-multiselect") or contains(@class,"p-select")][1]',
+        'xpath=ancestor::*[contains(@class,"p-multiselect") or contains(@class,"p-select") '
+          + 'or contains(concat(" ",@class," ")," pbm-multiselect ")][1]',
       )
       .first();
   }
@@ -105,7 +108,9 @@ export class AssignNetworkDrawer {
   private async setOptionSelected(option: Locator, label: string, wanted: boolean): Promise<void> {
     const isSelected = async (): Promise<boolean> =>
       (await option.getAttribute('aria-checked').catch(() => null)) === 'true'
-      || (await option.getAttribute('data-p-selected').catch(() => null)) === 'true';
+      || (await option.getAttribute('data-p-selected').catch(() => null)) === 'true'
+      // pbm-multiselect (2026-11-14 build) marks a picked option with aria-selected.
+      || (await option.getAttribute('aria-selected').catch(() => null)) === 'true';
 
     for (let attempt = 1; attempt <= OPTION_CLICK_ATTEMPTS; attempt += 1) {
       if ((await isSelected()) === wanted) return;

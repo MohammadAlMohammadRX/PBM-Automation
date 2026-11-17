@@ -584,6 +584,8 @@ export const ApiEndpoints = {
   countriesDropdown: '/api/Terminologies/GetCountriesDropdown',
   /** GET - every system setting (`{ key, value }`), the Jobs.* CRONs among them. */
   systemSettingsGet: '/api/SystemSettings/GetSystemSettings',
+  /** GET - `{ siteTitle, logoUri, timeZone }`: the branding every screen and the sign-in page load (2026-11-09). */
+  systemSettingsBranding: '/api/SystemSettings/GetBranding',
   /** POST `{ pageNumber, rowsPerPage }` - the PBM engine's authorizations (0 on 2026-11-05); posting one needs the partner API. */
   engineAuthorizations: '/api/Engine/GetAuthorizations',
 

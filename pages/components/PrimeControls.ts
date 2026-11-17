@@ -18,28 +18,47 @@ import { Timeouts } from '../../constants/Timeouts';
  *   asserted.
  */
 
-/** The options of the overlay belonging to `combobox` (a select's `[role=combobox]` element). */
+/**
+ * The options of the overlay belonging to `combobox` (a select's `[role=combobox]` element).
+ * - PrimeNG `p-select`: options are `<host id>_N`.
+ * - The custom `pbm-select` (build of 2026-11-14 21:30 UTC, e.g. the user drawer's Role): the combobox span
+ *   carries `aria-controls="pbm-select-N_list"` WHILE OPEN, the listbox holds `[role=option]`s. When closed it
+ *   has no aria-controls - a locator that matches nothing is returned (callers then see "no option visible").
+ */
 async function optionsOf(page: Page, combobox: Locator): Promise<Locator> {
-  const host = await combobox.locator('xpath=ancestor-or-self::p-select[1]').getAttribute('id');
-  return page.locator(`[id^=${host}_][role=option]`);
+  const prime = combobox.locator('xpath=ancestor-or-self::p-select[1]');
+  if ((await prime.count()) > 0) {
+    const host = await prime.getAttribute('id');
+    return page.locator(`[id^=${host}_][role=option]`);
+  }
+  const list = await combobox.getAttribute('aria-controls');
+  if (list) return page.locator(`[id="${list}"] [role=option]`);
+  return page.locator('[id="pbm-select-closed-no-list"]'); // matches nothing: the closed pbm-select has no list yet
 }
 
 /**
  * Opens a select and waits for its own options. No Escape here: inside a
  * drawer, Escape closes the DRAWER (seen 2026-10-30), and with the options
- * addressed through the host id a neighbour's open overlay no longer matters.
+ * addressed through the host id / aria-controls a neighbour's open overlay no longer matters.
  */
 export async function openSelect(page: Page, combobox: Locator): Promise<Locator> {
   await combobox.click();
-  const options = await optionsOf(page, combobox);
-  const opened = await options.first().waitFor({ state: 'visible', timeout: Timeouts.short }).then(() => true, () => false);
+  const opened = async (): Promise<Locator | null> => {
+    // pbm-select sets aria-controls only once open - re-resolve until the list shows (or the short wait ends).
+    const deadline = Date.now() + Timeouts.short;
+    while (Date.now() < deadline) {
+      const options = await optionsOf(page, combobox);
+      if (await options.first().isVisible().catch(() => false)) return options;
+      await page.waitForTimeout(150);
+    }
+    return null;
+  };
+  const first = await opened();
+  if (first) return first;
   // A click straight after the previous choice can land while that overlay is
   // still closing and toggle nothing open (formulary status filter, 2026-11-02).
-  if (!opened) {
-    await combobox.click();
-    await options.first().waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
-  }
-  return options;
+  await combobox.click();
+  return (await opened()) ?? optionsOf(page, combobox);
 }
 
 /** Closes a select's overlay by toggling the select, never with Escape (see openSelect). */

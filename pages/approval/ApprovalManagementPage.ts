@@ -18,6 +18,9 @@ import { pendingRequestId } from '../../utils/NetworkProvisioning';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import type { RejectionReason } from '../../data/payers/payerTypes';
 
+/** Typed into Rejection Details when the reason is "Other" (the dialog requires it - 2026-11-14). */
+const REJECTION_DETAILS_FOR_OTHER = 'Rejected by the automation suite.';
+
 /**
  * Which tab of the hub a page instance drives.
  *
@@ -79,7 +82,11 @@ export class ApprovalManagementPage extends BasePage {
     // question. The payer scope skips the click: its tab is already active, and
     // not touching it keeps the long-standing payer flows untouched.
     if (this.approvalScope !== 'payer') {
-      await this.openTab(this.approvalScope);
+      // A session offered ONE module's queue gets that queue alone, without a tab bar (role smoke 2026-11-14: a
+      // reviewer holding only the Network approval rights). Wait for either, and click the tab only when there is one.
+      const tabs = this.byId(APPROVALS_HUB.tabs);
+      await expect(tabs.or(this.byId(APPROVAL_SCREEN[this.approvalScope])).first()).toBeVisible({ timeout: Timeouts.default });
+      if (await tabs.isVisible()) await this.openTab(this.approvalScope);
     }
     // The approval queue shares the module-wide Table/Cards view preference.
     await this.ensureTableView(this.screen);
@@ -465,6 +472,9 @@ export class ApprovalManagementPage extends BasePage {
     const dialog = new ConfirmDialog(this.page);
     await dialog.waitForVisible();
     await dialog.selectReasonIfPresent(reason);
+    // Since 2026-11 the Reject dialog demands Rejection Details when the reason is "Other" ('Details are required
+    // when the reason is "Other".') and keeps Reject disabled until they are typed (role smoke 2026-11-14).
+    if (/^other$/i.test(reason)) await dialog.typeReasonText(REJECTION_DETAILS_FOR_OTHER);
     const answer = this.watchDecisionAnswer();
     await dialog.confirm('Reject');
     this.lastDecisionAnswer = await answer;
@@ -623,6 +633,7 @@ export class ApprovalManagementPage extends BasePage {
     const dialog = new ConfirmDialog(this.page);
     await dialog.waitForVisible();
     if (decision === 'reject') await dialog.selectReasonIfPresent(reason);
+    if (decision === 'reject' && /^other$/i.test(reason)) await dialog.typeReasonText(REJECTION_DETAILS_FOR_OTHER);
     await dialog.acknowledgeIfPresent();
     const answer = this.watchDecisionAnswer();
     await dialog.clickAction('confirm');

@@ -17,6 +17,10 @@ import { test as policyModuleTest } from './policyModule.fixture';
 import { test as facilityModuleTest } from './facilityModule.fixture';
 import { test as memberModuleTest } from './memberModule.fixture';
 import { test as userModuleTest } from './userModule.fixture';
+import { test as settingsModuleTest } from './settingsModule.fixture';
+import { test as lookupModuleTest } from './lookupModule.fixture';
+import { test as notificationModuleTest } from './notificationModule.fixture';
+import { test as roleModuleTest } from './roleModule.fixture';
 import { test as jobClockTest } from './jobClock.fixture';
 import { test as networkHistoryTest } from './networkHistory.fixture';
 import { test as facilityDirectoryTest } from './facilityDirectory.fixture';
@@ -62,6 +66,10 @@ export const test = mergeTests(
   facilityModuleTest,
   memberModuleTest,
   userModuleTest,
+  settingsModuleTest,
+  lookupModuleTest,
+  notificationModuleTest,
+  roleModuleTest,
   jobClockTest,
   networkHistoryTest,
   facilityDirectoryTest,

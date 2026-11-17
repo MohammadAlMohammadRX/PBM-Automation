@@ -490,6 +490,33 @@ const STORIES = [
   ['19-logout-and-session-expiry', 'US 20427 Logout and Session Expiry'],
 ];
 
+/**
+ * Modules added after User Management (Settings, Lookups, Notification, Role ...) were never listed above, so
+ * every case of theirs landed in "Other" (the Notification report showed "1 user story", 2026-11-15). Their
+ * stories are read from the module's own folder map, `reports/<module>/source/<module>-folder-map.json`. The maps
+ * differ in shape (keyed by folder number or by story id, an array, with or without the folder name), so each
+ * entry is matched to the module's real folder under tests/<module>/. Listed entries above always win.
+ */
+(function addStoriesFromFolderMap() {
+  const root = path.join(__dirname, '..');
+  const mapFile = path.join(root, 'reports', MODULE_NAME, 'source', `${MODULE_NAME}-folder-map.json`);
+  if (!fs.existsSync(mapFile)) return;
+  const testsDir = path.join(root, 'tests', MODULE_NAME);
+  const dirs = fs.existsSync(testsDir) ? fs.readdirSync(testsDir).filter((d) => /^\d{2}-/.test(d)) : [];
+  const raw = JSON.parse(fs.readFileSync(mapFile, 'utf8'));
+  const entries = Array.isArray(raw) ? raw.map((e) => [null, e]) : Object.entries(raw);
+  const added = [];
+  for (const [key, e] of entries) {
+    if (!e || !e.title) continue;
+    const storyId = e.story || (/^\d{5}$/.test(String(key)) ? key : null);
+    const folder = e.folder || (key !== null && /^\d{1,2}$/.test(String(key)) ? dirs.find((d) => d.startsWith(`${String(key).padStart(2, '0')}-`)) : null);
+    if (!folder || STORIES.some(([d]) => d === folder)) continue;
+    added.push([folder, storyId ? `US ${storyId} ${e.title}` : e.title]);
+  }
+  added.sort((a, b) => a[0].localeCompare(b[0]));
+  STORIES.push(...added);
+})();
+
 const ORDER = ['PASS', 'FAIL', 'BLOCKED', 'SKIPPED'];
 
 if (!fs.existsSync(IN)) {
@@ -1263,7 +1290,9 @@ const summaryRows = grouped
   })
   .join('');
 
-const html = `<title>${MODULE_TITLE} Module Test Results</title>
+// The charset line: opened as a local file, a page without it is read as Windows-1252 and every "–" shows as "â€“".
+const html = `<meta charset="utf-8">
+<title>${MODULE_TITLE} Module Test Results</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">

@@ -793,9 +793,26 @@ export interface ProvisionedRole {
 }
 
 /** POST CreateRole -> a suite role "QA Automation Role <stamp>" with exactly `rights`. */
+/**
+ * The role ids of the SIGNED-IN account. A suite role must name them in its
+ * `assignableRoleIds` (= "roles that may assign me"), or the account cannot
+ * give the suite role to a suite user: the built-in "Admin" may assign any
+ * role, but an "Organization Administrator" got CreateUser 403 "You are not
+ * allowed to assign one or more of the selected roles" (2026-11-09, runs as
+ * maalmohammad@neorx.co while careconnect is held at two-factor).
+ */
+async function signedInRoleIds(page: Page): Promise<string[]> {
+  const me = await NetworkUtils.requestAsSession(page, 'GET', ApiEndpoints.manageCurrentPermissions);
+  const names = payloadOf<{ roles: string[] }>(me)?.roles ?? [];
+  if (names.length === 0) return [];
+  const roles = await listRoles(page);
+  return roles.filter((r) => names.includes(r.name)).map((r) => r.id);
+}
+
 export async function createSuiteRole(page: Page, spec: SuiteRoleSpec): Promise<ProvisionedRole> {
   const name = spec.name ?? suiteRoleName();
   if (!name.startsWith(SUITE_ROLE_PREFIX)) throw new Error(`"${name}" is not a suite role name`);
+  const assigners = [...new Set([...(spec.assignableRoleIds ?? []), ...(await signedInRoleIds(page))])];
   const res = await NetworkUtils.requestAsSession(page, 'POST', ApiEndpoints.roleCreate, {
     name,
     arabicName: `دور اختبار ${arabicToken()}`,
@@ -805,7 +822,7 @@ export async function createSuiteRole(page: Page, spec: SuiteRoleSpec): Promise<
     hasAssignedPayers: spec.hasAssignedPayers ?? false,
     canApproveOwnRequests: false,
     selectedPermissionIds: await permissionIds(page, spec.rights),
-    assignableRoleIds: spec.assignableRoleIds ?? [],
+    assignableRoleIds: assigners,
   });
   const id = payloadOf<{ id: string }>(res)?.id;
   if (res.status >= 300 || !id) fail(`CreateRole "${name}"`, res);

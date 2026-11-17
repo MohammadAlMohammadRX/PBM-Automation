@@ -152,7 +152,7 @@ async function provisionLink(
   wanted: LinkClass,
   testInfo: Parameters<typeof blockedByPrecondition>[0],
 ): Promise<{ candidate: LinkedNetworkCandidate; code: string }> {
-  const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+  const data = buildUniquePayer({ effectiveDate: DateUtils.minutesFromNow(2) });
   Logger.step(`[fixture] Provisioning a "${wanted}" link on "${data.nameEn}"`);
   const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
 

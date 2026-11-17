@@ -251,8 +251,10 @@ export const test = base.extend<PayerStateFixtures>({
   publishedPayer: async ({ page }, use, testInfo) => {
     const payerPage = new PayerManagementPage(page);
     const approvalPage = new ApprovalManagementPage(page);
-    // Effective in the past so the approved payer is immediately live/Active.
-    const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+    // Effective a few minutes ahead: since the 2026-11-14 build a payer may not start before today (see
+    // DateUtils.minutesFromNow). The approved payer reads "Future" until the activation job runs - it is
+    // published (v1 Approved) at once, which is what the cases using it need.
+    const data = buildUniquePayer({ effectiveDate: DateUtils.minutesFromNow(2) });
 
     Logger.step(`[fixture] Provisioning published payer "${data.nameEn}"`);
 
@@ -291,7 +293,7 @@ export const test = base.extend<PayerStateFixtures>({
   secondPublishedPayer: async ({ page }, use, testInfo) => {
     const payerPage = new PayerManagementPage(page);
     const approvalPage = new ApprovalManagementPage(page);
-    const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+    const data = buildUniquePayer({ effectiveDate: DateUtils.minutesFromNow(2) });
 
     Logger.step(`[fixture] Provisioning a second published payer "${data.nameEn}"`);
     const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
@@ -305,7 +307,7 @@ export const test = base.extend<PayerStateFixtures>({
     const payerPage = new PayerManagementPage(page);
     const approvalPage = new ApprovalManagementPage(page);
     const inactivateDialog = new PayerInactivateDialog(page);
-    const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30) });
+    const data = buildUniquePayer({ effectiveDate: DateUtils.minutesFromNow(2) });
 
     Logger.step(`[fixture] Provisioning inactive payer "${data.nameEn}"`);
 
@@ -354,7 +356,7 @@ export const test = base.extend<PayerStateFixtures>({
     const published: Array<{ code: string; data: PayerData }> = [];
 
     await use(async (overrides: Partial<PayerData> = {}) => {
-      const data = buildUniquePayer({ effectiveDate: DateUtils.pastDate(30), ...overrides });
+      const data = buildUniquePayer({ effectiveDate: DateUtils.minutesFromNow(2), ...overrides });
       Logger.step(`[fixture] Publishing payer "${data.nameEn}"`);
       const code = await provisionPublishedPayer(payerPage, approvalPage, data, testInfo);
       published.push({ code: code.trim(), data });

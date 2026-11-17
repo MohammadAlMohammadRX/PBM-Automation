@@ -263,7 +263,11 @@ export abstract class BasePage {
     // answered the top bar re-renders, and a click in that moment opens
     // nothing - VERIFIED on the Policies module: no overlay, no options. So
     // the click is repeated until the overlay is actually on screen.
-    const openOverlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true });
+    // Since the build of 2026-11-14 21:30 UTC the top bar is the custom `pbm-select`: its panel is a
+    // `.pbm-overlay__content` (no PrimeNG data-pc-section) holding the same role=searchbox filter and
+    // role=option rows - VERIFIED 2026-11-15 (the old locator found no overlay and every scopeTo answered false).
+    const OVERLAY = '[data-pc-section="overlay"], .pbm-overlay__content';
+    const openOverlay = this.page.locator(OVERLAY).filter({ visible: true });
     for (let attempt = 1; attempt <= 4; attempt += 1) {
       await select.click().catch(() => undefined);
       const opened = await openOverlay
@@ -291,7 +295,7 @@ export abstract class BasePage {
     // PAGE's search box instead, typed the payer's name into the list search,
     // and never reached a payer past the first ten (14799; the network
     // provisioning behind 58/59/73).
-    const overlay = this.page.locator('[data-pc-section="overlay"]').filter({ visible: true }).last();
+    const overlay = this.page.locator(OVERLAY).filter({ visible: true }).last();
     const filter = overlay.getByRole('searchbox'); // locator-exception: PrimeNG's overlay filter has no id; scoped to the open overlay
     if ((await filter.count()) > 0) await filter.fill(payerName);
 

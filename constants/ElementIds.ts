@@ -1426,7 +1426,10 @@ export type ApprovalStatusKey = keyof typeof APPROVAL_STATUS;
 // Role administration / permission catalogue
 // ---------------------------------------------------------------------------
 
-/** The role list screen: cards only - this screen has no table view. */
+/**
+ * The role list screen: a TABLE by default with a Cards view behind the breadcrumb toggle
+ * (re-probed 2026-11-14). The full id map of the screen is constants/role/roleIds.ts.
+ */
 export const ROLE_LIST = {
   root: 'role-list',
   toolbar: 'role-list-toolbar',
@@ -1485,7 +1488,8 @@ export const ROLE_FORM = {
  * takes no click; the visible control is the wrapping `.p-multiselect`
  * (read live 2026-10-25 - 18275 clicked the input and timed out).
  */
-export const multiselectControl = (id: string): string => `.p-multiselect:has(> .p-hidden-accessible > #${id}), .p-multiselect:has(#${id})`;
+// `.pbm-multiselect`: the custom control that replaced PrimeNG's on some screens (role drawer, build of 2026-11-14 21:30 UTC).
+export const multiselectControl = (id: string): string => `.p-multiselect:has(> .p-hidden-accessible > #${id}), .p-multiselect:has(#${id}), .pbm-multiselect:has(#${id})`;
 
 /**
  * The permission tree's group headings, as the Privileges step renders them.

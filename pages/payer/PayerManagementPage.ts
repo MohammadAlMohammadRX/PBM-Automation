@@ -1570,7 +1570,10 @@ export class PayerManagementPage extends ListPageBase {
 
   async expectApprovalStatusContains(payerName: string, expected: string): Promise<void> {
     await this.search(payerName);
-    await expect(this.rowByText(payerName)).toContainText(expected, { timeout: Timeouts.default });
+    // Case-insensitive: a draft reads "Pending Approval", an edited published payer "Under change · Pending approval"
+    // (role smoke 2026-11-14) - the same state.
+    const pattern = new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    await expect(this.rowByText(payerName)).toContainText(pattern, { timeout: Timeouts.default });
   }
 
   /**
