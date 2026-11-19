@@ -29,6 +29,10 @@ import { Logger } from '../../utils/Logger';
 import { deletePlanById, planIdByName, type PlanRecord } from '../../utils/PlanProvisioning';
 import type { ParsedXlsx } from '../../utils/XlsxUtils';
 import { PLAN_TYPE_LABEL_AR } from '../../data/plans/plan.data';
+import { AdvancedSearchFilter } from '../components/AdvancedSearchFilter';
+
+/** The Advanced Search fields behind the old Type / Status quick filters (build of 2026-11-14). */
+const PLAN_FILTER_FIELD = { type: 'plantypeid', status: 'statusid' } as const;
 // plan folders 01, 09-13 (2026-10-27)
 import type { ExportScope } from '../components/ExportMenu';
 import { PLAN_ADVANCED_SEARCH_FIELD, TOAST, type PlanSearchField } from '../../constants/ElementIds';
@@ -328,35 +332,16 @@ export class PlanManagementPage extends ListPageBase {
 
   // ---- quick filters ---------------------------------------------------------
 
-  private filterSelect(which: 'type' | 'status'): Locator {
-    return this.page.locator(`#${which === 'type' ? PLAN_LIST.typeFilter : PLAN_LIST.statusFilter}`);
-  }
-
-  /** Opens a quick filter and returns ITS overlay's options (via aria-controls - see NetworkManagementPage). */
-  private async openFilterOverlay(which: 'type' | 'status'): Promise<Locator> {
-    const select = this.filterSelect(which);
-    await select.click();
-    const controls = await select.getAttribute('aria-controls');
-    // locator-exception: PrimeNG overlay options carry render-order ids; read by role inside the overlay the combobox controls.
-    const scoped = controls ? this.page.locator(`[id="${controls}"] [role="option"]`) : null;
-    const scopedShown = scoped
-      ? await scoped.first().waitFor({ state: 'visible', timeout: Timeouts.short }).then(() => true).catch(() => false)
-      : false;
-    const options = scopedShown ? scoped! : this.page.getByRole('option').filter({ visible: true });
-    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
-    return options;
-  }
-
-  private async closeFilterOverlay(which: 'type' | 'status'): Promise<void> {
-    await this.page.keyboard.press('Escape');
-    await expect(this.filterSelect(which)).toHaveAttribute('aria-expanded', 'false', { timeout: Timeouts.short }).catch(() => undefined);
+  /**
+   * Since the build of 2026-11-14 the Type / Status quick filters are gone: they are fields of the Advanced Search
+   * drawer (pages/components/AdvancedSearchFilter.ts). The methods below keep their names and contracts.
+   */
+  filterDrawer(): AdvancedSearchFilter {
+    return new AdvancedSearchFilter(this.page, this.screen);
   }
 
   async getFilterOptions(which: 'type' | 'status'): Promise<string[]> {
-    const options = await this.openFilterOverlay(which);
-    const texts = (await options.allInnerTexts()).map((t) => t.trim()).filter((t) => t !== '');
-    await this.closeFilterOverlay(which);
-    return texts;
+    return this.filterDrawer().options(PLAN_FILTER_FIELD[which]);
   }
 
   /** Chooses a quick-filter option (in the interface's language) and waits for the list to settle. */
@@ -365,17 +350,18 @@ export class PlanManagementPage extends ListPageBase {
     const labels = which === 'status' ? PLAN_STATUS_LABEL_AR : PLAN_TYPE_LABEL_AR;
     const option = rtl ? (labels[englishOption] ?? englishOption) : englishOption;
     Logger.step(`Filtering plans by ${which} = "${option}"`);
-    const options = await this.openFilterOverlay(which);
-    const target = options.filter({ hasText: new RegExp(`^\\s*${option}\\s*$`) }).first();
-    await expect(target, `the ${which} filter should offer "${option}"`).toBeVisible({ timeout: Timeouts.default });
-    await NetworkUtils.captureJsonResponseMatching(this.page, LIST_URL, () =>
-      target.click({ timeout: Timeouts.short }).catch(() => target.dispatchEvent('click')));
-    await expect(this.filterSelect(which)).toContainText(option, { timeout: Timeouts.short });
+    if (/^(all\b|الكل|جميع)/i.test(option.trim())) await this.filterDrawer().clear(PLAN_FILTER_FIELD[which]);
+    else {
+      const chosen = await this.filterDrawer().choose(PLAN_FILTER_FIELD[which], option);
+      await NetworkUtils.captureJsonResponseMatching(this.page, LIST_URL, () => this.filterDrawer().search());
+      await expect(this.filterDrawer().chip(PLAN_FILTER_FIELD[which])).toContainText(chosen, { timeout: Timeouts.short });
+    }
     await this.waitForPageReady();
   }
 
+  /** The value a quick filter currently holds - "" when none is applied (was "All ..." before the 2026-11-14 build). */
   async getQuickFilterValue(which: 'type' | 'status'): Promise<string> {
-    return (await this.filterSelect(which).innerText()).trim();
+    return this.filterDrawer().current(PLAN_FILTER_FIELD[which]);
   }
 
   /** The list request a quick filter sends. */

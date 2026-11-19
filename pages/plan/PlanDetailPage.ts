@@ -128,6 +128,14 @@ export class PlanDetailPage extends BasePage {
 
   /** 'absent' | 'disabled' | 'available' for one header action. */
   async getActionAvailability(key: PlanDetailAction): Promise<'absent' | 'disabled' | 'available'> {
+    // THE HEADER SETTLES FIRST (18 Nov 2026): right after the page opens every header button - Clone included -
+    // is rendered faded/disabled until the plan's state has loaded, and a read in that moment reported Edit,
+    // Deactivate, Activate and Send for Approval all "disabled" (19076/19077). Clone is offered in every state,
+    // so its becoming usable marks the moment the others are final. Skipped where Clone is not shown at all.
+    const clone = this.action('clone');
+    if (await clone.isVisible().catch(() => false)) {
+      await expect(clone).toBeEnabled({ timeout: Timeouts.default }).catch(() => undefined);
+    }
     const button = this.action(key);
     if ((await button.count()) === 0 || !(await button.isVisible())) return 'absent';
     return (await button.isEnabled()) ? 'available' : 'disabled';

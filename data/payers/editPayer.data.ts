@@ -55,7 +55,10 @@ export const NAME_LENGTH_BOUNDARY_CASES: readonly LengthBoundaryCase[] = [
 
 /** Builds a Payer Name of an exact character length. */
 export function payerNameOfLength(length: number): string {
-  return 'A'.repeat(length);
+  // UNIQUE per call (2026-11-18): 'AAA...A' left behind by an earlier run made the 100-character edit fail as
+  // "A payer with this English name already exists." (active names are unique since the 2026-11-14 build).
+  const stamp = RandomDataUtils.uniqueSuffix();
+  return `Automation Payer ${stamp} `.padEnd(length, 'A').slice(0, length);
 }
 
 /** Invalid values reused from the creation-time validation rules (TC-004). */

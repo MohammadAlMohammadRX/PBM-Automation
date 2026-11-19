@@ -116,7 +116,9 @@ test.describe('US 14120 - Network directory list', () => {
     await steps.step('Card view shows the same Active-filtered networks', async () => {
       await networkManagementPage.switchToCardsView();
       expect((await networkManagementPage.getCardTitles()).length, 'cards should render').toBeGreaterThan(0);
-      expect(await networkManagementPage.getChips(), 'the filter should survive the switch').toContain(data.status);
+      // The 14-Nov build labels the chip "<Field>: <value>" ("Status: Active").
+      const chips = await networkManagementPage.getChips();
+      expect(chips.some((c) => c === data.status || c.endsWith(`: ${data.status}`)), `the filter should survive the switch (chips: ${chips.join(' | ')})`).toBe(true);
     });
 
     await steps.step('After Load More and back to table: page 1, Active filter still applied', async () => {

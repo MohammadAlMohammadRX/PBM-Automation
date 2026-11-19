@@ -32,7 +32,11 @@ import {
  */
 test.describe('Approval status across views', () => {
   // Azure test case 15644
-  test('15644: should surface the default list order and whether Draft leads it', async ({
+  // BUG 17711 - DECIDED (dev comment 10 Nov 2026): the order follows the chosen sort, not the Draft
+  // status - Newest, Oldest and Last Modified handle it. So the case asserts that sorting by Last
+  // Modified brings the Draft payer that was just updated to the top. Until 18 Nov 2026 it asserted
+  // that Draft payers lead the default order.
+  test('15644: should bring the most recently updated Draft payer to the top when sorted by Last Modified', async ({
     payerManagementPage,
     draftPayer,
     steps,
@@ -45,9 +49,15 @@ test.describe('Approval status across views', () => {
       await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, DRAFT_STATUS);
     });
 
-    await steps.step('The default order is read across the visible rows', async () => {
+    await steps.critical('The Draft payer is updated, so it carries the latest change', async () => {
+      // WAIT FOR THE DRAWER TO CLOSE: leaving right after Save cancels the save (see 15516).
+      await (await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', '512345681')).waitForClosed();
+    });
+
+    await steps.step('Sort By "Last Modified" (Newest to Oldest) is applied', async () => {
       await payerManagementPage.open();
-      await payerManagementPage.resetFilters();
+      const direction = await payerManagementPage.sortByLastModified();
+      expect(direction, 'the direction toggle should read Newest to Oldest').toMatch(/^newest to oldest/i);
       const names = (await payerManagementPage.getVisiblePayerNames()).slice(0, POPULATED_SAMPLE);
       order = [];
       for (const name of names) {
@@ -56,22 +66,13 @@ test.describe('Approval status across views', () => {
       expect(order.length, 'there should be rows to inspect the order of').toBeGreaterThan(0);
     });
 
-    await steps.step('Draft-status payers lead, ahead of every other status', async () => {
-      // The sheet's rule. If the app orders by something else (creation date, id),
-      // a Draft will appear below a non-Draft and this reports it - the ordering
-      // guarantee the sheet asks for is then not in place.
-      let seenNonDraft = false;
-      const violations: string[] = [];
-      for (const row of order) {
-        const isDraft = row.status.includes(DRAFT_STATUS);
-        if (!isDraft) seenNonDraft = true;
-        else if (seenNonDraft) violations.push(`${row.name} (Draft)`);
-      }
+    await steps.step('The Draft payer just updated is the first row, still in Draft', async () => {
       expect(
-        violations,
-        `Draft payers should lead the default order; a Draft appeared below a non-Draft. `
-          + `Order: ${order.map((o) => o.status).join(' | ')}`,
-      ).toEqual([]);
+        order[0]?.name,
+        `the most recently updated payer should lead the Last Modified order. `
+          + `Order: ${order.map((o) => `${o.name} (${o.status})`).join(' | ')}`,
+      ).toBe(draftPayer.nameEn);
+      expect(order[0]?.status ?? '', 'the payer should still read Draft').toContain(DRAFT_STATUS);
     });
   });
 

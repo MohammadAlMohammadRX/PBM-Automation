@@ -33,14 +33,11 @@ test.describe('Payer licence number - duplication and persistence', () => {
     });
 
     await steps.step('A second payer tries to save with the same licence', async () => {
+      // UPDATED 2026-11-19 (bug 17639): the 14-Nov build refuses a duplicate licence INLINE on step 1, so the
+      // wizard may never offer Save. attemptCreate tries to save and reports null when it was refused before Save;
+      // the next step asserts the refusal either way.
       form = await payerManagementPage.openCreateForm();
-      await form.fillBasicInformation(second);
-      await form.clickNext();
-      await form.fillContactInformation(second);
-      await form.clickNext();
-      await form.fillEffectivePeriod(second);
-      outcome = await form.saveNewAndCaptureOutcome();
-      expect(outcome, 'the create attempt should have reached the server').not.toBeNull();
+      outcome = await form.attemptCreate(second);
     });
 
     await steps.step('The duplicate is refused with a duplicate-licence error', async () => {

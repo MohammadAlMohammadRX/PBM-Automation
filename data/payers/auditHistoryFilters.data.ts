@@ -1,4 +1,5 @@
 import { nonAdminBlockReason } from '../accounts/nonAdminAccount.data';
+import { RandomDataUtils } from '../../utils/RandomDataUtils';
 
 /**
  * Test data for "Display Payer Audit History with Filters".
@@ -58,7 +59,9 @@ export const STATUS_TRANSITION_DIFF = {
 /** The field edited to give the trail an Update entry. */
 export const AUDIT_EDIT = {
   label: 'License Number',
-  value: 'LIC-AUDIT-UPD',
+  // Unique per run (2026-11-17): since the 2026-11-14 build a licence number may belong to one payer only, so the
+  // fixed 'LIC-AUDIT-UPD' left by an earlier run made every later edit fail with 409 'already used by another payer'.
+  value: `LIC-AUDIT-UPD-${RandomDataUtils.uniqueSuffix()}`,
 } as const;
 
 /** The only action an immutable entry may offer. */

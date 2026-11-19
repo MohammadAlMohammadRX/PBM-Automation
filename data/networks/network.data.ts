@@ -33,7 +33,9 @@ export type NetworkType = (typeof NETWORK_TYPES)[number];
 
 /** Lifecycle statuses as the row and header badges render them. */
 export const NETWORK_LIFECYCLE = {
-  pending: 'Pending',
+  // RENAMED 2026-11-14 build (bug 20019 / 20314): the lifecycle status 'Pending' (approved, not yet effective) is
+  // now shown as 'Future' - in the status column, the KPI tile and the Advance Search Status options.
+  pending: 'Future',
   active: 'Active',
   inactive: 'Inactive',
   expired: 'Expired',
@@ -128,6 +130,8 @@ export const NETWORK_WIZARD_TITLE = {
 /** Messages the application shows, word for word. */
 export const NETWORK_MESSAGE = {
   required: 'This field is required.',
+  /** Shown under the English name past 100 characters (seen in the 2026-11-17 retest of bug 20023). */
+  nameTooLong: 'Network name must not exceed 100 characters.',
   effectiveInPast: 'Effective date and time cannot be in the past.',
   /** Step 2's notice. */
   initialPending: 'Initial status will be set to Pending',

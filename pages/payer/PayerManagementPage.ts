@@ -34,6 +34,7 @@ import { SortMenu } from './SortMenu';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import { NetworkUtils } from '../../utils/NetworkUtils';
 import { ACCESS_TOKEN_KEY } from '../../data/payers/lifecycleGuardrails.data';
+import { AdvancedSearchFilter } from '../components/AdvancedSearchFilter';
 import {
   GLOBAL,
   PAYER_COLUMN,
@@ -84,11 +85,18 @@ const PUBLISHED_PAYER_CODE = /^PAY-\d+$/;
  * payer-specific orchestration: creating via the wizard, sending a draft for
  * approval, and reading the Code / Status / Approval Status columns.
  */
+/** The Advanced Search fields behind the old Type / Status quick filters (build of 2026-11-14). */
+const FILTER_FIELD = { type: 'payertypeid', status: 'statusid' } as const;
+
 export class PayerManagementPage extends ListPageBase {
   constructor(page: Page) {
     super(page, SCREEN.payerList);
   }
 
+  /** The Playwright page this object drives - for fixtures that also call the API through the same session. */
+  pageHandle(): Page {
+    return this.page;
+  }
 
   private confirmDialog(): ConfirmDialog {
     return new ConfirmDialog(this.page);
@@ -417,6 +425,34 @@ export class PayerManagementPage extends ListPageBase {
     await this.ensureListOpen();
     await this.withListRefresh(() => this.sortMenu().select(column, direction));
     await expect(this.table()).toBeVisible({ timeout: Timeouts.default });
+  }
+
+  /**
+   * Sorts the list by "Last Modified", newest first (bug 17711, 18 Nov 2026).
+   *
+   * The control of the build of 14 Nov 2026 (VERIFIED live 18 Nov): `payer-list-sort-trigger` opens
+   * one option per field - `payer-list-sort-option-modifiedon` reads "Last Modified" - and the
+   * direction is a separate toggle, `payer-list-sort-direction`, whose title reads "Newest to Oldest
+   * - Click to reverse" or the reverse. The option is picked first, then the toggle is set to Newest
+   * to Oldest if it is not already. Returns the direction title the list ended on.
+   */
+  async sortByLastModified(): Promise<string> {
+    await this.ensureListOpen();
+    const trigger = this.page.locator(`#${SCREEN.payerList}-sort-trigger`);
+    const option = this.page.locator(`#${SCREEN.payerList}-sort-option-modifiedon`);
+    const direction = this.page.locator(`#${SCREEN.payerList}-sort-direction`);
+    Logger.step('Sorting the payer list by "Last Modified" (newest first)');
+    await this.withListRefresh(async () => {
+      await trigger.click();
+      await expect(option).toBeVisible({ timeout: Timeouts.default });
+      await option.click();
+    });
+    const title = async (): Promise<string> => ((await direction.getAttribute('title')) ?? '').trim();
+    if (!/^newest to oldest/i.test(await title())) {
+      await this.withListRefresh(() => direction.click());
+    }
+    await expect(this.table()).toBeVisible({ timeout: Timeouts.default });
+    return title();
   }
 
   /**
@@ -784,8 +820,10 @@ export class PayerManagementPage extends ListPageBase {
 
   /** Asserts both list filters still hold the selections the test applied. */
   async expectFiltersApplied(type: string, status: string): Promise<void> {
-    await expect(this.filterSelect('type')).toHaveText(type, { timeout: Timeouts.default });
-    await expect(this.filterSelect('status')).toHaveText(status, { timeout: Timeouts.default });
+    // Since the 2026-11-14 build an applied filter is a chip ("Status: Active"); "All ..." means no chip.
+    const shown = (v: string): string => (/^(all\b|الكل|جميع)/i.test(v.trim()) ? '' : v);
+    await expect.poll(() => this.advancedSearch().current(FILTER_FIELD.type), { timeout: Timeouts.default }).toBe(shown(type));
+    await expect.poll(() => this.advancedSearch().current(FILTER_FIELD.status), { timeout: Timeouts.default }).toBe(shown(status));
   }
 
   /** Asserts the search box still holds the term the test typed. */
@@ -842,17 +880,19 @@ export class PayerManagementPage extends ListPageBase {
    * in the DOM - a drawer left mounted, a new toolbar control - silently shifted
    * both filters onto the wrong elements.
    */
-  private filterSelect(which: 'type' | 'status'): Locator {
-    return this.byId(`${this.screen}-filter-${which}-select`);
+  /**
+   * Since the build of 2026-11-14 the Type / Status quick filters are gone: filtering happens in the Advanced
+   * Search drawer (pages/components/AdvancedSearchFilter.ts).
+   */
+  advancedSearch(): AdvancedSearchFilter {
+    return new AdvancedSearchFilter(this.page, this.screen);
   }
 
   /** Selects a value in one of the list filters and waits for the list to settle. */
   private async applyFilter(which: 'type' | 'status', option: string): Promise<void> {
     Logger.step(`Filtering payer list by ${which} = "${option}"`);
-    await this.filterSelect(which).click();
-    await this.chooseOption(option);
+    await this.advancedSearch().apply(FILTER_FIELD[which], option);
     await this.waitForPageReady();
-    await expect(this.filterSelect(which)).toHaveText(option, { timeout: Timeouts.default });
   }
 
   /** Accepts a configured option label, so a newly added Payer Type also works. */
@@ -872,12 +912,7 @@ export class PayerManagementPage extends ListPageBase {
 
   /** Options offered by a filter dropdown, in the order they are listed. */
   async getFilterOptions(which: 'type' | 'status'): Promise<string[]> {
-    await this.filterSelect(which).click();
-    const options = this.page.getByRole('option').filter({ visible: true });
-    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
-    const labels = (await options.allInnerTexts()).map((text) => text.trim());
-    await this.page.keyboard.press('Escape');
-    return labels;
+    return this.advancedSearch().options(FILTER_FIELD[which]);
   }
 
   async getVisiblePayerTypes(): Promise<string[]> {
@@ -971,10 +1006,8 @@ export class PayerManagementPage extends ListPageBase {
 
   /** Asserts both filters are showing their neutral selection. */
   async expectFiltersAtDefault(): Promise<void> {
-    await expect(this.filterSelect('type')).toHaveText(ALL_TYPES, { timeout: Timeouts.default });
-    await expect(this.filterSelect('status')).toHaveText(ALL_STATUSES, {
-      timeout: Timeouts.default,
-    });
+    // Neutral = no Type / Status chip (the "All ..." options are gone since the 2026-11-14 build).
+    await this.expectFiltersApplied(ALL_TYPES, ALL_STATUSES);
   }
 
   /**
@@ -1323,9 +1356,8 @@ export class PayerManagementPage extends ListPageBase {
       await expect(this.table()).toHaveCount(0, { timeout: Timeouts.default });
       return;
     }
-    // The named filters specifically, rather than "any combobox on the page".
-    await expect(this.filterSelect('type')).toHaveCount(0, { timeout: Timeouts.default });
-    await expect(this.filterSelect('status')).toHaveCount(0, { timeout: Timeouts.default });
+    // The filters' entry point specifically (the Advanced Search button since the 2026-11-14 build).
+    await expect(this.advancedSearch().openButton()).toHaveCount(0, { timeout: Timeouts.default });
   }
 
   /**
@@ -2145,12 +2177,17 @@ export class PayerManagementPage extends ListPageBase {
     expectAccepted: boolean,
   ): Promise<void> {
     if (expectAccepted) {
+      await form.saveFromAnyStep();
       // Accepted: the wizard closes and the change is held as a private draft
       // (the list still shows the live name until the edit is approved).
       await form.waitForClosed();
       await this.expectApprovalStatusContains(livePayerName, 'Draft');
       return;
     }
+    // Rejected: the save is attempted, but nothing may reach the server - the 14-Nov build refuses the name on
+    // its step, so Save is never offered; an older build refused it at Save. Either way no update may succeed.
+    const submitted = await form.attemptSave();
+    expect(submitted === null || submitted.status >= 400, `an over-long Payer Name must not be saved (got ${submitted?.status})`).toBe(true);
     await form.waitForOpen();
     await expect(form.fieldError('Payer Name')).toBeVisible({ timeout: Timeouts.default });
     await form.closeAndDiscard();

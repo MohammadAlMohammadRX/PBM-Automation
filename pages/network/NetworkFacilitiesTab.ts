@@ -38,6 +38,12 @@ export type CapturedCall = { status: number; body: unknown; text: string } | nul
  * and the row reads "Draft Assignment" with no Assigned On date; Remove asks
  * "Do you want to delete {facility}?" and stages a removal the same way.
  */
+/**
+ * A facility row's Remove button. Since the build of 2026-11-14 it is per row - `network-detail-facilities-table-row-<id>-unassign`
+ * (a button) - instead of the shared `network-detail-remove-facility-button`; both are matched (Sprint 1 retest, 2026-11-17).
+ */
+const REMOVE_SELECTOR = `button[id$="-unassign"], [id$="-unassign"] > button, button#${NETWORK_FACILITIES.removeButton}, #${NETWORK_FACILITIES.removeButton} > button`;
+
 export class NetworkFacilitiesTab {
   constructor(
     private readonly page: Page,
@@ -90,8 +96,8 @@ export class NetworkFacilitiesTab {
     const raw = await this.rows().evaluateAll((trs, removeId) =>
       trs.map((tr) => ({
         cells: Array.from(tr.querySelectorAll('td')).map((td) => (td as HTMLElement).innerText.trim()),
-        removable: tr.querySelector(`#${removeId}`) !== null,
-      })), NETWORK_FACILITIES.removeButton);
+        removable: tr.querySelector(removeId) !== null,
+      })), REMOVE_SELECTOR);
     return raw
       .filter((r) => r.cells.length >= 5)
       .map((r) => ({
@@ -321,13 +327,13 @@ export class NetworkFacilitiesTab {
 
   /** Whether a facility's row offers Remove. */
   async isRemoveOffered(facility: string): Promise<boolean> {
-    return (await this.row(facility).locator(`#${NETWORK_FACILITIES.removeButton}`).count()) > 0;
+    return (await this.row(facility).locator(REMOVE_SELECTOR).count()) > 0;
   }
 
   /** Clicks a row's Remove and returns the confirmation ("Do you want to delete X?"). */
   async openRemove(facility: string): Promise<ConfirmDialog> {
     Logger.step(`Removing facility "${facility}"`);
-    await this.row(facility).locator(buttonSelector(NETWORK_FACILITIES.removeButton)).first().click();
+    await this.row(facility).locator(REMOVE_SELECTOR).first().click();
     const dialog = new ConfirmDialog(this.page);
     await dialog.waitForVisible();
     return dialog;

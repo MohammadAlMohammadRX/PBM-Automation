@@ -466,6 +466,34 @@ export class PayerFormDialog extends EntityWizardDialog {
   }
 
   /**
+   * Walks a NEW payer through the wizard and attempts Save, wherever the application refuses it.
+   *
+   * Since the 14-Nov build some rules (duplicate licence, duplicate name) are checked INLINE on step 1, so the
+   * wizard never advances and Save is never offered. That refusal is a valid answer to "was it saved", so this
+   * returns null for it - and the save response when the wizard did reach Save. The caller asserts the refusal
+   * from the response and the messages shown, never from which of the two places refused it.
+   */
+  async attemptCreate(data: PayerData): Promise<{ status: number; body: unknown; text: string } | null> {
+    // Each step is filled, then the wizard is asked to advance; a step that refuses (an inline rule such as the
+    // duplicate licence on step 2, "Contact Information" - verified 2026-11-19) ends the attempt there.
+    const advancedPast = async (step: number): Promise<boolean> => {
+      await this.attemptNext();
+      const moved = await expect
+        .poll(() => this.activeStepNumber(), { timeout: Timeouts.short })
+        .toBeGreaterThan(step)
+        .then(() => true, () => false);
+      if (!moved) Logger.step(`The wizard stayed on step ${step} - the entry was refused before Save`);
+      return moved;
+    };
+    await this.fillBasicInformation(data);
+    if (!(await advancedPast(1))) return null;
+    await this.fillContactInformation(data);
+    if (!(await advancedPast(2))) return null;
+    await this.fillEffectivePeriod(data);
+    return this.saveNewAndCaptureOutcome();
+  }
+
+  /**
    * Asserts a captured save outcome is the CONCURRENCY conflict, not merely a 409.
    *
    * WHY THE STATUS ALONE IS NOT ENOUGH, learned the hard way. The application

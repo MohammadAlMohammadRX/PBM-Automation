@@ -316,6 +316,17 @@ export class NetworkFormDialog extends EntityWizardDialog {
 
   /** The edit counterpart of `saveNewAndReport` (UpdateNetwork). */
   async saveEditAndReport(): Promise<SaveReport> {
+    // Since the build of 2026-11-14 an invalid step-1 field (e.g. "Network name must not exceed 100 characters.")
+    // stops the stepper, so the Effective Period step - and Save - is never reached; that is a refusal, reported as
+    // such instead of timing out on the step-2 date field (18013, Sprint 1 retest 2026-11-17).
+    if (await this.nextButton().isVisible().catch(() => false)) {
+      await this.next();
+      const reachedNext = await this.submitButton()
+        .waitFor({ state: 'visible', timeout: Timeouts.short })
+        .then(() => true)
+        .catch(() => false);
+      if (!reachedNext) return this.report(null);
+    }
     let outcome = await this.saveEditAndCapture();
     // Editing a LIVE network first answers `requiresDraftConfirmation` and
     // raises the shared dialog; only confirming it sends the real save
@@ -353,6 +364,25 @@ export class NetworkFormDialog extends EntityWizardDialog {
       .catch(() => false);
     if (!reachedSave) return this.report(null);
     return this.saveEditAndReport();
+  }
+
+  /**
+   * The create counterpart of `attemptEditSave`: fills step 1, tries to move on, and reports a refusal there
+   * (the inline error included) instead of timing out on the step-2 date field. Since the build of 14 Nov 2026 a
+   * duplicate same-payer English name is refused on step 1 ("A network with this English name already exists for
+   * this payer.") - VERIFIED 18 Nov 2026 (20016: 17784, 18210, 18211). When step 1 passes, step 2 is filled and
+   * saved as `saveNewAndReport` does.
+   */
+  async attemptCreateAndReport(data: NetworkFormData): Promise<SaveReport> {
+    await this.fillBasicInformation(data);
+    await this.next();
+    const reachedSave = await this.submitButton()
+      .waitFor({ state: 'visible', timeout: Timeouts.short })
+      .then(() => true)
+      .catch(() => false);
+    if (!reachedSave) return this.report(null);
+    await this.fillEffectivePeriod(data);
+    return this.saveNewAndReport();
   }
 
   /**

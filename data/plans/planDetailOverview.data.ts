@@ -105,31 +105,34 @@ export const ddMMyyyy = (date: Date): string =>
   `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 
 /**
- * 19076 - the header actions per status, as the business team set them on
- * 2026-10-27 ("Deactivate" is the `inactivate` action):
- *  - Draft: Edit; NEITHER Activate NOR Inactivate may appear - a draft goes
- *    live through Send for Approval.
- *  - Active: Inactivate; NO Edit - a published plan is not edited.
- *  - Inactive: Activate; NO Edit and no Inactivate.
- * Edit belongs to a Draft / version-0 plan only (never published): every
- * published version - Active or Inactive - shows no Edit.
- * A hidden action must not be on screen at all - a disabled button counts as
- * shown ("should not appear").
+ * 19076 - the header actions per status.
+ *
+ * BUG 20332 - DECIDED in the meeting of 12 Nov 2026 (dev comment 14 Nov): an action the user has no
+ * PERMISSION for is hidden; an action that is not possible in the record's current STATE is shown
+ * DISABLED. Activate and Deactivate are ONE status button that follows the state (VERIFIED 18 Nov 2026):
+ *  - Draft: Edit and Send for Approval offered; Deactivate SHOWN DISABLED (the bug); Activate not usable.
+ *  - Active: Deactivate offered; Edit and Activate not usable.
+ *  - Inactive: Activate offered; Edit and Deactivate not usable.
+ * "Not usable" = absent or disabled: the decision settles disabled-vs-hidden for the Draft's Deactivate, which is
+ * what bug 20332 reported; for the others the case asserts only that they cannot be used.
+ * Until 18 Nov 2026 the not-possible actions were required to be absent (business team, 27 Oct).
  */
 export const ACTIONS_PER_STATUS = [
-  { state: 'Draft', shown: ['edit'], hidden: ['activate', 'inactivate'] },
-  { state: 'Active', shown: ['inactivate'], hidden: ['edit', 'activate'] },
-  { state: 'Inactive', shown: ['activate'], hidden: ['edit', 'inactivate'] },
+  { state: 'Draft', offered: ['edit', 'submit'], disabled: ['inactivate'], notUsable: ['activate'] },
+  { state: 'Active', offered: ['inactivate'], disabled: [], notUsable: ['edit', 'activate'] },
+  { state: 'Inactive', offered: ['activate'], disabled: [], notUsable: ['edit', 'inactivate'] },
 ] as const;
 
-/** An action that "does not appear" - not rendered, or rendered invisible. */
-export const NOT_SHOWN = 'absent';
+/** A state-impossible action: on screen, but not usable (bug 20332). */
+export const SHOWN_DISABLED = 'disabled';
 
 /** 19077 - a draft's approval badge. */
 export const DRAFT_BADGE = /Draft/i;
 
-/** 19077 - the actions a draft must not show, and the one it goes live through. */
-export const DRAFT_HIDDEN_ACTIONS = ['activate', 'inactivate'] as const;
+/** 19077 - the action a draft shows DISABLED (bug 20332: Deactivate), and the one it goes live through. */
+export const DRAFT_DISABLED_ACTIONS = ['inactivate'] as const;
+/** 19077 - the status action a draft does not offer at all (one status button: Deactivate on a draft). */
+export const DRAFT_NOT_USABLE_ACTIONS = ['activate'] as const;
 export const DRAFT_GO_LIVE_ACTION = 'submit';
 
 /** 19078 - a plan id that has never existed, and what must NOT be shown (an application error). */

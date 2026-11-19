@@ -68,13 +68,16 @@ export const UNAPPROVED_STATUSES = [
  * `PAYER_DETAIL_TAB` in constants/ElementIds.ts holds the ids themselves; this
  * is the ORDER they must appear in, which is a requirement rather than a
  * locator - hence its home here.
+ *
+ * BUG 17653 - DECIDED (dev comment 10 Nov 2026, updated PRD): Version History stays BEFORE Audit
+ * History - the least-used tab keeps the last place. The order was Audit, Version until 18 Nov 2026.
  */
 export const REQUIRED_TAB_ORDER = [
   'overview',
   'networks',
   'policies',
-  'audit',
   'versions',
+  'audit',
 ] as const;
 
 /** Tab captions per language, for the checklist case's failure messages. */

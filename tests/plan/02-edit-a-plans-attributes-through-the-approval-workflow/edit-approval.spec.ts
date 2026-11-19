@@ -147,11 +147,13 @@ test.describe('US 14146 - Plan edits through approval', () => {
       expect(result.messages.join(' | '), 'a success message').toMatch(PLAN_MESSAGE.submittedShown);
     });
 
-    await steps.step('Back on the directory, without a manual refresh, the plan reads Pending and the Pending KPI rose by one', async () => {
-      await expect
-        .poll(() => planManagementPage.getSettledKpiValue('pending'), { message: 'the Pending KPI should count the submitted plan', timeout: 30_000 })
-        .toBe(pendingBefore + 1);
-      expect(await planManagementPage.readStatus(plan.name), 'the plan\'s status badge').toBe(PLAN_LIFECYCLE.pending);
+    // UPDATED 2026-11-18 (bug 20314 resolved, QA review): since the build of 2026-11-14 a submitted draft stays
+    // "Not Live" with "Pending Approval" in its approval column; the old "Pending" status is now "Future" and means an
+    // APPROVED plan whose effective date is ahead - so submitting must not add it to the Future count.
+    await steps.step('Back on the directory, without a manual refresh, the plan reads Not Live / Pending Approval and the Future KPI is unchanged', async () => {
+      await planManagementPage.expectApprovalCell(plan.name, PLAN_APPROVAL_CELL.pendingApproval);
+      expect(await planManagementPage.readStatus(plan.name), 'the plan\'s status badge').toBe(PLAN_LIFECYCLE.notLive);
+      expect(await planManagementPage.getSettledKpiValue('pending'), 'the Future KPI must not count an unapproved plan').toBe(pendingBefore);
     });
   });
 

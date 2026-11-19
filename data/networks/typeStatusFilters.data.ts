@@ -16,14 +16,18 @@ export const FILTER_DEFAULT = NETWORK_FILTER_DEFAULT;
 /** The options each quick filter must offer, defaults excluded (17744). */
 export const EXPECTED_OPTIONS = {
   type: [...NETWORK_TYPES],
-  status: [NETWORK_LIFECYCLE.pending, NETWORK_LIFECYCLE.active, NETWORK_LIFECYCLE.inactive, NETWORK_LIFECYCLE.expired],
+  // Advance Search Status options since the 2026-11-14 build (bug 20019): Not Live, Future (was Pending), Active,
+  // Inactive, Expired.
+  status: [NETWORK_LIFECYCLE.notLive, NETWORK_LIFECYCLE.pending, NETWORK_LIFECYCLE.active, NETWORK_LIFECYCLE.inactive, NETWORK_LIFECYCLE.expired],
 } as const;
 
 export const CASES = {
   byType: { azureId: '17739', type: 'HMO' },
   byEachStatus: {
     azureId: '17740',
-    statuses: [NETWORK_LIFECYCLE.pending, NETWORK_LIFECYCLE.active, NETWORK_LIFECYCLE.inactive, NETWORK_LIFECYCLE.expired],
+    // UPDATED 2026-11-19 (bug 20019): every Advance Search Status option - Not Live, Future (was Pending), Active,
+    // Inactive, Expired.
+    statuses: [NETWORK_LIFECYCLE.notLive, NETWORK_LIFECYCLE.pending, NETWORK_LIFECYCLE.active, NETWORK_LIFECYCLE.inactive, NETWORK_LIFECYCLE.expired],
   },
   combined: { azureId: '17741', type: 'PPO', status: NETWORK_LIFECYCLE.expired },
   boundaries: { azureId: '17743', first: 'HMO', last: 'POS' },

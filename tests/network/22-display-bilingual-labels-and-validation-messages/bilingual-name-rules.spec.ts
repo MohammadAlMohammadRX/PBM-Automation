@@ -109,12 +109,17 @@ test.describe('US 14141 - Bilingual name rules', () => {
       expect(report.created, report.text).toBe(true);
     });
 
-    await steps.step('101 characters are refused with a maximum-length message (or capped at 100)', async () => {
+    // TIGHTENED 2026-11-19 (bug 20023 retest, QA: "a validation message appears when entering more than 100"): the
+    // field takes the 101st character and the form refuses it with the maximum-length message - a silent cap at
+    // 100 no longer counts as a pass.
+    await steps.step('101 characters are refused with a maximum-length validation message', async () => {
       await networkDetailPage.open(networkId);
       const form = await networkDetailPage.openEdit();
       const held = await form.insertInto('nameEn', limits.overMax());
+      expect(held.length, 'the field holds all 101 characters (no silent cap)').toBe(limits.max + 1);
       const report = await form.saveEditAndReport();
-      expect(held.length <= limits.max || report.refused, `held ${held.length} characters; ${report.text}`).toBe(true);
+      expect(report.refused, `101 characters must be refused; ${report.text}`).toBe(true);
+      expect(await form.readFieldError('nameEn'), 'the maximum-length message under the English name').toBe(NETWORK_MESSAGE.nameTooLong);
       await form.closeAndDiscard();
       await networkDetailPage.open(networkId);
       expect((await networkDetailPage.getName()).length, 'no over-limit name may be stored').toBeLessThanOrEqual(limits.max);

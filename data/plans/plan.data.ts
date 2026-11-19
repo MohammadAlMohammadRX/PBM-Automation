@@ -37,14 +37,18 @@ export const PLAN_TYPE_LABEL_AR: Record<string, string> = {
 /** Lifecycle statuses as the row and header badges render them. */
 export const PLAN_LIFECYCLE = {
   notLive: 'Not Live',
-  pending: 'Pending',
+  // Renamed 'Future' in the build of 2026-11-14 (bug 20314 review, 2026-11-18): an approved plan whose effective
+  // date is still ahead. The key keeps its old name so the cases read unchanged.
+  pending: 'Future',
   active: 'Active',
   inactive: 'Inactive',
   expired: 'Expired',
 } as const;
 
 /** The Status quick filter's options ("All Statuses" first). */
-export const PLAN_STATUS_FILTER_OPTIONS = ['All Statuses', 'Not Live', 'Pending', 'Active', 'Inactive', 'Expired'] as const;
+// 'Pending' is 'Future' since the build of 2026-11-14 (and there is no 'All Statuses' option in the Advanced Search drawer;
+// it is kept first here only for the callers that drop it).
+export const PLAN_STATUS_FILTER_OPTIONS = ['All Statuses', 'Not Live', 'Future', 'Active', 'Inactive', 'Expired'] as const;
 
 /** The approval cell, e.g. "v0 · Draft", "v1 · Pending Approval", "v1 · Approved". */
 export const PLAN_APPROVAL_CELL = {

@@ -168,7 +168,9 @@ export const STATUS_TONE_CASES: readonly StatusToneCase[] = [
     statusAr: 'قيد الموافقة',
     tone: 'pending',
     describedAs: 'yellow/amber',
-    filter: 'Pending',
+    // "Pending" left the Status filter in the build of 14 Nov 2026; a payer awaiting its first approval is
+    // lifecycle "Not Live", which brings such a row on screen.
+    filter: 'Not Live',
     column: 'approval',
   },
   {

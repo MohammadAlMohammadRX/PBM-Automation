@@ -55,25 +55,56 @@ test.describe('US 14302 - Owning payer on the directory', () => {
     });
   });
 
+  // REWORKED 2026-11-19 (bug 20020, QA instruction): start from "All Payers", then select one payer and check the
+  // list returns ONLY that payer's networks. The payer used is a suite payer that owns networks made for this case
+  // (the non-admin's NUPCO owns none, so it listed nothing). The Payer column was removed (bug 20021), so ownership
+  // is checked by network code: the payer's networks are known, and a network it does not own must drop out.
   test(`TC-${CASES.narrowsToPayer.azureId}: should list only that payer's networks when a payer is selected in the quick filter`, async ({
-    nonAdminSession,
+    networkManagementPage,
+    publishedPayer,
+    networkIn,
     steps,
   }) => {
-    const payer = MULTI_PAYER_ACCOUNT.payerB;
+    test.setTimeout(20 * 60_000);
+    const payer = publishedPayer.nameEn;
+    const owned = [
+      await networkIn('Draft', { payerName: payer }),
+      await networkIn('Draft', { payerName: payer }),
+    ];
+    const other = await networkIn('Draft'); // owned by no payer
+    const ownedCodes: string[] = [];
+    let otherCode = '';
 
-    await steps.critical('The multi-payer Payer Admin opens the Network Directory', async () => {
-      await nonAdminSession.networks.openList();
+    await steps.critical('Open the Network Directory with "All Payers" selected - every payer\'s networks are listed', async () => {
+      await networkManagementPage.openList();
+      expect(await networkManagementPage.scopeTo('All Payers'), 'the payer selector should offer "All Payers"').toBe(true);
+      await networkManagementPage.openList();
+      expect(await networkManagementPage.getScopedPayer()).toBe('All Payers');
+      for (const network of owned) ownedCodes.push((await networkManagementPage.readRow(network.name)).code);
+      otherCode = (await networkManagementPage.readRow(other.name)).code;
+      expect([...ownedCodes, otherCode].every(Boolean), 'all three networks are listed under All Payers').toBe(true);
     });
 
-    await steps.step(`Selecting "${payer}" refreshes the list`, async () => {
-      await nonAdminSession.networks.openListFor(payer);
-      expect(await nonAdminSession.networks.getScopedPayer()).toBe(payer);
+    await steps.step(`Selecting "${payer}" refreshes the list to that payer`, async () => {
+      await networkManagementPage.openListFor(payer);
+      expect(await networkManagementPage.getScopedPayer()).toBe(payer);
     });
 
-    await steps.step(`Every listed row is owned by "${payer}"`, async () => {
-      const payers = await nonAdminSession.networks.readColumn(NETWORK_COLUMN.payer);
-      expect(payers.length, 'the directory should list rows').toBeGreaterThan(0);
-      expect(payers.filter((value) => value !== payer), `rows not owned by ${payer} (${NO_OWNER} = unowned)`).toEqual([]);
+    // The payer also owns the network the suite links to every payer it publishes (a payer needs one to be
+    // approved - seen as NET-000824 on 2026-11-19), so the list is checked for the payer's networks being there and
+    // the network it does not own being gone, not for an exact set.
+    await steps.step(`Only "${payer}"'s networks are listed`, async () => {
+      let listed: string[] = [];
+      await expect
+        .poll(async () => {
+          listed = await networkManagementPage.readCodesOnPage();
+          return ownedCodes.every((c) => listed.includes(c)) && !listed.includes(otherCode);
+        }, { timeout: 30_000 })
+        .toBe(true)
+        .catch(() => {
+          throw new Error(`with "${payer}" selected the list should hold its networks ${ownedCodes.join(', ')} and not ${otherCode}; `
+            + `it listed: ${listed.join(', ') || '(nothing)'}`);
+        });
     });
   });
 

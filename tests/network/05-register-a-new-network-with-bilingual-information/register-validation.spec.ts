@@ -222,9 +222,13 @@ test.describe('US 14122 - Registration field rules', () => {
     });
   });
 
-  test(`TC-${REGISTER.reuseAfterExpiry.azureId}: should allow an English name again when the same-payer network carrying it has expired`, async ({
+  // BUG 20016 - DECIDED 10 Nov 2026 (stand-up; dev comment 11 Nov): the name of an Expired or
+  // Inactive network is NOT released. Registering it again under the same payer is refused with the
+  // duplicate-name error. The case asserted reuse until 18 Nov 2026.
+  test(`TC-${REGISTER.reuseAfterExpiry.azureId}: should refuse an English name still held by an expired network of the same payer`, async ({
     networkManagementPage,
     networkIn,
+    publishedPayer,
     steps,
     cleanup,
   }) => {
@@ -232,8 +236,14 @@ test.describe('US 14122 - Registration field rules', () => {
     const name = named(REGISTER.reuseAfterExpiry.sheetName);
     let payer = '';
 
+    // A SINGLE-PAYER SCOPE (build of 14 Nov 2026): under "All Payers" the form offers a Payers
+    // dropdown instead of the payer tag, and the case never reached its check (17 and 18 Nov).
+    // The suite's own payer is scoped here, and the admin's scope is put back afterwards.
     await steps.critical('Navigate to the module - the form registers under the scope payer', async () => {
       await networkManagementPage.openList();
+      const original = await networkManagementPage.getScopedPayer();
+      cleanup.register(async () => { await networkManagementPage.scopeTo(original); });
+      await networkManagementPage.openListFor(publishedPayer.nameEn);
       const form = await networkManagementPage.openAddForm();
       payer = await form.getPayerTag();
       await form.closeAndDiscard();
@@ -245,13 +255,17 @@ test.describe('US 14122 - Registration field rules', () => {
       expect(await networkManagementPage.readStatus(existing.name)).toBe(NETWORK_LIFECYCLE.expired);
     });
 
-    await steps.step('Registering the name again passes the uniqueness check and saves', async () => {
-      await networkManagementPage.openList();
+    let report!: SaveReport;
+    await steps.step('Registering the name again under the same payer is refused', async () => {
+      await networkManagementPage.openListFor(payer);
       const form = await networkManagementPage.openAddForm();
-      await form.fill(buildNetwork({ nameEn: name }));
-      const report = await form.saveNewAndReport();
+      report = await form.attemptCreateAndReport(buildNetwork({ nameEn: name }));
       cleanup.register(() => form.discardCreated(report.outcome));
-      expect(report.created, `the name of an expired network should be reusable: ${report.text}`).toBe(true);
+      expect(report.refused, `the name of an expired network of the same payer must not be reused: ${report.text}`).toBe(true);
+    });
+
+    await steps.step('The error says the name already exists for this payer', async () => {
+      expect(report.messages.join(' | ')).toMatch(MESSAGE.duplicateName);
     });
   });
 

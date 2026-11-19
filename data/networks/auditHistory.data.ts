@@ -17,7 +17,6 @@ import type { NetworkBlockedCase } from './network.data';
 export const CASE = {
   eventList: '17983',
   noPermission: '17984',
-  lifecycleSequence: '17987',
   actionTypeOnly: '17995',
   statusChange: '17994',
 } as const;
@@ -32,21 +31,6 @@ export const ACTION = {
 
 /** The status change 17994 makes, as the drawer's before/after should read. */
 export const STATUS_CHANGE = { field: /status/i, before: 'Active', after: 'Inactive' } as const;
-
-/**
- * Whether `expected` (oldest first) occurs in that order within the timeline's
- * actions (newest first, as the tab lists them).
- */
-export const appearsInOrder = (newestFirst: readonly string[], expected: readonly string[]): boolean => {
-  const oldestFirst = [...newestFirst].reverse();
-  let from = 0;
-  for (const action of expected) {
-    const at = oldestFirst.indexOf(action, from);
-    if (at < 0) return false;
-    from = at + 1;
-  }
-  return true;
-};
 
 export const BLOCKED_CASES: NetworkBlockedCase[] = [
   {

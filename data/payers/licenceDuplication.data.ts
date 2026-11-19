@@ -1,3 +1,4 @@
+import { RandomDataUtils } from '../../utils/RandomDataUtils';
 /**
  * Test data for "Capture and Display Payer Licence Number".
  *
@@ -17,7 +18,9 @@
  */
 
 /** A fixed licence two payers will both attempt to use. */
-export const SHARED_LICENCE = 'LIC-DUP-300789';
+// Unique per run (2026-11-17): the fixed 'LIC-DUP-300789' was still held by an earlier run's payer, so the FIRST
+// payer of the case was already refused ("This license number is already used by another payer.").
+export const SHARED_LICENCE = `LIC-DUP-${RandomDataUtils.uniqueSuffix()}`;
 
 /** The kind of error the sheet expects on a duplicate licence. */
 export const DUPLICATE_HINT = /duplicate|already|unique|in use|exists/i;

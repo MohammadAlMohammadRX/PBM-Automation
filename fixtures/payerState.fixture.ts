@@ -9,6 +9,8 @@ import { Logger } from '../utils/Logger';
 import { PAYER_COLUMN } from '../constants/ElementIds';
 import { blockedByPrecondition } from './testStatus.fixture';
 import { LIFECYCLE_STATUS } from '../data/payers/statusTransition.data';
+import { waitWithLifecycleJob } from '../utils/LifecycleNudge';
+import { payerDropdown } from '../utils/UserProvisioning';
 
 /**
  * Payer-state fixtures.
@@ -204,6 +206,29 @@ export async function assignANetwork(payerPage: PayerManagementPage, payerName: 
   await payerPage.search(payerName);
 }
 
+/**
+ * Waits until an approved payer is ACTIVE (2026-11-17). Since the 2026-11-14 build a payer may not start before
+ * "now", so it is approved as "Future" and only the payer lifecycle job - back on its daily schedule - makes it
+ * Active; until then the cases that need an Active payer failed at their first step ("showed Future instead of
+ * Active"). GetPayersDropdown lists active payers only, so it is the signal; the job is moved to fire soon while
+ * waiting and restored afterwards (utils/LifecycleNudge.ts). Throws when the payer never turns Active.
+ */
+export async function waitUntilPayerActive(
+  payerPage: PayerManagementPage,
+  name: string,
+  testInfo: Parameters<typeof blockedByPrecondition>[0],
+): Promise<void> {
+  const page = payerPage.pageHandle();
+  testInfo.setTimeout(testInfo.timeout + 360_000);
+  const active = await waitWithLifecycleJob(
+    page,
+    'Jobs.PayerLifecycleCron',
+    async () => (await payerDropdown(page)).some((p) => p.payerNameEn === name),
+    { timeoutMs: 5 * 60_000, what: `payer "${name}" Active` },
+  );
+  if (!active) throw new Error(`payer "${name}" was approved but is still not Active after the payer lifecycle job was moved`);
+}
+
 export async function provisionPublishedPayer(
   payerPage: PayerManagementPage,
   approvalPage: ApprovalManagementPage,
@@ -216,6 +241,7 @@ export async function provisionPublishedPayer(
     await payerPage.sendForApproval(data.nameEn);
     await approvalPage.open();
     await approvalPage.approve(data.nameEn);
+    await waitUntilPayerActive(payerPage, data.nameEn, testInfo);
     await payerPage.open().catch(() => undefined);
     return await payerPage.getPayerCode(data.nameEn).catch(() => '');
   } catch (error) {
@@ -319,6 +345,8 @@ export const test = base.extend<PayerStateFixtures>({
       await payerPage.sendForApproval(data.nameEn);
       await approvalPage.open();
       await approvalPage.approve(data.nameEn);
+      // Only an ACTIVE payer can be inactivated; it is approved as "Future" since the 2026-11-14 build.
+      await waitUntilPayerActive(payerPage, data.nameEn, testInfo);
 
       await payerPage.open();
       code = await payerPage.getPayerCode(data.nameEn).catch(() => '');

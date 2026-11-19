@@ -57,8 +57,8 @@ test.describe('Filter Payer List by Type and Status - Single criterion', () => {
     await steps.critical('Set the Status filter to Active', () =>
       payerManagementPage.filterByStatus('Active'));
 
-    // Pending, Inactive and Expired payers must all be excluded.
-    await steps.step('Every listed row is Active - Pending, Inactive and Expired excluded', () =>
+    // Not Live, Future, Inactive and Expired payers must all be excluded (Pending was renamed Future, 2026-11-14 build).
+    await steps.step('Every listed row is Active - Not Live, Future, Inactive and Expired excluded', () =>
       payerManagementPage.expectAllRowsOfStatus('Active'));
   });
 
@@ -254,7 +254,7 @@ test.describe('Filter Payer List by Type and Status - Reset & transitions', () =
         await payerManagementPage.filterByType('All Types');
         await payerManagementPage.filterByType('Private');
         await payerManagementPage.filterByStatus('Active');
-        await payerManagementPage.filterByStatus('Pending');
+        await payerManagementPage.filterByStatus('Future'); // was Pending (renamed Future in the 2026-11-14 build)
         await payerManagementPage.filterByStatus('Inactive');
       },
     );
@@ -305,7 +305,7 @@ test.describe('Filter Payer List by Type and Status - Empty state & URL handling
       await payers.open();
       await payers.expectRowsRendered();
       const held = (await payers.getRowPairs(PAYER_COLUMN.payerName, PAYER_COLUMN.status)).map((r) => r.status.trim());
-      const candidates = [EMPTY_RESULT_COMBINATION.status, 'Inactive', 'Pending'];
+      const candidates = [EMPTY_RESULT_COMBINATION.status, 'Inactive', 'Future']; // Pending renamed Future (2026-11-14 build)
       status = candidates.find((s) => !held.some((h) => new RegExp(`^${s}$`, 'i').test(h))) ?? '';
       if (!status) steps.blocked(`the non-admin's payers already hold every candidate status (${held.join(', ')})`);
       expect(status, `a status none of the non-admin's payers holds (${held.join(', ')})`).not.toBe('');

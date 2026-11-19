@@ -162,9 +162,13 @@ test.describe('US 14316 - English name uniqueness', () => {
     { ...NAMING.reuseExpired, state: 'Expired' as const, label: 'Expired' },
     { ...NAMING.reuseInactive, state: 'Inactive' as const, label: 'Inactive' },
   ]) {
-    test(`TC-${reuse.azureId}: should allow the name again when the same-payer network carrying it is ${reuse.label}`, async ({
+    // BUG 20016 - DECIDED 10 Nov 2026 (stand-up; dev comment 11 Nov): the names of Expired and
+    // Inactive networks are NOT reused - a same-payer namesake in either state still blocks the name
+    // with the duplicate-name error. The cases asserted reuse until 18 Nov 2026.
+    test(`TC-${reuse.azureId}: should refuse the name while the same-payer network carrying it is ${reuse.label}`, async ({
       networkManagementPage,
       networkIn,
+      publishedPayer,
       steps,
       cleanup,
     }) => {
@@ -172,8 +176,14 @@ test.describe('US 14316 - English name uniqueness', () => {
       const name = named(reuse.sheetName);
       let payer = '';
 
+      // A SINGLE-PAYER SCOPE (build of 14 Nov 2026): under "All Payers" the form offers a Payers
+      // dropdown instead of the payer tag, and the case never reached its check (17 and 18 Nov).
+      // The suite's own payer is Payer X here, and the admin's scope is put back afterwards.
       await steps.critical('Navigate to the module - the form opens for Payer X', async () => {
         await networkManagementPage.openList();
+        const original = await networkManagementPage.getScopedPayer();
+        cleanup.register(async () => { await networkManagementPage.scopeTo(original); });
+        await networkManagementPage.openListFor(publishedPayer.nameEn);
         const form = await networkManagementPage.openAddForm();
         payer = await form.getPayerTag();
         await form.closeAndDiscard();
@@ -185,13 +195,17 @@ test.describe('US 14316 - English name uniqueness', () => {
         expect(await networkManagementPage.readStatus(existing.name)).toBe(reuse.label);
       });
 
-      await steps.step('The same name raises no conflict and the new network is created', async () => {
-        await networkManagementPage.openList();
+      let report!: SaveReport;
+      await steps.step('Saving the same name is refused with a conflict error', async () => {
+        await networkManagementPage.openListFor(payer);
         const form = await networkManagementPage.openAddForm();
-        await form.fill(buildNetwork({ nameEn: name }));
-        const report = await form.saveNewAndReport();
+        report = await form.attemptCreateAndReport(buildNetwork({ nameEn: name }));
         cleanup.register(() => form.discardCreated(report.outcome));
-        expect(report.created, `an ${reuse.label} namesake must not block: ${report.text}`).toBe(true);
+        expect(report.refused, `an ${reuse.label} namesake of the same payer must still block the name: ${report.text}`).toBe(true);
+      });
+
+      await steps.step('The error says the name already exists for this payer', async () => {
+        expect(report.messages.join(' | ')).toMatch(MESSAGE.duplicateName);
       });
     });
   }

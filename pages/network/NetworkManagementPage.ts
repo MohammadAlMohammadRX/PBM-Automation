@@ -36,6 +36,10 @@ import { GLOBAL, NETWORK_CARDS } from '../../constants/ElementIds';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import type { ParsedXlsx } from '../../utils/XlsxUtils';
 import { NETWORK_STATUS_LABEL_AR, NETWORK_TYPE_LABEL_AR } from '../../data/networks/network.data';
+import { AdvancedSearchFilter } from '../components/AdvancedSearchFilter';
+
+/** The Advanced Search fields behind the old Type / Status quick filters (build of 2026-11-14). */
+const NETWORK_FILTER_FIELD = { type: 'networktypeid', status: 'statusid' } as const;
 
 /**
  * The list's own request. A RegExp because `GetNetworks` is a prefix of
@@ -660,45 +664,17 @@ export class NetworkManagementPage extends ListPageBase {
 
   // ---- Quick filters ----------------------------------------------------------
 
-  private filterSelect(which: 'type' | 'status'): Locator {
-    return this.page.locator(`#${which === 'type' ? NETWORK_LIST.typeFilter : NETWORK_LIST.statusFilter}`);
-  }
-
   /**
-   * Opens a quick filter and returns ITS overlay's options. Scoped through the
-   * combobox's aria-controls: an overlay closed with Escape can linger, and
-   * reading "any visible option" returned the TYPE options for the status
-   * filter (found 2026-10-21).
+   * Since the build of 2026-11-14 the Type / Status quick filters are gone: they are fields of the Advanced Search
+   * drawer (pages/components/AdvancedSearchFilter.ts). The methods below keep their names and contracts.
    */
-  private async openFilterOverlay(which: 'type' | 'status'): Promise<Locator> {
-    const select = this.filterSelect(which);
-    await select.click();
-    const controls = await select.getAttribute('aria-controls');
-    const scoped = controls ? this.page.locator(`[id="${controls}"] [role="option"]`) : null;
-    // aria-controls can name an overlay that is no longer the one on screen
-    // (pn_id_23_list in 18058/18060/18069, 2026-10-25), so when its options do
-    // not show, the visible overlay's are used - only one is open at a time.
-    const scopedShown = scoped
-      ? await scoped.first().waitFor({ state: 'visible', timeout: Timeouts.short }).then(() => true).catch(() => false)
-      : false;
-    const options = scopedShown ? scoped! : this.page.getByRole('option').filter({ visible: true });
-    await expect(options.first()).toBeVisible({ timeout: Timeouts.default });
-    return options;
-  }
-
-  private async closeFilterOverlay(which: 'type' | 'status'): Promise<void> {
-    await this.page.keyboard.press('Escape');
-    await expect(this.filterSelect(which))
-      .toHaveAttribute('aria-expanded', 'false', { timeout: Timeouts.short })
-      .catch(() => undefined);
+  filterDrawer(): AdvancedSearchFilter {
+    return new AdvancedSearchFilter(this.page, this.screen);
   }
 
   /** The options a quick filter offers, without choosing one. */
   async getFilterOptions(which: 'type' | 'status'): Promise<string[]> {
-    const options = await this.openFilterOverlay(which);
-    const texts = (await options.allInnerTexts()).map((t) => t.trim()).filter((t) => t !== '');
-    await this.closeFilterOverlay(which);
-    return texts;
+    return this.filterDrawer().options(NETWORK_FILTER_FIELD[which]);
   }
 
   /** Chooses a quick-filter option and waits for the list to settle. */
@@ -709,24 +685,19 @@ export class NetworkManagementPage extends ListPageBase {
     const labels = which === 'status' ? NETWORK_STATUS_LABEL_AR : NETWORK_TYPE_LABEL_AR;
     const option = rtl ? (labels[englishOption] ?? englishOption) : englishOption;
     Logger.step(`Filtering networks by ${which} = "${option}"`);
-    const options = await this.openFilterOverlay(which);
-    const target = options.filter({ hasText: new RegExp(`^\\s*${option}\\s*$`) }).first();
-    await expect(target, `the ${which} filter should offer "${option}"`).toBeVisible({ timeout: Timeouts.default });
-    // Waits for the list's re-fetch: reading rows straight after the click
-    // read the page being replaced (2026-10-21). The option resolved but never
-    // read as stable in 18058 / 18060 / 18069 (2026-10-24) - the overlay
-    // re-renders while it settles - so a click that cannot land falls back to
-    // the option's own click handler.
-    await NetworkUtils.captureJsonResponseMatching(this.page, LIST_URL, () =>
-      target.click({ timeout: Timeouts.short }).catch(() => target.dispatchEvent('click')),
-    );
-    await expect(this.filterSelect(which)).toContainText(option, { timeout: Timeouts.short });
+    // Waits for the list's re-fetch: reading rows straight after Search read the page being replaced (2026-10-21).
+    if (/^(all\b|الكل|جميع)/i.test(option.trim())) await this.filterDrawer().clear(NETWORK_FILTER_FIELD[which]);
+    else {
+      const chosen = await this.filterDrawer().choose(NETWORK_FILTER_FIELD[which], option);
+      await NetworkUtils.captureJsonResponseMatching(this.page, LIST_URL, () => this.filterDrawer().search());
+      await expect(this.filterDrawer().chip(NETWORK_FILTER_FIELD[which])).toContainText(chosen, { timeout: Timeouts.short });
+    }
     await this.waitForPageReady();
   }
 
-  /** The label a quick filter currently shows ("All Types" by default). */
+  /** The value a quick filter currently holds - "" when none is applied (was "All Types" before the 2026-11-14 build). */
   async getQuickFilterValue(which: 'type' | 'status'): Promise<string> {
-    return (await this.filterSelect(which).innerText()).trim();
+    return this.filterDrawer().current(NETWORK_FILTER_FIELD[which]);
   }
 
   // ---- Advanced search and chips ---------------------------------------------
@@ -945,7 +916,11 @@ export class NetworkManagementPage extends ListPageBase {
     await this.waitForRowVisible(networkName);
     const out = {} as Record<keyof typeof NETWORK_COLUMN, string>;
     for (const [key, column] of Object.entries(NETWORK_COLUMN) as [keyof typeof NETWORK_COLUMN, string][]) {
-      out[key] = (await this.getCellValue(networkName, column)).trim();
+      // The Payer column was REMOVED from the network list (bug 20021 resolved: "no longer valid, as the Payer
+      // column has been removed", 2026-11-18) - a column the row no longer has reads "" instead of failing the read.
+      out[key] = key === 'payer'
+        ? await this.getCellValue(networkName, column).then((v) => v.trim(), () => '')
+        : (await this.getCellValue(networkName, column)).trim();
     }
     return out;
   }

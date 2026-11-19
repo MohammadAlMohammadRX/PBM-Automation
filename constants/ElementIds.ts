@@ -930,10 +930,11 @@ export const PLAN_DETAIL = {
     description: 'plan-detail-overview-description',
     effectiveDate: 'plan-detail-overview-effective-date',
     expiryDate: 'plan-detail-overview-expiry-date',
-    createdAt: 'plan-detail-overview-created-at',
-    lastUpdated: 'plan-detail-overview-last-updated',
+    // Renamed in the build of 2026-11-14 (verified live 2026-11-17): Created On / Modified On.
+    createdAt: 'plan-detail-overview-created-on',
+    lastUpdated: 'plan-detail-overview-modified-on',
     // ---- plan folder 07 additions (2026-10-27) ----
-    /** inferred 2026-10-27, not yet verified live - the "Created By" metadata US 14155 asks for. */
+    /** Verified live 2026-11-17 ("CareConnect Admin User") - the "Created By" metadata US 14155 asks for. */
     createdBy: 'plan-detail-overview-created-by',
   },
 } as const;

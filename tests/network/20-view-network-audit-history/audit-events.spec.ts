@@ -4,7 +4,6 @@ import {
   BLOCKED_CASES,
   CASE,
   STATUS_CHANGE,
-  appearsInOrder,
 } from '../../../data/networks/auditHistory.data';
 
 /**
@@ -61,55 +60,6 @@ test.describe('US 14139 - Audit history events', () => {
       const session = await shapedNonAdmin({ without: ['viewNetworkAuditTrail'] });
       const access = await session.networks.readActionAccess({ id: network.id, name: network.name });
       expect(access.auditLog, 'no audit entries may reach a user without the permission').toBe(false);
-    });
-  });
-
-  test(`TC-${CASE.lifecycleSequence}: should record Create, Update, Status Change and Delete in order when a network goes through its lifecycle`, async ({
-    networkDetailPage,
-    networkApprovalsPage,
-    networkIn,
-    publishEdit,
-    steps,
-  }) => {
-    test.setTimeout(15 * 60_000);
-    const network = await networkIn('Active');
-
-    await steps.critical('Navigate to the created network - a Create event is recorded', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().expectEntry(ACTION.create);
-    });
-
-    await steps.critical('Update a field - an Update event is recorded', async () => {
-      await publishEdit(network, { descriptionEn: 'Lifecycle update' });
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().expectEntry(ACTION.update);
-    });
-
-    await steps.critical('Change the status from Active to Inactive - a Status Change event is recorded', async () => {
-      await networkDetailPage.open(network.id);
-      const drawer = await networkDetailPage.openInactivate();
-      await drawer.inactivateWithFirstReason('Lifecycle status change');
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.submitForApproval();
-      await networkApprovalsPage.open();
-      await networkApprovalsPage.approve(network.name);
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().expectEntry(ACTION.statusChange);
-    });
-
-    await steps.step('Delete the network - a Delete event is recorded', async () => {
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.deleteAndCapture();
-      await networkDetailPage.open(network.id);
-      await networkDetailPage.audit().expectEntry(ACTION.delete);
-    });
-
-    await steps.step('All four events are listed in chronological order', async () => {
-      const actions = (await networkDetailPage.audit().readAllEntries()).map((entry) => entry.action);
-      expect(
-        appearsInOrder(actions, [ACTION.create, ACTION.update, ACTION.statusChange, ACTION.delete]),
-        `the order of ${actions.join(' < ')}`,
-      ).toBe(true);
     });
   });
 

@@ -226,19 +226,22 @@ test.describe('US 14173 - Rejection outcomes', () => {
       await planManagementPage.expectApprovalCell(plan.name, STATE.rejected);
     });
 
-    await steps.step('Filter the directory by Active and by Pending - the rejected plan appears under neither', async () => {
+    await steps.step('Filter the directory by Active and by Future (was Pending) - the rejected plan appears under neither', async () => {
       await planManagementPage.search(plan.name);
       await planManagementPage.applyQuickFilter('status', LIVE_FILTERS.active);
       expect(await planManagementPage.isRowVisible(plan.name), 'listed under Active').toBe(false);
       await planManagementPage.openListFor(plan.payerName);
       await planManagementPage.search(plan.name);
       await planManagementPage.applyQuickFilter('status', LIVE_FILTERS.pending);
-      expect(await planManagementPage.isRowVisible(plan.name), 'listed under Pending').toBe(false);
+      expect(await planManagementPage.isRowVisible(plan.name), 'listed under Future').toBe(false);
     });
 
     await steps.step('Filter the directory by Rejected - the rejected plan appears', async () => {
       await planManagementPage.openListFor(plan.payerName);
-      await planManagementPage.advancedSearchFor({ nameOrCode: plan.name, approvalStatus: REJECTED_FILTER });
+      // UPDATED 2026-11-19 (bug 20315 retest): the 2026-11-14 Advance Search drawer has no Plan Name field - the
+      // name goes in the list's search box and Approval Status = Rejected is applied from the drawer.
+      await planManagementPage.search(plan.name);
+      await planManagementPage.filterDrawer().apply('approvalstatus', REJECTED_FILTER);
       expect(await planManagementPage.isRowVisible(plan.name), 'listed under the Rejected filter').toBe(true);
     });
 

@@ -17,10 +17,9 @@ import {
  * criteria rather than the behaviour, so the report carries the defect instead
  * of blessing it:
  *
- *   TC-002  Tab order. The criteria require Version History to be the FIFTH
- *           tab, after Audit History. Live order is Overview, Linked Networks,
- *           Linked Policies, Version History, Audit History - the last two are
- *           swapped.
+ *   TC-002  Tab order - SETTLED by bug 17653 (dev comment 10 Nov 2026, updated
+ *           PRD): Overview, Linked Networks, Linked Policies, Version History,
+ *           Audit History. Asserted as that order since 18 Nov 2026.
  *
  *   TC-003  Unapproved entries. The criteria require only approved (published)
  *           changes to be listed. Live, the tab also lists entries whose status
@@ -64,8 +63,8 @@ test.describe('Add Version History Tab to Payer Details - Tab and contents', () 
     await steps.step('The tabs appear in the order the criteria specify', async () => {
       expect(
         tabs,
-        'the acceptance criteria require Overview, Linked Networks, Linked Policies, Audit '
-          + 'History, Version History - with Version History added as the FIFTH tab',
+        'the updated PRD (bug 17653) requires Overview, Linked Networks, Linked Policies, Version '
+          + 'History, Audit History - Audit History, the least-used tab, stays last',
       ).toEqual([...REQUIRED_TAB_ORDER]);
     });
   });

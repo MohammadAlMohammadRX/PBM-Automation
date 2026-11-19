@@ -6,9 +6,10 @@ import {
   CASE,
   DRAFT_BADGE,
   DRAFT_GO_LIVE_ACTION,
-  DRAFT_HIDDEN_ACTIONS,
+  DRAFT_DISABLED_ACTIONS,
+  DRAFT_NOT_USABLE_ACTIONS,
   MIN_VERSIONS,
-  NOT_SHOWN,
+  SHOWN_DISABLED,
   TAB_CYCLE,
   TAB_SWITCH_ROUNDS,
   VERSION_DATE,
@@ -124,7 +125,7 @@ test.describe('US 14155 - Plan detail tabs and actions', () => {
     });
   });
 
-  test(`TC-${CASE.actionsPerStatus}: should show only the header actions each status allows - Edit on a Draft only, no Activate or Inactivate on a Draft - when Draft, Active and Inactive plans are opened`, async ({
+  test(`TC-${CASE.actionsPerStatus}: should offer the actions each status allows - Edit and Send for Approval on a Draft, Deactivate shown disabled on a Draft - when Draft, Active and Inactive plans are opened`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -143,19 +144,22 @@ test.describe('US 14155 - Plan detail tabs and actions', () => {
     });
 
     for (const expected of ACTIONS_PER_STATUS) {
-      await steps.step(`The ${expected.state} plan offers ${expected.shown.join(' and ')} and does not show ${expected.hidden.join(' or ')}`, async () => {
+      await steps.step(`The ${expected.state} plan offers ${expected.offered.join(' and ')}${expected.disabled.length ? ` and shows ${expected.disabled.join(' and ')} disabled` : ''}; ${expected.notUsable.join(' and ')} cannot be used`, async () => {
         await planDetailPage.open(plans[expected.state].id);
-        for (const action of expected.shown) {
+        for (const action of expected.offered) {
           expect(await planDetailPage.getActionAvailability(action), `${expected.state}: "${action}" should be offered`).toBe('available');
         }
-        for (const action of expected.hidden) {
-          expect(await planDetailPage.getActionAvailability(action), `${expected.state}: "${action}" must not appear`).toBe(NOT_SHOWN);
+        for (const action of expected.disabled) {
+          expect(await planDetailPage.getActionAvailability(action), `${expected.state}: "${action}" should be shown disabled (bug 20332)`).toBe(SHOWN_DISABLED);
+        }
+        for (const action of expected.notUsable) {
+          expect(await planDetailPage.getActionAvailability(action), `${expected.state}: "${action}" must not be usable`).not.toBe('available');
         }
       });
     }
   });
 
-  test(`TC-${CASE.activateDraft}: should show neither Activate nor Inactivate and offer Send for Approval when a draft plan is opened`, async ({
+  test(`TC-${CASE.activateDraft}: should show Deactivate disabled, offer no Activate and offer Send for Approval when a draft plan is opened`, async ({
     planManagementPage,
     planDetailPage,
     planIn,
@@ -173,9 +177,12 @@ test.describe('US 14155 - Plan detail tabs and actions', () => {
       expect(await planDetailPage.getVersionBadge(), 'the draft badge').toMatch(DRAFT_BADGE);
     });
 
-    await steps.step('Neither an Activate nor an Inactivate action appears on the draft', async () => {
-      for (const action of DRAFT_HIDDEN_ACTIONS) {
-        expect(await planDetailPage.getActionAvailability(action), `a draft must not show "${action}"`).toBe(NOT_SHOWN);
+    await steps.step('Deactivate is shown disabled and Activate cannot be used on the draft', async () => {
+      for (const action of DRAFT_DISABLED_ACTIONS) {
+        expect(await planDetailPage.getActionAvailability(action), `a draft should show "${action}" disabled (bug 20332)`).toBe(SHOWN_DISABLED);
+      }
+      for (const action of DRAFT_NOT_USABLE_ACTIONS) {
+        expect(await planDetailPage.getActionAvailability(action), `a draft must not offer "${action}"`).not.toBe('available');
       }
     });
 

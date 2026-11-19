@@ -297,7 +297,8 @@ export abstract class BasePage {
     // provisioning behind 58/59/73).
     const overlay = this.page.locator(OVERLAY).filter({ visible: true }).last();
     const filter = overlay.getByRole('searchbox'); // locator-exception: PrimeNG's overlay filter has no id; scoped to the open overlay
-    if ((await filter.count()) > 0) await filter.fill(payerName);
+    // "All Payers" is a static entry the server-side filter would hide, so it is picked from the unfiltered list.
+    if ((await filter.count()) > 0 && payerName !== 'All Payers') await filter.fill(payerName);
 
     const option = this.page
       .getByRole('option', { name: payerName, exact: true })

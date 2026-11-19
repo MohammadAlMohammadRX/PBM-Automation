@@ -28,34 +28,38 @@ export const ROLE_SAVED = 'Role updated';
  *
  * Read off the live Payers section on 19 September 2026. The keys are how a
  * case should name what it needs; the values are what the tree displays.
+ *
+ * 2026-11-17 (build of 14 Nov): the tree now shows plain-language labels instead of the codes
+ * ("CreatePayer" -> "Create payer", "GetPayerAuditTrail" -> "View payer audit trail", ...), so every
+ * shaping was blocked ("no CreatePayer permission"). Values below read off the catalogue the app
+ * returned in the Sprint 1 retest run; the old code is kept in the comment.
  */
 export const PAYER_PERMISSION = {
-  viewAuditLogs: 'View Audit Logs',
-  assignNetworks: 'AssignNetworksToPayer',
-  createPayer: 'CreatePayer',
-  deletePayer: 'DeletePayer',
-  exportPayers: 'ExportPayers',
-  viewAssignableNetworks: 'GetAssignableNetworks',
-  viewPayerDetails: 'GetPayer',
-  viewAuditTrail: 'GetPayerAuditTrail',
-  viewImpactPreview: 'GetPayerImpactPreview',
-  viewLinkedPolicies: 'GetPayerLinkedPolicies',
-  // GetPayerNetworks REMOVED 2026-10-11: no longer in the live tree, and asking
-  // for it stopped every shaping that included it ("No permission row is
-  // labelled exactly GetPayerNetworks") - 15386 and 15392 blocked on it. The
-  // three below are new in the same build (read off Payer Admin's tree).
-  importPayers: 'Import payers and linked networks',
+  // "View audit logs" repeats in nearly every section of the new tree, so it is addressed by its key.
+  viewAuditLogs: 'key:Payers.AuditLogs', // was "View Audit Logs"
+  assignNetworks: 'Assign networks to payer', // AssignNetworksToPayer
+  createPayer: 'Create payer', // CreatePayer
+  deletePayer: 'Delete payer', // DeletePayer
+  exportPayers: 'Export payers', // ExportPayers
+  viewAssignableNetworks: 'View assignable networks', // GetAssignableNetworks
+  viewPayerDetails: 'View payer details', // GetPayer
+  viewAuditTrail: 'View payer audit trail', // GetPayerAuditTrail
+  viewImpactPreview: 'View payer inactivation impact', // GetPayerImpactPreview
+  viewLinkedPolicies: 'View payer linked policies', // GetPayerLinkedPolicies
+  // GetPayerNetworks REMOVED 2026-10-11 (no longer in the tree).
+  importPayers: 'Import payers', // was "Import payers and linked networks"
+  importLinkedNetworks: 'Import linked networks', // new 2026-11-14
   viewUploadHistory: 'View payer upload history and results',
-  exportPayerNetworks: 'ExportPayerNetworks',
-  viewDashboard: 'GetPayersDashboard',
-  viewPayerDropdown: 'GetPayersDropdown',
-  viewVersionHistory: 'GetPayerVersions',
-  inactivatePayer: 'InactivatePayer',
-  revertPayer: 'RevertPayer',
-  activatePayer: 'SetPayerActive',
-  sendForApproval: 'SubmitPayerForApproval',
-  unassignNetwork: 'UnassignNetworkFromPayer',
-  editPayer: 'UpdatePayer',
+  exportPayerNetworks: 'Export payer linked networks', // ExportPayerNetworks
+  viewDashboard: 'View payer dashboard', // GetPayersDashboard
+  viewPayerDropdown: 'List payers in pickers', // GetPayersDropdown
+  viewVersionHistory: 'View payer version history', // GetPayerVersions
+  inactivatePayer: 'Inactivate payer', // InactivatePayer
+  revertPayer: 'Revert payer to a previous version', // RevertPayer
+  activatePayer: 'Activate payer', // SetPayerActive
+  sendForApproval: 'Send payer for approval', // SubmitPayerForApproval
+  unassignNetwork: 'Unassign network from payer', // UnassignNetworkFromPayer
+  editPayer: 'Edit payer', // UpdatePayer
 } as const;
 
 export type PayerPermissionKey = keyof typeof PAYER_PERMISSION;
@@ -69,33 +73,31 @@ export type PayerPermissionKey = keyof typeof PAYER_PERMISSION;
  * means. Labels read off the live Payer Admin tree on 2026-10-06; both were
  * ticked.
  */
+// 2026-11-17 (build of 14 Nov): plain-language labels replaced the codes, as in PAYER_PERMISSION; the
+// old code is kept in each comment. "Edit network" is back in the catalogue.
 export const NETWORK_PERMISSION = {
-  inactivateNetwork: 'InactivateNetwork',
-  activateNetwork: 'SetNetworkActive',
-  // The rest of the Networks group, verified in the catalogue 2026-10-21.
-  createNetwork: 'CreateNetwork',
-  // NOT IN THE CATALOGUE since the 2026-10-24 build (297 rows, no UpdateNetwork):
-  // editing cannot be withheld from a role. 18004 fails on it; the cases that
-  // need a role without it report BLOCKED with that reason.
-  editNetwork: 'UpdateNetwork',
-  deleteNetwork: 'DeleteNetwork',
-  cloneNetwork: 'CloneNetwork',
-  exportNetworks: 'ExportNetworks',
-  viewNetworkDetails: 'GetNetwork',
-  viewNetworksDashboard: 'GetNetworksDashboard',
-  viewNetworksDropdown: 'GetNetworksDropdown',
-  viewNetworkVersions: 'GetNetworkVersions',
-  revertNetworkVersion: 'RevertNetworkVersion',
-  viewNetworkAuditTrail: 'GetNetworkAuditTrail',
-  // NOT IN THE CATALOGUE since the 2026-10-24 build - see editNetwork.
+  inactivateNetwork: 'Inactivate network', // InactivateNetwork
+  activateNetwork: 'Activate network', // SetNetworkActive
+  createNetwork: 'Create network', // CreateNetwork
+  editNetwork: 'Edit network', // UpdateNetwork (missing from the 2026-10-24 build, present again)
+  deleteNetwork: 'Delete network', // DeleteNetwork
+  cloneNetwork: 'Clone network', // CloneNetwork
+  exportNetworks: 'Export networks', // ExportNetworks
+  viewNetworkDetails: 'View network details', // GetNetwork
+  viewNetworksDashboard: 'View networks dashboard', // GetNetworksDashboard
+  viewNetworksDropdown: 'List networks in pickers', // GetNetworksDropdown
+  viewNetworkVersions: 'View network version history', // GetNetworkVersions
+  revertNetworkVersion: 'Revert network to a previous version', // RevertNetworkVersion
+  viewNetworkAuditTrail: 'View network audit trail', // GetNetworkAuditTrail
+  // Still not in the catalogue (no "view network facilities" row); cases needing it stay BLOCKED.
   viewNetworkFacilities: 'GetNetworkFacilities',
-  exportNetworkFacilities: 'ExportNetworkFacilities',
-  viewNetworkPolicies: 'GetNetworkPolicies',
-  viewAssignableFacilities: 'GetAssignableFacilities',
-  assignFacilities: 'AssignFacilitiesToNetwork',
-  unassignFacility: 'UnassignFacilityFromNetwork',
-  submitNetwork: 'SubmitNetworkForApproval',
-  importNetworks: 'Import networks and facilities',
+  exportNetworkFacilities: 'Export network facilities', // ExportNetworkFacilities
+  viewNetworkPolicies: 'View linked policies', // GetNetworkPolicies
+  viewAssignableFacilities: 'View assignable facilities', // GetAssignableFacilities
+  assignFacilities: 'Assign facilities to network', // AssignFacilitiesToNetwork
+  unassignFacility: 'Remove facility from network', // UnassignFacilityFromNetwork
+  submitNetwork: 'Send network for approval', // SubmitNetworkForApproval
+  importNetworks: 'Import networks', // was "Import networks and facilities"
 } as const;
 
 export type NetworkPermissionKey = keyof typeof NETWORK_PERMISSION;

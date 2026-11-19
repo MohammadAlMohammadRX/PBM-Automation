@@ -106,6 +106,10 @@ test.describe('Reserve networks being staged', () => {
     });
 
     await steps.critical('Meanwhile, tab 1 stages that network on payer A and sends it for approval', async () => {
+      // Since the 2026-11-14 build the top-bar payer scope is shared by the tabs of one browser: opening payer B's
+      // details in tab 2 scoped tab 1 to payer B too, so payer A was "No results found" (Sprint 1 retest, 2026-11-17).
+      await payerManagementPage.open();
+      await payerManagementPage.scopeTo('All Payers');
       await flow.stage(publishedPayer.nameEn, network.code);
       await flow.submit(publishedPayer.nameEn);
       expect(await flow.stateOf(publishedPayer.nameEn, network.code), 'A should now hold it pending').toMatch(/pending/i);

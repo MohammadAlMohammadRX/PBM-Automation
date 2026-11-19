@@ -14,13 +14,32 @@ import {
  *
  * Each case opens a network it provisioned itself (fixture `networkIn`) by id.
  */
+
+/**
+ * Reads the value printed after each audit-metadata label on the Overview (same line after the label / a colon,
+ * or the next line) and asserts it is filled: a name for the "By" fields, a date for the "At" fields.
+ */
+function expectMetadataFilled(overviewText: string, networkName: string): void {
+  const lines = overviewText.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const label of AUDIT_METADATA) {
+    const at = lines.findIndex((l) => label.test(l));
+    expect(at, `"${networkName}": the Overview should show ${label}`).toBeGreaterThanOrEqual(0);
+    const sameLine = lines[at].replace(label, '').replace(/^\s*:?\s*/, '');
+    const value = sameLine || lines[at + 1] || '';
+    const isLabel = AUDIT_METADATA.some((l) => l.test(value));
+    expect(isLabel ? '' : value, `"${networkName}": ${label} should have a value`).not.toBe('');
+    if (/At|On/.test(label.source)) {
+      expect(value, `"${networkName}": ${label} should be a date`).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    }
+  }
+}
 test.describe('US 14126 - Network overview and tabs', () => {
   test(`TC-${CASE.overviewFields}: should show every network field, the status and the created/modified metadata when the Overview opens`, async ({
     networkDetailPage,
     networkIn,
     steps,
   }) => {
-    test.setTimeout(12 * 60_000);
+    test.setTimeout(30 * 60_000 /* four networks are provisioned (2026-11-19) */);
     const network = await networkIn('Active', { descriptionEn: 'Overview field check', descriptionAr: uniqueArabic('وصف') });
 
     await steps.critical('Navigate to the network - the detail screen loads', async () => {
@@ -49,7 +68,19 @@ test.describe('US 14126 - Network overview and tabs', () => {
       for (const label of AUDIT_METADATA) {
         expect(text, `the Overview should show ${label}`).toMatch(label);
       }
+      expectMetadataFilled(text, network.name);
     });
+
+    // ADDED 2026-11-19 (bug 20022 retest, QA instruction "from the overview check some networks"): the metadata must
+    // be shown - and filled - on networks in every state, not only on the one Active network above.
+    for (const state of ['Draft', 'Pending', 'Inactive'] as const) {
+      await steps.step(`A ${state === 'Pending' ? 'Future' : state} network's Overview shows Created By/At and Modified By/At, filled in`, async () => {
+        const other = await networkIn(state);
+        await networkDetailPage.open(other.id);
+        expect(await networkDetailPage.getName()).toBe(other.name);
+        expectMetadataFilled(await networkDetailPage.getOverviewText(), other.name);
+      });
+    }
   });
 
   test(`TC-${CASE.tabChecklist}: should load Overview, facilities, policies and audit tabs with the network's data when each tab is opened`, async ({

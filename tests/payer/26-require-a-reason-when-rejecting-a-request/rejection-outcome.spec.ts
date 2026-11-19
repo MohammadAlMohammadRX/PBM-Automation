@@ -154,7 +154,9 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       for (const [round, phone] of [[2, '512345681'], [3, '512345682']] as const) {
         await payerManagementPage.open();
         await payerManagementPage.search(draftPayer.nameEn);
-        await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', phone);
+        // WAIT FOR THE DRAWER TO CLOSE (2026-11-19): leaving right after Save cancelled the save ("unsaved changes"
+        // prompt), so the next Submit for Approval had nothing to submit.
+        await (await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', phone)).waitForClosed();
         await payerManagementPage.open();
         await payerManagementPage.sendForApproval(draftPayer.nameEn);
         await approvalManagementPage.open();
@@ -163,7 +165,7 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       }
       await payerManagementPage.open();
       await payerManagementPage.search(draftPayer.nameEn);
-      await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', '512345680');
+      await (await payerManagementPage.saveTextFieldEdit(draftPayer.nameEn, 'Phone Number', '512345680')).waitForClosed();
       await payerManagementPage.open();
       await payerManagementPage.sendForApproval(draftPayer.nameEn);
       await approvalManagementPage.open();
@@ -196,9 +198,12 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       // with no reviewer - leaving cancels the in-flight reject, which is why
       // approve()/reject() wait for the request to leave the queue.
       await approvalManagementPage.waitForDecisionProcessed(draftPayer.nameEn);
+      // UPDATED 2026-11-18 (bug 17714, developer comment accepted by QA): the list shows the LATEST PUBLISHED
+      // version - it moves only on approval - so after a rejected update the payer still reads its approved v3,
+      // and the rejection's details live in the Audit History tab (checked below).
       await payerManagementPage.open();
       await payerManagementPage.search(draftPayer.nameEn);
-      await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, REJECTED_STATUS);
+      await payerManagementPage.expectApprovalStatusContains(draftPayer.nameEn, 'v3 · Approved');
     });
 
     await steps.step('The audit log names the reviewer and the decision', async () => {
@@ -213,13 +218,11 @@ test.describe('Require a reason when rejecting - Outcome', () => {
       );
     });
 
-    await steps.step("The maker can see the outcome on the payer's own version", async () => {
-      const versions = payerManagementPage.detail().versionHistory();
-      await versions.open();
-      expect(
-        await versions.getListedStatuses(),
-        'the rejected version should be visible to the maker',
-      ).toEqual(expect.arrayContaining([expect.stringContaining(REJECTED_STATUS)]));
+    // UPDATED 2026-11-18 (bug 17714): the rejection details are shown in the Audit History tab, not as a version.
+    await steps.step('The maker can see the rejection in the payer\'s Audit History', async () => {
+      const detail = await payerManagementPage.openDetails(draftPayer.nameEn);
+      await detail.openAuditHistory();
+      await detail.expectAuditEntryMatching(/reject/i, 'the rejection of the update');
     });
   });
 });

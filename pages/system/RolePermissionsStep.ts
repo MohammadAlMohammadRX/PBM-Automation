@@ -4,6 +4,12 @@ import { ROLE_FORM } from '../../constants/ElementIds';
 import { Timeouts } from '../../constants/Timeouts';
 import { Logger } from '../../utils/Logger';
 
+/** A permission passed as `key:<Module.Key>` is addressed by its catalogue key (see checkboxFor). */
+export const KEY_PREFIX = 'key:';
+/** The per-permission checkbox id of the 2026-11-14 build. */
+const permissionCheckboxId = (key: string): string =>
+  `role-form-drawer-permission-checkbox-${key.toLowerCase().replace(/\./g, '-')}`;
+
 /**
  * The role drawer's "Privileges" step - the application's permission catalogue.
  *
@@ -295,9 +301,36 @@ export class RolePermissionsStep {
     return this.nodes().nth(index);
   }
 
+  /**
+   * The checkbox INPUT of one permission.
+   *
+   * Build of 2026-11-14 21:30 UTC: PrimeNG's `input.p-checkbox-input` is gone - every row now holds a native
+   * `pbm-checkbox` input, and each input has its OWN id `role-form-drawer-permission-checkbox-<catalogue key,
+   * lower-cased, "." as "-">`. Labels became plain words and repeat across modules ("View audit logs" sits in
+   * nearly every section), so a label that is not unique is passed as `key:<Module.Key>` (e.g.
+   * `key:Payers.AuditLogs`) and addressed by that id; any other label is still found by its row.
+   */
+  private async checkboxFor(label: string): Promise<Locator> {
+    if (label.startsWith(KEY_PREFIX)) {
+      const key = label.slice(KEY_PREFIX.length);
+      const input = this.host().locator(`#${permissionCheckboxId(key)}`);
+      const present = await input.waitFor({ state: 'attached', timeout: Timeouts.short }).then(() => true, () => false);
+      if (!present) {
+        throw new Error(
+          `[RolePermissionsStep] This build's permission catalogue has no "${key}" permission (no #${permissionCheckboxId(key)}), `
+            + 'so a role without it cannot be built - the right is not separately grantable.',
+        );
+      }
+      return input;
+    }
+    // locator-exception: rows without a usable id - see the class comment.
+    return (await this.rowFor(label)).locator('input[type="checkbox"]').first();
+  }
+
   async isPermissionChecked(label: string): Promise<boolean> {
-    const input = (await this.rowFor(label)).locator('input.p-checkbox-input').first();
-    return input.isChecked();
+    const input = await this.checkboxFor(label);
+    // A branch whose children are only partly selected reads aria-checked="mixed" - not "checked".
+    return input.evaluate((el) => (el as HTMLInputElement).checked && el.getAttribute('aria-checked') !== 'mixed');
   }
 
   /** Ticks or unticks one permission and asserts the new state took. */
@@ -310,11 +343,9 @@ export class RolePermissionsStep {
     // change state, and the assertion below then reports the application as
     // ignoring a toggle it never received. `force` because PrimeNG covers the
     // real input with its own styled box, so Playwright sees it as obscured.
-    // locator-exception: the tree's checkboxes all carry the same id - see the class comment.
-    await (await this.rowFor(label))
-      .locator('input.p-checkbox-input')
-      .first()
-      .click({ force: true });
+    // Since the 2026-11-14 build the row holds a native pbm-checkbox input (see checkboxFor); `force` stays
+    // because the styled box is drawn over it.
+    await (await this.checkboxFor(label)).click({ force: true });
     const after = !before;
     await expect
       .poll(async () => this.isPermissionChecked(label), {

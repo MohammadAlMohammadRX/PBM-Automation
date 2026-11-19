@@ -114,7 +114,11 @@ test.describe('US 14158 - Export flow', () => {
       const payer = exportColumn(parsed.headers, EXPORT_COLUMN.payer);
       expect(payer, 'the file should carry a Payer column').not.toBe('');
       expect(parsed.rows.filter((row) => row[payer] !== data.payer).length, `rows of a payer other than "${data.payer}"`).toBe(0);
-      expect(parsed.rows.length, 'every filtered plan, across every page').toBe(filtered);
+      // UPDATED 2026-11-18 (bug 20317 resolved, QA review): exporting "Selected" exports the searched / filtered data
+      // the user has selected on screen - not every matching plan across all pages - so the file holds only matching
+      // rows, at most the filtered total.
+      expect(parsed.rows.length, 'the selected export should hold at least one matching plan').toBeGreaterThan(0);
+      expect(parsed.rows.length, 'no more rows than the filter matches').toBeLessThanOrEqual(filtered);
     });
   });
 

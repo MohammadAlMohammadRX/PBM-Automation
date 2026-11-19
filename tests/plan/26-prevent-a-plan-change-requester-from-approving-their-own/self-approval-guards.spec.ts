@@ -1,12 +1,40 @@
 import { test, expect } from '../../../fixtures';
 import {
   APPROVE_PLAN_PERMISSION,
-  APPROVER_NAME,
   CASE,
   FORBIDDEN_STATUS,
   REQUESTER_ROLE,
   STATE,
 } from '../../../data/plans/selfApprovalPrevention.data';
+import type { Page } from '@playwright/test';
+import { UserMenu } from '../../../pages/user/UserMenu';
+import type { PlanDetailPage } from '../../../pages/plan/PlanDetailPage';
+import type { ApprovalManagementPage } from '../../../pages/approval/ApprovalManagementPage';
+
+/**
+ * UPDATED 2026-11-19 (bug 20311 retest as maalmohammad): the plan's Version History now lists ONLY approved
+ * changes ("The first approved change will appear here"), so a pending request is never there. "Pending Review,
+ * submitted by User A" is read where it is shown: the plan's version badge, and the request's row in the approval
+ * queue, which must name the signed-in user (whichever account runs the suite - the admin or maalmohammad). The
+ * words of the top-bar name are matched, as the bar may show a shorter form of the recorded name.
+ */
+async function expectSubmittedBySignedInUser(
+  page: Page,
+  planDetailPage: PlanDetailPage,
+  planApprovalsPage: ApprovalManagementPage,
+  plan: { id: string; name: string },
+): Promise<void> {
+  await planDetailPage.open(plan.id);
+  expect(await planDetailPage.getVersionBadge(), 'the change is Pending Review').toMatch(STATE.pendingReview);
+  const me = (await new UserMenu(page).readUserName()).replace(/^\S{1,3}\s+/, '').trim();
+  await planApprovalsPage.open();
+  const row = await planApprovalsPage.readQueuedRow(plan.name);
+  const words = me.split(' ').filter(Boolean);
+  expect(
+    words.length > 0 && words.every((w) => row.text.includes(w)),
+    `submitted by User A: the queued request (${row.text}) should name the signed-in user "${me}"`,
+  ).toBe(true);
+}
 
 /**
  * User story 14340: Prevent a plan change requester from approving their own
@@ -20,6 +48,7 @@ test.describe('US 14340 - Self-approval guards', () => {
   test.describe.configure({ timeout: 15 * 60_000 });
 
   test(`TC-${CASE.selfApproveBlocked}: should block the approval when the requester tries to approve the plan change they submitted`, async ({
+    page,
     planManagementPage,
     planApprovalsPage,
     planDetailPage,
@@ -34,10 +63,7 @@ test.describe('US 14340 - Self-approval guards', () => {
     });
 
     await steps.critical('User A submits a plan change for review - it is Pending Review, recorded as submitted by User A', async () => {
-      await planDetailPage.open(plan.id);
-      await planDetailPage.versions().open();
-      const entry = (await planDetailPage.versions().readRows()).find((row) => STATE.pendingReview.test(row.status));
-      expect(entry?.requestedBy ?? '(no pending entry)', 'submitted by User A').toContain(APPROVER_NAME);
+      await expectSubmittedBySignedInUser(page, planDetailPage, planApprovalsPage, plan);
     });
 
     await steps.critical('Still as User A, open the submitted plan change - its details open', async () => {
@@ -57,6 +83,7 @@ test.describe('US 14340 - Self-approval guards', () => {
   });
 
   test(`TC-${CASE.selfRejectBlocked}: should block the rejection when the requester tries to reject the plan change they submitted`, async ({
+    page,
     planManagementPage,
     planApprovalsPage,
     planDetailPage,
@@ -71,10 +98,7 @@ test.describe('US 14340 - Self-approval guards', () => {
     });
 
     await steps.critical('User A submits a plan change for review - it is Pending Review, recorded as submitted by User A', async () => {
-      await planDetailPage.open(plan.id);
-      await planDetailPage.versions().open();
-      const entry = (await planDetailPage.versions().readRows()).find((row) => STATE.pendingReview.test(row.status));
-      expect(entry?.requestedBy ?? '(no pending entry)', 'submitted by User A').toContain(APPROVER_NAME);
+      await expectSubmittedBySignedInUser(page, planDetailPage, planApprovalsPage, plan);
     });
 
     await steps.critical('Still as User A, open the submitted plan change - its details open', async () => {

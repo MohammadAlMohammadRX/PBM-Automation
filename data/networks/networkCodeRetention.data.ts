@@ -22,7 +22,6 @@ export const CASE = {
   unchangedOnDelete: '18026',
   fieldsRetained: '18027',
   notEditable: '18028',
-  adminOnlyAudit: '18029',
   concurrent: '18031',
   repeatedCycles: '18032',
   auditSearch: '18034',

@@ -327,13 +327,13 @@ test.describe('Edit Existing Payer Configuration Details - Validation', () => {
         form = await payerManagementPage.openEditForm(publishedPayer.nameEn);
       });
 
-      await steps.critical(`Set "Payer Name" to a name ${boundary.label} and save`, async () => {
-        await form.setFieldValue('Payer Name', candidateName, 'text');
-        await form.saveFromAnyStep();
-      });
+      await steps.critical(`Set "Payer Name" to a name ${boundary.label}`, () =>
+        form.setFieldValue('Payer Name', candidateName, 'text'));
 
+      // Save happens inside the outcome check: since the 14-Nov build an over-long name is refused on step 1,
+      // so Save is never offered - that refusal IS the rejection the test case expects (bug 17703).
       await steps.step(
-        `The edit is ${boundary.expectAccepted ? 'accepted' : 'rejected'}`,
+        `Save - the edit is ${boundary.expectAccepted ? 'accepted' : 'rejected'}`,
         () =>
           payerManagementPage.expectNameLengthBoundaryOutcome(
             form,

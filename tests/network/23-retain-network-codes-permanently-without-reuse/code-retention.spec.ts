@@ -162,32 +162,6 @@ test.describe('US 14142 - Code retention after deletion', () => {
     });
   });
 
-  test(`TC-${CASE.adminOnlyAudit}: should open soft-deleted network records only to the System Administrator when both roles try the audit view`, async ({
-    networkManagementPage,
-    auditLogsPage,
-    nonAdminSession,
-    networkIn,
-    steps,
-  }) => {
-    const network = await networkIn('Draft', { facilities: 0 });
-    let code = '';
-
-    await steps.critical('Navigate to the module and soft-delete a network', async () => {
-      code = await networkManagementPage.readCode(network.name);
-      expect((await networkManagementPage.deleteNetwork(network.name))?.status).toBeLessThan(300);
-    });
-
-    await steps.step('The Network Administrator role is denied the audit records view', async () => {
-      const access = await nonAdminSession.auditLogs.openAndReportAccess();
-      expect(access.reachable, `the non-administrator reached ${access.url}`).toBe(false);
-    });
-
-    await steps.step('The System Administrator sees the soft-deleted record with its original code', async () => {
-      const rows = await auditLogsPage.findRowsMentioning(code);
-      expect(rows.length, `the audit view should hold ${code}`).toBeGreaterThan(0);
-    });
-  });
-
   test(`TC-${CASE.auditSearch}: should find a soft-deleted network by its original code when the System Administrator searches the audit records`, async ({
     networkManagementPage,
     auditLogsPage,

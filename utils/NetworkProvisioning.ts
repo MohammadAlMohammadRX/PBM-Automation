@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { NetworkUtils } from './NetworkUtils';
 import { DateUtils } from './DateUtils';
 import { Logger } from './Logger';
+import { waitWithLifecycleJob } from './LifecycleNudge';
 import { toArabicToken } from '../data/payers/payer.data';
 import { ApiEndpoints } from '../constants/ApiEndpoints';
 import {
@@ -302,17 +303,26 @@ export async function waitForNetworkStatusCode(page: Page, id: string, code: str
   const ids = await networkStatusIds(page);
   const wanted = ids[code];
   if (!wanted) throw new Error(`the network status lookup has no "${code}"`);
-  const deadline = Date.now() + timeoutMs;
   let seen = '';
-  while (Date.now() < deadline) {
+  const isThere = async (): Promise<boolean> => {
     const record = await readNetwork(page, id).catch(() => null);
     // effectiveStatusId, not statusId (2026-10-24). An approved inactivation sets
     // isActive false and moves effectiveStatusId to Inactive, but leaves
     // statusId at Active - so waiting on statusId reported every Inactive
     // network as "still Active" and blocked 25 cases in the 2026-10-24 run.
     seen = record?.effectiveStatusId ?? record?.statusId ?? '';
-    if (seen === wanted) return;
-    await page.waitForTimeout(10_000);
+    return seen === wanted;
+  };
+  // Active / Expired are set by the lifecycle job, which is back on its daily schedule (2026-11-17) - move it
+  // to fire soon while waiting (see utils/LifecycleNudge.ts). Other states follow the approval directly.
+  if (code === 'active' || code === 'expired') {
+    if (await waitWithLifecycleJob(page, 'Jobs.NetworkLifecycleCron', isThere, { timeoutMs, what: `network ${id} ${code}` })) return;
+  } else {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await isThere()) return;
+      await page.waitForTimeout(10_000);
+    }
   }
   const labels = await networkStatusLabels(page);
   throw new Error(`network ${id} still reads "${labels[seen] ?? seen}" after ${Math.round(timeoutMs / 60_000)} minutes, not "${code}"`);

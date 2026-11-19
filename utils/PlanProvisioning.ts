@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { NetworkUtils } from './NetworkUtils';
 import { Logger } from './Logger';
+import { waitWithLifecycleJob } from './LifecycleNudge';
 import { ApiEndpoints } from '../constants/ApiEndpoints';
 import { toArabicToken } from '../data/payers/payer.data';
 import { approvePending, networkStamp, payerIdByName } from './NetworkProvisioning';
@@ -197,13 +198,22 @@ export async function waitForPlanStatusCode(page: Page, id: string, code: string
   const ids = await planStatusIds(page);
   const wanted = ids[code];
   if (!wanted) throw new Error(`the plan status lookup has no "${code}" (it offers ${Object.keys(ids).join(', ')})`);
-  const deadline = Date.now() + timeoutMs;
   let seen = '';
-  while (Date.now() < deadline) {
+  const isThere = async (): Promise<boolean> => {
     const record = await readPlan(page, id).catch(() => null);
     seen = record?.effectiveStatusId ?? record?.statusId ?? '';
-    if (seen === wanted) return;
-    await page.waitForTimeout(10_000);
+    return seen === wanted;
+  };
+  // Active / Expired come from the plan lifecycle job, back on its daily schedule (2026-11-17) - moved to fire
+  // soon while waiting (utils/LifecycleNudge.ts).
+  if (code === 'active' || code === 'expired') {
+    if (await waitWithLifecycleJob(page, 'Jobs.PlanLifecycleCron', isThere, { timeoutMs, what: `plan ${id} ${code}` })) return;
+  } else {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await isThere()) return;
+      await page.waitForTimeout(10_000);
+    }
   }
   const labels = await planStatusLabels(page);
   throw new Error(`plan ${id} still reads "${labels[seen] ?? seen}" after ${Math.round(timeoutMs / 60_000)} minutes, not "${code}"`);

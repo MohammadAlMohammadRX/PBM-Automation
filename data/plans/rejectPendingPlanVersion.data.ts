@@ -60,7 +60,8 @@ export const STATE = {
 export const NOT_LIVE = 'Not Live';
 
 /** The quick-filter options a rejected plan must NOT appear under (sheet: "Active" and "Pending Approval"). */
-export const LIVE_FILTERS = { active: 'Active', pending: 'Pending' } as const;
+// 'Pending' was renamed 'Future' in the 2026-11-14 build (bug 20314); the key keeps its name.
+export const LIVE_FILTERS = { active: 'Active', pending: 'Future' } as const;
 
 /** The approval-status option the advanced search offers for rejected plans. */
 export const REJECTED_FILTER = 'Rejected';

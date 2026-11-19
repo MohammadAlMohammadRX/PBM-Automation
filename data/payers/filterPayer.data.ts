@@ -11,10 +11,16 @@ import { RandomDataUtils } from '../../utils/RandomDataUtils';
 export const TYPE_FILTER_OPTIONS = ['All Types', 'Government', 'Private'] as const;
 export type TypeFilterOption = (typeof TYPE_FILTER_OPTIONS)[number];
 
-/** Status filter options, in the order the dropdown lists them. */
+/**
+ * Status filter options, in the order the Advance Search drawer lists them (build of 2026-11-14, bug 17640):
+ * Not Live, Future, Active, Inactive, Expired. "Pending" was renamed "Future" (bug 20314) and there is no
+ * "All Statuses" option any more - 'All Statuses' is kept as the neutral value, which the drawer applies by
+ * removing the Status chip.
+ */
 export const STATUS_FILTER_OPTIONS = [
   'All Statuses',
-  'Pending',
+  'Not Live',
+  'Future',
   'Active',
   'Inactive',
   'Expired',
@@ -29,7 +35,7 @@ export const ALL_STATUSES: StatusFilterOption = 'All Statuses';
  * Boundary values for TC-006: the first and the last selectable status,
  * excluding the neutral "All Statuses" entry.
  */
-export const FIRST_STATUS_OPTION: StatusFilterOption = 'Pending';
+export const FIRST_STATUS_OPTION: StatusFilterOption = 'Not Live'; // was 'Pending' before the 2026-11-14 build
 export const LAST_STATUS_OPTION: StatusFilterOption = 'Expired';
 
 export interface StatusBoundaryCase {
@@ -52,7 +58,7 @@ export interface FilterCombination {
 
 export const FILTER_COMBINATIONS: readonly FilterCombination[] = [
   { id: 'private-active', type: 'Private', status: 'Active' },
-  { id: 'government-pending', type: 'Government', status: 'Pending' },
+  { id: 'government-future', type: 'Government', status: 'Future' }, // was Pending (renamed Future, bug 20314)
   { id: 'private-expired', type: 'Private', status: 'Expired' },
   { id: 'government-inactive', type: 'Government', status: 'Inactive' },
 ] as const;
