@@ -103,7 +103,8 @@ export const LABEL = {
   drawerTitle: { add: 'Add New Policy', edit: 'Edit Policy', clone: 'Clone Policy', member: 'Add Member', document: 'Add Documentation', inactivate: 'Inactivate Policy', reset: 'Reset policy benefits', version: 'Version Details', audit: 'Audit Entry' },
   memberHeaders: ['Member Number', 'Name', 'Relationship', 'Document ID', 'State', 'Actions'],
   networkHeaders: ['Network Code', 'Network', 'Status', 'Assignment', 'Assigned On', 'Actions'],
-  versionHeaders: ['Version', 'Approval Status', 'Change', 'Networks', 'Requested By', 'Requested On', 'Reviewed By', 'Reviewed On', 'Actions'],
+  // "Approved By / On" since the build of 14 Nov 2026 (were "Reviewed By / On"; verified 23 Nov).
+  versionHeaders: ['Version', 'Approval Status', 'Change', 'Networks', 'Requested By', 'Requested On', 'Approved By', 'Approved On', 'Actions'],
   approvalHeaders: ['Policy Name', 'Change Type', 'Status', 'Requested By', 'Requested On', 'Actions'],
   resetTabs: { policies: 'Policies in force', history: 'Reset history' },
   resetPolicyHeaders: ['Policy', 'Benefit period', 'Next reset', 'Members', 'Benefit used', 'Override'],

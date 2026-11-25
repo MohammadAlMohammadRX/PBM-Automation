@@ -456,6 +456,26 @@ export class PayerManagementPage extends ListPageBase {
   }
 
   /**
+   * Export > Export Template as CSV - its header row (US 16218, verified 24 Nov 2026: the menu offers
+   * `payer-list-export-template`, which asks for a format and downloads Payers_Template.csv).
+   */
+  async exportTemplateHeaders(): Promise<string[]> {
+    await this.ensureListOpen();
+    await this.page.locator(buttonSelector('payer-list-export-trigger')).first().click();
+    const entry = this.page.locator('#payer-list-export-template');
+    await expect(entry, 'Export > Export Template').toBeVisible({ timeout: Timeouts.default });
+    const downloaded = this.page.waitForEvent('download', { timeout: Timeouts.queuePropagation });
+    await entry.click();
+    const dialog = new ConfirmDialog(this.page);
+    if (await dialog.isVisible()) await dialog.clickAction('csv');
+    const download = await downloaded;
+    const chunks: Buffer[] = [];
+    for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk));
+    const firstLine = Buffer.concat(chunks).toString('utf8').replace(/^﻿/, '').split(/\r?\n/)[0] ?? '';
+    return firstLine.split(',').map((h) => h.replace(/^"|"$/g, '').trim()).filter((h) => h !== '');
+  }
+
+  /**
    * Every value currently rendered in a sortable column.
    *
    * Addressed by the column's model-property key rather than by its `td`

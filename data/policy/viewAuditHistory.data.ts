@@ -3,6 +3,12 @@ import { NOTICE } from './policy.data';
 /**
  * US 15187 "View Policy - Audit History" (policy folder 16).
  *
+ * AMENDED 18 Nov 2026 (test cases updated 22 Nov): the trail must record adding and editing
+ * policy values, every status change, every rejected update with its reason, and changes to
+ * Members, Network Assignment and Documentation made from the policy page; the filters are in
+ * the Advanced Search (19630 / 19631 / 19640 now open it in their second step). Added cases:
+ * 22396, 22398, 22399, 22401. Removed: 19634.
+ *
  * The tab (verified live 2026-11-03) is the shared timeline: entries "{action} {when}
  * By: {actor}" with View Details (the "Audit Entry" drawer: action chip, entity, meta
  * "dd/mm/yyyy hh:mm • user", Field / Value rows), a search box, and the Advanced Search
@@ -23,10 +29,8 @@ import { NOTICE } from './policy.data';
  *    "day before the earliest" is yesterday.
  *  - 19631's start-after-end range is TYPED (a calendar cannot be clicked backwards); a
  *    field that ignores typing reports no validation - the case's finding either way.
- *  - 19634: a published policy offers no Delete on screen (Foundation notes), so the
- *    deletion is staged through the application's DeletePolicy call and approved; the
- *    "independent audit history area" is System Settings > Audit Logs (GetAuditLogs by the
- *    policy's id).
+ *  - 19634 (the trail kept after the policy is deleted) was DELETED from Azure on 22 Nov 2026
+ *    and removed from the automation on 23 Nov - never re-add.
  *  - 19635 / 19636: the Payer Admin shaped without / with GetPolicyAuditTrail (the
  *    "dedicated Audit History permission"), on a policy of NUPCO, one of its payers. 19636
  *    needs entries, so its policy is published (Future) - it needs an active NUPCO network.
@@ -57,7 +61,6 @@ export const CASES = {
   reversedRange: { azureId: '19631', from: '01/11/2026', to: '01/10/2026' },
   combined: { azureId: '19632', action: ACTION.statusChange },
   viewDetails: { azureId: '19633' },
-  retainedAfterDelete: { azureId: '19634' },
   noPermission: { azureId: '19635' },
   withPermission: { azureId: '19636' },
   byPerformer: { azureId: '19637' },
@@ -66,4 +69,22 @@ export const CASES = {
   specialChars: { azureId: '19639', inputs: ['""', "O'Brien", '-- --', '<img src=x onerror="window.__policyAuditXss=1">'] },
   rapidChanges: { azureId: '19640', final: ACTION.statusChange },
   checklist: { azureId: '19641', maxEntries: 10 },
+  /**
+   * 22396 (22 Nov 2026): a value ADDED (the grace period, empty on a suite draft) and then EDITED
+   * (5 -> 9) - one audit entry each. The case's expected result also names a delete, which its
+   * steps never perform; the title and steps (add, edit) are asserted.
+   */
+  addAndEdit: { azureId: '22396', added: 5, edited: 9 },
+  /** 22398: a status change is its own entry; View Details shows the previous and new status. */
+  statusChange: { azureId: '22398', action: ACTION.statusChange },
+  /** 22399: the rejection of an update is recorded with the reason entered. */
+  rejectionReason: { azureId: '22399', reason: 'Incomplete supporting documentation', entry: /reject/i },
+  /** 22401: an update to Members, Network Assignment or Documentation made from the policy page is recorded. */
+  relatedEntity: { azureId: '22401', entry: /document|endorsement|member|network/i },
 } as const;
+
+/** The grace-period field as View Details names it (22396). */
+export const GRACE_PERIOD_FIELD = /grace/i;
+
+/** An entry's "who and when" line in View Details ("dd/mm/yyyy hh:mm • user"). */
+export const WHO_AND_WHEN = /\d{2}\/\d{2}\/\d{4}.*•\s*\S/;

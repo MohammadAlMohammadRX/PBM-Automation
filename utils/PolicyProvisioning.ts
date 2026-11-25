@@ -596,7 +596,9 @@ export async function rejectPolicy(page: Page, nameEn: string, reason = 'Rejecte
   if (!requestId) throw new Error(`no pending approval request for "${nameEn}"`);
   const reasons = await rejectionReasons(page);
   const other = reasons.find((r) => r.code === 'other') ?? reasons[0];
-  return NetworkUtils.postAsSession(page, ApiEndpoints.approvalReject, { id: requestId, rejectionReasonId: other?.id ?? null, reason });
+  // The build of 14 Nov 2026 answers 422 to the body without `rejectionDetails` (23 Nov: 19608, 19609, 22399); the
+  // Approvals hub sends the text as `rejectionDetails` (notificationApi.rejectRequest). `reason` is kept for older builds.
+  return NetworkUtils.postAsSession(page, ApiEndpoints.approvalReject, { id: requestId, rejectionReasonId: other?.id ?? null, rejectionDetails: reason, reason });
 }
 
 /** Submits whatever is staged and approves it. Throws with the server's answer. */

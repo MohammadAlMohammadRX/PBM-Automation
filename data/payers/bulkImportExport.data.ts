@@ -1,58 +1,100 @@
 /**
  * Test data for "Bulk Import and Export Payer Records" (Azure US 16218).
  *
- * THE STORY IS HALF BUILT, and the halves need telling apart.
+ * HISTORY. Until the build of 14 Nov 2026 the payer list had no import at all
+ * (probed 2026-09-27: no file input, toolbar = Add + Export), so 16430 asserted
+ * its presence and FAILED and ten cases were BLOCKED behind it. Retired
+ * 2026-11-24: the list now has Import (`payer-list-import-trigger`), the shared
+ * bulk drawer, Upload history and Export > Export Template.
  *
- * EXPORT EXISTS. The payer list carries `payer-list-export` and
- * `payer-list-export-trigger`, and the export story (folder 70) already
- * exercises scopes, formats, filenames, column sets and the permission guard.
- * So this story's export cases are written against the real control and reuse
- * folder 70's data rather than restating it.
+ * HOW THE IMPORT WORKS (verified live 2026-11-24, constants/payer/payerImportIds.ts):
+ *   - adding a file STARTS the import (POST ImportPayers) - no preview, no
+ *     Upload button; the drawer closes and the bottom "Upload complete" panel
+ *     reports "<file> Payers Succeeded: n Failed: n";
+ *   - Upload history lists File, Uploaded by/on, Total, Succeeded, Failed,
+ *     Status ("Completed", "Completed with errors", "Failed") and a result file
+ *     (CSV / Excel) holding the FAILED rows with an "Error" column first
+ *     ("Payer Name (English): is required");
+ *   - new rows become Draft payers ("Not Live", "v0 · Draft", code PAY-D-nnnn);
+ *     a row carrying the Payer Code of an existing record updates it ("a change
+ *     awaiting approval is withdrawn and goes back to draft");
+ *   - a .txt is refused before upload ("Only .xlsx or .csv files are allowed.");
+ *     an unreadable .xlsx is answered 400 "The file could not be read. Make sure
+ *     it is a valid Excel or CSV file.";
+ *   - a header-only file runs as an operation with 0 / 0 / 0 and status Failed.
  *
- * IMPORT DOES NOT EXIST. Probed live on 2026-09-27 against the payer module:
- * no element id anywhere on the list matches import, upload, bulk or template,
- * and the page carries ZERO file inputs. The toolbar offers one action -
- * `payer-list-add-button` - and the breadcrumb offers the payer switcher and
- * the view toggles. There is nothing to upload a file to.
- *
- * So the import cases follow the shape the Clone story uses: ONE case asserts
- * the feature is offered and FAILS, which is the finding, and the rest report
- * BLOCKED behind it. Eleven failures all restating "there is no Bulk Import"
- * would bury the one fact a developer needs under ten copies of itself.
+ * THE TEMPLATE has no Payer Code column; the export puts "Payer Code" first.
  */
 
-/** What the payer list toolbar and breadcrumb offered when probed. */
-export const TOOLBAR_ACTIONS_OBSERVED = [
-  'payer-list-add-button',
-  'payer-list-export',
-  'payer-list-export-trigger',
+/** Export > Export Template's columns, in order (Payers_Template.csv / .xlsx, read 2026-11-24). */
+export const PAYER_IMPORT_HEADERS = [
+  'Payer Name (English) *',
+  'Payer Name (Arabic) *',
+  'Payer Type *',
+  'Email *',
+  'Dial Code *',
+  'Phone Number *',
+  'License Number *',
+  'Country *',
+  'City *',
+  'Effective Date *',
+  'Expiry Date *',
 ] as const;
 
-/**
- * The single reason the ten dependent import cases give.
- *
- * One constant so they cannot drift into ten differently-worded versions of
- * one fact, and so one edit retires them all when the feature lands.
- */
-export const NEEDS_BULK_IMPORT =
-  'This case needs the Bulk Import feature, and the application does not offer one. Probed live '
-  + 'on 2026-09-27: no element id on the payer list matches import, upload, bulk or template, the '
-  + 'page carries no file input at all, and the toolbar offers only '
-  + `${TOOLBAR_ACTIONS_OBSERVED.join(', ')}. The absence itself is reported as a FAILURE by `
-  + 'TC-169, which is the finding for the dev team; this case is blocked behind it rather than '
-  + 'restating it. Build Bulk Import, add its ids to constants/ElementIds.ts, and this case can '
-  + 'be written against it.';
+/** The export's extra first column - the key an update row is matched on. */
+export const PAYER_EXPORT_CODE_HEADER = 'Payer Code';
+
+/** What the drawer's drop hint documents as its limit: "Excel (.xlsx) or CSV (.csv), up to 25 MB." */
+export const DOCUMENTED_LIMIT = /up to\s*25\s*MB/i;
 
 /**
- * Why the export/import column comparison cannot be made either.
- *
- * TC-182 compares the exported file's columns against the BULK IMPORT
- * TEMPLATE. The export half is real and folder 70 already reads its headers;
- * the template does not exist, so there is nothing to compare them to. That is
- * a different blocker from "there is no import screen", and it says so.
+ * The file-size boundary (16433). The drawer documents 25 MB and no record
+ * count, so the boundary is the size: a file of 25,000,000 bytes is within 25 MB
+ * however a megabyte is counted, one of 25 MiB + 1 byte beyond it either way.
  */
-export const NEEDS_IMPORT_TEMPLATE =
-  'This case compares the exported columns against the Bulk Import template. The export exists '
-  + 'and its headers are already read by the export story (folder 70), but no import template '
-  + 'exists to compare them against - there is no Bulk Import feature at all. Publish the '
-  + 'template, or build the import, and the comparison can be made.';
+export const AT_LIMIT_BYTES = 25_000_000;
+export const OVER_LIMIT_BYTES = 25 * 1024 * 1024 + 1;
+/** Valid records in the at-limit file (the rest of it is blank-line padding). */
+export const AT_LIMIT_RECORDS = 3;
+
+/** 16430: five new records. */
+export const NEW_RECORDS = 5;
+
+/** 16434: three valid rows and two invalid ones (a blank English name, an invalid email). */
+export const MIXED = { valid: 3, invalid: 2, badEmail: 'not-an-email' } as const;
+
+/** 16437: the invalid date the case names. */
+export const INVALID_EFFECTIVE_DATE = '31-02-2026';
+
+/** 16432: the phone an update row writes. */
+export const UPDATED_PHONE = '598765432';
+
+/** 16439: the two phones the duplicate-code rows carry. */
+export const DUPLICATE_PHONES = ['511111111', '522222222'] as const;
+
+/** 16442: rows of the "very large" file (all with a blank English name, so nothing is created). */
+export const LARGE_FILE_ROWS = 2_000;
+
+/** Reasons a result file / message must carry, by what the case names. */
+export const REASON = {
+  /** 16435: "Mandatory field "Payer Name" is required". */
+  nameRequired: /payer name.*required|required.*payer name/i,
+  /** 16437: "Invalid format for field "Effective Date"". */
+  dateFormat: /effective date/i,
+  invalid: /invalid|format|not a valid|must be/i,
+  email: /email/i,
+  /** 16439: "Duplicate Payer ID within file" - the app says "Payer Code: This code is already used in row 2 of the file". */
+  duplicate: /duplicat|more than once|repeated|already (appears|in the file|used in row)/i,
+  /** 16440: "No records found to import". */
+  noRecords: /no (records|rows|data)|empty|nothing to import|does not contain any/i,
+  /** 16441. */
+  unsupported: /only \.xlsx or \.csv|not supported|unsupported|could not be read|not a valid|invalid file/i,
+  /** 16433: "maximum record limit exceeded" / the size limit. */
+  limit: /25\s*MB|too large|exceeds|maximum|limit/i,
+} as const;
+
+/** The list's approval-status reading of an unapproved import ("v0 · Draft"). */
+export const DRAFT = /draft/i;
+/** An approved import ("v1 · Approved"), and the lifecycle states an approved payer may show. */
+export const APPROVED = 'Approved';
+export const LIVE_STATES = ['Active', 'Future'] as const;

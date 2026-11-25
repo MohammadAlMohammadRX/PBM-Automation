@@ -3,17 +3,27 @@ import { VERSION_STATUS_LABEL } from './policy.data';
 /**
  * US 15185 "View Policy - Version History" (policy folder 14).
  *
- * The tab (verified live 2026-11-03): rows newest first - Version (v1 ...), Approval
- * Status (Approved / Superseded / Draft / Pending Approval / Rejected), Change (Created,
- * Updated, Activated, Deactivated, Deleted, Reverted), Networks, Requested By / On,
- * Reviewed By / On, Actions (View; "Revert to this" on a published or superseded row
- * that is not current). There is NO Members column (19613 asserts the case's columns).
+ * AMENDED 18 Nov 2026 (test cases updated 22 Nov): only an APPROVED change becomes a version
+ * (Approval Status always "Approved"); a rejected change and a new policy's first draft are not
+ * versions; the table shows Approved By / Approved On (was Reviewed By / On) and a Members
+ * column; View Details also shows Policy Type, Policy Holder, Members and Documents in this
+ * version, Requested By / On and Approved By / On. Cases 19604, 19607, 19608, 19609, 19610 and
+ * 19613 were rewritten; 22395 and 22397 were added.
+ *
+ * The tab (verified live 2026-11-23, build of 14 Nov): rows newest first - Version (v1 ...),
+ * Approval Status, Change (Created, Updated, Activated, Deactivated, Deleted, Reverted),
+ * Networks, Requested By / On, Approved By / On (ids still `reviewedby` / `reviewedon`),
+ * Actions (View; "Revert to this" on an earlier approved row). There is still NO Members
+ * column, and the advanced search has NO Approval Status field (Change, Requested By, Approved
+ * By, Requested On) - 19613 and 19609 assert the cases and report both.
  *
  * How the cases' wording maps onto the application:
- *  - "Published" is the application's "Approved"; a once-published version reads
- *    "Superseded" when a newer one is approved. 19606's "version 2 (Published)" on a policy
- *    at version 3 is therefore the Superseded v2 - the case asserts Revert is offered on
- *    it, not its label. 19609 filters on "Approved".
+ *  - "Published" is the application's "Approved". 19606's "version 2 (Published)" on a policy
+ *    at version 3 is the earlier v2 - the case asserts Revert is offered on it, not its label.
+ *  - 19607 (22 Nov) contradicts itself: its title, its final expected result and the story
+ *    ("A previously published version can be reverted") say an earlier approved version CAN
+ *    be reverted to; its steps 2-3 say Revert is disabled and blocked. The case asserts the
+ *    title and the story - an earlier approved version is reverted to - and says so.
  *  - A revert is STAGED as a draft of the next version and needs approval (like every
  *    published change); 19606 / 19607 / 19616 send and approve it before reading the
  *    "current configuration", which is the version's Status (business status) - the only
@@ -29,10 +39,13 @@ import { VERSION_STATUS_LABEL } from './policy.data';
  *    RevertPolicyVersion; its policy is built for NUPCO so that account can open it.
  */
 
-/** The administrator as the Version History names it (requested / reviewed by). */
+/** The administrator as the Version History names it (requested / approved by). */
 export const ADMIN_NAME = 'CareConnect Admin User';
 
-/** The columns 19613 requires (case wording -> header pattern). */
+/** The only approval status a version has (only approved changes become versions, amended 18 Nov 2026). */
+export const APPROVED = 'Approved';
+
+/** The columns 19613 requires (case wording -> header pattern); Approved By / On replace Reviewed By / On (22 Nov 2026). */
 export const VERSION_COLUMNS: ReadonlyArray<[string, RegExp]> = [
   ['Version', /^version$/i],
   ['Change Type', /^change( type)?$/i],
@@ -41,10 +54,16 @@ export const VERSION_COLUMNS: ReadonlyArray<[string, RegExp]> = [
   ['Approval Status', /^approval status$/i],
   ['Requested By', /^requested by$/i],
   ['Requested On', /^requested on$/i],
-  ['Reviewed By', /^reviewed by$/i],
-  ['Reviewed On', /^reviewed on$/i],
+  ['Approved By', /^approved by$/i],
+  ['Approved On', /^approved on$/i],
   ['Actions', /^actions$/i],
 ];
+
+/** 19611's reviewer filter: labelled "Approved By" since the build of 14 Nov 2026 (the case, not updated, says "Reviewed By"). */
+export const REVIEWER_FILTER_LABEL = /(reviewed|approved) by/i;
+
+/** A date and time as the version cells and drawer show them ("18/11/2026 16:21"). */
+export const DATE_TIME = /\d{2}\/\d{2}\/\d{4}/;
 
 /** A cell that shows nothing ('' or a dash). */
 export const EMPTY_CELL = /^\s*[—–-]?\s*$/;
@@ -54,8 +73,8 @@ export const CASES = {
   requesterReviewer: { azureId: '19604' },
   readOnlyDetail: { azureId: '19605', changes: 1 },
   revertPublished: { azureId: '19606', target: 'v2' },
-  revertSuperseded: { azureId: '19607', superseded: VERSION_STATUS_LABEL.superseded },
-  neverApproved: { azureId: '19608', pending: VERSION_STATUS_LABEL.pending },
+  revertEarlierApproved: { azureId: '19607' },
+  rejectedExcluded: { azureId: '19608', rejected: VERSION_STATUS_LABEL.rejected },
   filterStatus: { azureId: '19609', status: VERSION_STATUS_LABEL.published },
   detailFields: { azureId: '19610', gracePeriodDays: 5 },
   combinedFilters: { azureId: '19611' },
@@ -65,4 +84,6 @@ export const CASES = {
   noPermission: { azureId: '19615' },
   preservesHistory: { azureId: '19616', target: 'v1' },
   currentVersion: { azureId: '19617', current: 'v1' },
+  firstDraftNotCounted: { azureId: '22395' },
+  versionOnlyOnApproval: { azureId: '22397' },
 } as const;

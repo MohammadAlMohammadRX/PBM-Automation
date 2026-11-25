@@ -1,7 +1,7 @@
 import { test, expect } from '../../../fixtures';
 import { VERSION_CHANGE_LABEL } from '../../../data/policy/policy.data';
-import { ADMIN_NAME, CASES, EMPTY_CELL, VERSION_COLUMNS } from '../../../data/policy/viewVersionHistory.data';
-import { policyDayText, readPolicy } from '../../../utils/PolicyProvisioning';
+import { ADMIN_NAME, APPROVED, CASES, DATE_TIME, EMPTY_CELL, REVIEWER_FILTER_LABEL, VERSION_COLUMNS } from '../../../data/policy/viewVersionHistory.data';
+import { approvePolicy, policyDayText, readPolicy, waitForPolicy } from '../../../utils/PolicyProvisioning';
 import {
   ERROR_MESSAGE,
   activateAndPublish,
@@ -16,12 +16,13 @@ import {
 } from '../../../utils/policy/writerAHelpers';
 
 /**
- * User story 15185: View Policy - Version History.
- * Numbered versions with requester / reviewer, the read-only Version Details,
- * reverting to a published or superseded version (staged and approved, as
- * every published change is), refusing a never-approved one, the advanced
- * search and the table's columns. See the data file for how the cases' wording
- * maps onto the application.
+ * User story 15185: View Policy - Version History (amended 18 Nov 2026).
+ * Numbered versions with requester / approver, the read-only Version Details,
+ * reverting to an earlier approved version (staged and approved, as every
+ * published change is), only approved changes becoming versions (not a rejected
+ * change, not a pending one, not the first draft), the advanced search and the
+ * table's columns. See the data file for how the cases' wording maps onto the
+ * application.
  */
 test.describe('US 15185 - View Policy - Version History', () => {
   test.describe.configure({ timeout: 10 * 60_000 });
@@ -55,7 +56,7 @@ test.describe('US 15185 - View Policy - Version History', () => {
     });
   });
 
-  test(`TC-${CASES.requesterReviewer.azureId}: should show who requested and reviewed each version and when`, async ({
+  test(`TC-${CASES.requesterReviewer.azureId}: should show who requested and approved each version and when`, async ({
     policyManagementPage: list,
     policyDetailPage: detail,
     policyVersionHistoryTab: versions,
@@ -69,16 +70,18 @@ test.describe('US 15185 - View Policy - Version History', () => {
       await list.openTable();
     });
 
-    await steps.step('Open the policy\'s Version History table - it lists the existing versions', async () => {
+    await steps.step('Select the policy and click View to open its Version History table - it lists the existing versions', async () => {
       await detail.open(policy.id);
       await versions.open();
       rows = await versions.readRows();
       expect(rows.length).toBeGreaterThan(0);
     });
 
-    await steps.step('Inspect a version row - Requested By, Requested On, Reviewed By and Reviewed On are all populated', async () => {
+    // Approved By / On are the `reviewedby` / `reviewedon` cells, relabelled in the build of 14 Nov 2026.
+    await steps.step('Inspect a version row - Requested By, Requested On, Approved By and Approved On are all populated', async () => {
       const approved = rows.find((r) => versionNumber(r.version) === 1);
-      const blank = (['requestedBy', 'requestedOn', 'reviewedBy', 'reviewedOn'] as const).filter((key) => EMPTY_CELL.test(approved?.[key] ?? ''));
+      const labels = { requestedBy: 'Requested By', requestedOn: 'Requested On', reviewedBy: 'Approved By', reviewedOn: 'Approved On' } as const;
+      const blank = (Object.keys(labels) as (keyof typeof labels)[]).filter((key) => EMPTY_CELL.test(approved?.[key] ?? '')).map((key) => labels[key]);
       expect(blank, `v1: ${JSON.stringify(approved)}`).toEqual([]);
     });
   });
@@ -153,7 +156,9 @@ test.describe('US 15185 - View Policy - Version History', () => {
     });
   });
 
-  test(`TC-${CASES.revertSuperseded.azureId}: should restore a superseded version as the policy's current configuration`, async ({
+  // 22 Nov 2026: the case's title, its final expected result and the story say an earlier approved version CAN be
+  // reverted to; its steps 2-3 say Revert is disabled and blocked. The title and the story are asserted (data file).
+  test(`TC-${CASES.revertEarlierApproved.azureId}: should let the compliance officer revert a policy to an earlier approved version from the version history`, async ({
     policyManagementPage: list,
     policyDetailPage: detail,
     policyVersionHistoryTab: versions,
@@ -162,24 +167,30 @@ test.describe('US 15185 - View Policy - Version History', () => {
     steps,
   }) => {
     const policy = await policyIn('Inactive');
-    let superseded = '';
+    let earlier = '';
 
     await steps.critical('Navigate to the Policy Management module - the module home screen shows the policy list', async () => {
       await list.openTable();
     });
 
-    await steps.step('Open Version History and locate a Superseded version - the Revert action is available on its row', async () => {
+    // The earlier version is taken whatever its label, so the revert is still exercised: on 23 Nov 2026 it read
+    // "Superseded" where the amended story says every version reads "Approved" - reported here, not a reason to stop.
+    await steps.step('Select the policy, click View, open Version History and locate an earlier Approved version - the Revert action is available on its row', async () => {
       await detail.open(policy.id);
       await versions.open();
-      superseded = (await versions.readRows()).find((r) => r.status === CASES.revertSuperseded.superseded)?.version ?? '';
-      expect(superseded, 'a Superseded row').not.toBe('');
-      expect(await versions.getRevertAvailability(superseded), `Revert on ${superseded}`).toBe('available');
+      const rows = await versions.readRows();
+      const current = Math.max(...rows.map((r) => versionNumber(r.version)));
+      const row = rows.find((r) => versionNumber(r.version) < current);
+      earlier = row?.version ?? '';
+      expect(earlier, `an earlier version among ${rows.map((r) => `${r.version} ${r.status}`).join(', ')}`).not.toBe('');
+      expect({ approvalStatus: row?.status ?? '', revert: await versions.getRevertAvailability(earlier) }, `${earlier} among ${rows.map((r) => `${r.version} ${r.status}`).join(', ')}`)
+        .toEqual({ approvalStatus: APPROVED, revert: 'available' });
     });
 
-    await steps.step('Select Revert and confirm - the policy\'s current configuration updates to match the superseded version\'s values', async () => {
-      const wanted = (await versions.viewVersion(superseded)).businessStatus;
+    await steps.step('Trigger Revert on that approved version and confirm - the policy is restored to that version\'s values', async () => {
+      const wanted = (await versions.viewVersion(earlier)).businessStatus;
       await versions.closeVersion();
-      const answer = await versions.revertTo(superseded);
+      const answer = await versions.revertTo(earlier);
       expect(answer.status, `RevertPolicyVersion: ${answer.text.slice(0, 200)}`).toBeLessThan(300);
       await publishStaged(page, policy);
       await detail.open(policy.id);
@@ -187,35 +198,50 @@ test.describe('US 15185 - View Policy - Version History', () => {
     });
   });
 
-  test(`TC-${CASES.neverApproved.azureId}: should not offer or allow a revert to a version that was never approved`, async ({
+  test(`TC-${CASES.rejectedExcluded.azureId}: should keep a rejected change out of Version History with no version number`, async ({
     policyManagementPage: list,
     policyDetailPage: detail,
     policyVersionHistoryTab: versions,
     policyIn,
+    page,
     steps,
   }) => {
-    const policy = await policyIn('PendingChange');
-    let pending = '';
+    const policy = await policyIn('Future');
+    let before: Awaited<ReturnType<typeof versions.readRows>> = [];
 
     await steps.critical('Navigate to the Policy Management module - the module home screen shows the policy list', async () => {
       await list.openTable();
-    });
-
-    await steps.step('Open Version History and locate the Pending version row - the Revert action is disabled or hidden', async () => {
       await detail.open(policy.id);
       await versions.open();
-      pending = (await versions.readRows()).find((r) => r.status === CASES.neverApproved.pending)?.version ?? '';
-      expect(pending, 'a Pending Approval row').not.toBe('');
-      expect(await versions.getRevertAvailability(pending), `Revert on ${pending}`).not.toBe('available');
+      before = await versions.readRows();
+      expect(before.length, 'versions before the rejected change').toBeGreaterThan(0);
     });
 
-    await steps.step('Attempt to trigger the revert directly - the system blocks the action', async () => {
-      const answer = await versions.revertViaApi(policy.id, versionNumber(pending));
-      expect(answer.status, `RevertPolicyVersion to ${pending}: ${answer.text.slice(0, 200)}`).toBeGreaterThanOrEqual(400);
+    await steps.step('Submit a change to the policy and have it rejected in the Approval module - the rejection is recorded', async () => {
+      await stageAndReject(page, policy);
+      expect((await readPolicy(page, policy.id)).hasPendingVersion, 'no change left pending').toBe(false);
+    });
+
+    await steps.step('Select the policy, click View and open Version History - the rejected change is not listed and no version number was created for it', async () => {
+      await detail.open(policy.id);
+      await versions.open();
+      const after = await versions.readRows();
+      const top = (rows: typeof after): number => Math.max(0, ...rows.map((r) => versionNumber(r.version)));
+      expect({
+        rows: after.length,
+        highest: top(after),
+        rejectedRows: after.filter((r) => r.status === CASES.rejectedExcluded.rejected).map((r) => r.version),
+      }, `after: ${after.map((r) => `${r.version} ${r.status} ${r.change}`).join(', ')}`).toEqual({
+        rows: before.length,
+        highest: top(before),
+        rejectedRows: [],
+      });
     });
   });
 
-  test(`TC-${CASES.filterStatus.azureId}: should list only the versions of the chosen approval status`, async ({
+  // 22 Nov 2026: only approved changes become versions, so the filter on "Approved" returns the full list. The build of
+  // 14 Nov offers no Approval Status field in the advanced search (VERIFIED 23 Nov) - step 2 reports it.
+  test(`TC-${CASES.filterStatus.azureId}: should return the full version list, all Approved, when filtering by Approval Status Approved`, async ({
     policyManagementPage: list,
     policyDetailPage: detail,
     policyVersionHistoryTab: versions,
@@ -225,21 +251,24 @@ test.describe('US 15185 - View Policy - Version History', () => {
   }) => {
     const status = CASES.filterStatus.status;
     const policy = await policyIn('Future');
-    await provisionOrBlock('a policy with Approved, Superseded, Rejected and Pending versions', async () => {
+    await provisionOrBlock('a policy with two approved versions, a rejected change and a pending one', async () => {
       await publishDocumentChanges(page, policy, 1);
       await stageAndReject(page, policy);
       await stageAndSubmit(page, policy);
     });
+    let all = 0;
     let rows: Awaited<ReturnType<typeof versions.readRows>> = [];
 
     await steps.critical('Navigate to the Policy Management module - the module home screen shows the policy list', async () => {
       await list.openTable();
     });
 
-    await steps.step('Open Version History and open Advanced Search - the filter panel is displayed', async () => {
+    await steps.step('Select the policy, click View, open Version History and open Advanced Search - the filter panel offers Approval Status', async () => {
       await detail.open(policy.id);
       await versions.open();
-      expect(await versions.getAdvancedSearchLabels()).toEqual(expect.arrayContaining([expect.stringMatching(/approval status/i)]));
+      all = (await versions.readRows()).length;
+      const labels = await versions.getAdvancedSearchLabels();
+      expect(labels, `fields offered: ${labels.join(', ')}`).toEqual(expect.arrayContaining([expect.stringMatching(/approval status/i)]));
     });
 
     await steps.step(`Set the Approval Status filter to "${status}" and apply - the table refreshes`, async () => {
@@ -247,8 +276,8 @@ test.describe('US 15185 - View Policy - Version History', () => {
       expect(rows.length, `rows for "${status}"`).toBeGreaterThan(0);
     });
 
-    await steps.step(`Review the results - only versions with Approval Status ${status} are listed`, async () => {
-      expect(rows.filter((r) => r.status !== status).map((r) => `${r.version} ${r.status}`)).toEqual([]);
+    await steps.step(`Review the results - every version is listed and shows Approval Status ${status}; no Rejected or Pending entry exists`, async () => {
+      expect({ rows: rows.length, others: rows.filter((r) => r.status !== status).map((r) => `${r.version} ${r.status}`) }).toEqual({ rows: all, others: [] });
     });
   });
 
@@ -266,14 +295,17 @@ test.describe('US 15185 - View Policy - Version History', () => {
       await list.openTable();
     });
 
-    await steps.step('Open Version History and select View Details on a version - the detail screen loads in read mode', async () => {
+    await steps.step('Select the policy, click View, open Version History and select View Details on a version - the detail screen loads in read mode', async () => {
       await detail.open(policy.id);
       await versions.open();
       fields = await versions.viewVersion('v1');
       expect(await versions.isDrawerReadOnly()).toBe(true);
     });
 
-    await steps.step('Inspect every field - Version, Approval Status, Status, both names, Plan, Payer, dates, Grace Period and the version\'s networks are shown correctly', async () => {
+    // 22 Nov 2026: Policy Type, Policy Holder, Members and Documents in this version, Requested By / On and Approved By / On
+    // were added to the fields the details must show. Members / Documents count as shown with their list or their
+    // "none in this version" message.
+    await steps.step('Inspect every field - Version, Approval Status, Status, both names, Plan, Payer, dates, Grace Period, networks, Policy Type, Policy Holder, members, documents, Requested By / On and Approved By / On are shown correctly', async () => {
       const text = await versions.getDrawerText();
       expect({
         version: /\bv1\b|version\s*:?\s*1\b/i.test(text),
@@ -286,9 +318,17 @@ test.describe('US 15185 - View Policy - Version History', () => {
         dates: fields.effectiveDate !== '' && fields.expiryDate !== '',
         grace: fields.gracePeriod.includes(String(CASES.detailFields.gracePeriodDays)),
         networks: policy.networks.every((n) => fields.networks.includes(n.networkCode)),
-      }, `drawer: ${text.slice(0, 300)}`).toEqual({
+        policyType: !EMPTY_CELL.test(fields.type),
+        policyHolder: !EMPTY_CELL.test(fields.holder),
+        members: fields.members !== '' || fields.membersEmpty !== '',
+        documents: fields.documents !== '' || fields.documentsEmpty !== '',
+        requestedBy: fields.requestedBy,
+        requestedOn: DATE_TIME.test(fields.requestedOn),
+        approvedBy: fields.approvedBy,
+        approvedOn: DATE_TIME.test(fields.approvedOn),
+      }, `drawer: ${text.slice(0, 400)}`).toEqual({
         version: true,
-        approvalStatus: 'Approved',
+        approvalStatus: APPROVED,
         status: 'Future',
         nameEn: policy.nameEn,
         nameAr: policy.nameAr,
@@ -297,6 +337,14 @@ test.describe('US 15185 - View Policy - Version History', () => {
         dates: true,
         grace: true,
         networks: true,
+        policyType: true,
+        policyHolder: true,
+        members: true,
+        documents: true,
+        requestedBy: ADMIN_NAME,
+        requestedOn: true,
+        approvedBy: ADMIN_NAME,
+        approvedOn: true,
       });
     });
   });
@@ -324,7 +372,7 @@ test.describe('US 15185 - View Policy - Version History', () => {
       await versions.open();
       change = (await versions.readRows()).find((r) => versionNumber(r.version) === 2)?.change ?? '';
       const labels = await versions.getAdvancedSearchLabels();
-      expect(labels).toEqual(expect.arrayContaining([expect.stringMatching(/change/i), expect.stringMatching(/requested by/i), expect.stringMatching(/reviewed by/i), expect.stringMatching(/requested on/i)]));
+      expect(labels).toEqual(expect.arrayContaining([expect.stringMatching(/change/i), expect.stringMatching(/requested by/i), expect.stringMatching(REVIEWER_FILTER_LABEL), expect.stringMatching(/requested on/i)]));
     });
 
     await steps.step(`Set Change "${change}", Requested By and Reviewed By "${ADMIN_NAME}" and Requested On today together, then apply - the table refreshes`, async () => {
@@ -389,12 +437,13 @@ test.describe('US 15185 - View Policy - Version History', () => {
       expect(await versions.countRows()).toBeGreaterThan(0);
     });
 
-    await steps.step('Inspect the table header and a data row - every required column is present and populated', async () => {
+    // 22 Nov 2026: Approved By / Approved On replace Reviewed By / Reviewed On, and Approval Status always reads "Approved".
+    await steps.step('Inspect the table header and a data row - Version, Change Type, Members, Networks, Approval Status (Approved), Requested By / On, Approved By / On and Actions are present and populated', async () => {
       const headers = await versions.getHeaders();
       const missing = VERSION_COLUMNS.filter(([, header]) => !headers.some((h) => header.test(h))).map(([name]) => name);
       const [row] = await versions.readRows();
       const blank = Object.entries(row ?? {}).filter(([key, value]) => key !== 'rowId' && EMPTY_CELL.test(value)).map(([key]) => key);
-      expect({ missing, blank }, `headers shown: ${headers.join(', ')}`).toEqual({ missing: [], blank: [] });
+      expect({ missing, blank, approvalStatus: row?.status ?? '' }, `headers shown: ${headers.join(', ')}`).toEqual({ missing: [], blank: [], approvalStatus: APPROVED });
     });
   });
 
@@ -498,6 +547,79 @@ test.describe('US 15185 - View Policy - Version History', () => {
       const after = (await versions.fetchVersions(policy.id)).length;
       expect({ noChange: offered !== 'available' || (after === before && !record.hasDraft && !record.hasPendingVersion) }, `Revert ${offered}; versions ${before} -> ${after}; draft ${record.hasDraft}`)
         .toEqual({ noChange: true });
+    });
+  });
+
+  // Added 22 Nov 2026 (story amended 18 Nov): the first draft of a new record is not counted as a version.
+  test(`TC-${CASES.firstDraftNotCounted.azureId}: should not count the first draft of a new policy in Version History`, async ({
+    policyManagementPage: list,
+    policyDetailPage: detail,
+    policyVersionHistoryTab: versions,
+    policyIn,
+    page,
+    steps,
+  }) => {
+    const policy = await policyIn('Draft');
+
+    await steps.critical('Navigate to the Policy Management module - the module home screen shows the policy list', async () => {
+      await list.openTable();
+    });
+
+    await steps.step('Create a new policy record and save it as a draft without submitting it for approval - the draft is saved', async () => {
+      const record = await readPolicy(page, policy.id);
+      expect({ draft: record.isPendingCreate, pending: record.hasPendingVersion, version: record.currentVersion }).toEqual({ draft: true, pending: false, version: 0 });
+    });
+
+    await steps.step('Select the policy, click View and open Version History - no entry is shown for the initial draft', async () => {
+      await detail.open(policy.id);
+      await versions.open();
+      const rows = await versions.readRows();
+      expect(rows.map((r) => `${r.version} ${r.status} ${r.change}`), 'versions of a never-approved draft').toEqual([]);
+    });
+  });
+
+  // Added 22 Nov 2026 (story amended 18 Nov): a new version is created only when a change is approved.
+  test(`TC-${CASES.versionOnlyOnApproval.azureId}: should add a new version only after the change is approved, not while it is pending`, async ({
+    policyManagementPage: list,
+    policyDetailPage: detail,
+    policyVersionHistoryTab: versions,
+    policyIn,
+    page,
+    steps,
+  }) => {
+    const policy = await policyIn('Future');
+    let before: Awaited<ReturnType<typeof versions.readRows>> = [];
+    const top = (rows: typeof before): number => Math.max(0, ...rows.map((r) => versionNumber(r.version)));
+    const listed = (rows: typeof before): string => rows.map((r) => `${r.version} ${r.status} ${r.change}`).join(', ');
+
+    await steps.critical('Navigate to the Policy Management module - the module home screen shows the policy list', async () => {
+      await list.openTable();
+      await detail.open(policy.id);
+      await versions.open();
+      before = await versions.readRows();
+      expect(before.length, 'versions before the change').toBeGreaterThan(0);
+    });
+
+    await steps.step('Submit a change to the policy and leave it pending in the Approval module - no new version is created yet', async () => {
+      await stageAndSubmit(page, policy);
+      expect((await readPolicy(page, policy.id)).hasPendingVersion, 'the change awaits approval').toBe(true);
+    });
+
+    await steps.step('Select the policy, click View and open Version History - the list does not yet include the pending change', async () => {
+      await detail.open(policy.id);
+      await versions.open();
+      const pending = await versions.readRows();
+      expect({ rows: pending.length, highest: top(pending) }, listed(pending)).toEqual({ rows: before.length, highest: top(before) });
+    });
+
+    await steps.step('Approve the pending change through the Approval module, then open Version History again - a new numbered version now appears', async () => {
+      await approvePolicy(page, policy.nameEn);
+      await waitForPolicy(page, policy.id, (p) => !p.hasPendingVersion && !p.hasDraft, 'the change approved');
+      await detail.open(policy.id);
+      await versions.open();
+      const after = await versions.readRows();
+      const newest = after.find((r) => versionNumber(r.version) === top(after));
+      expect({ rows: after.length, highest: top(after), status: newest?.status ?? '' }, listed(after)).toEqual({ rows: before.length + 1, highest: top(before) + 1, status: APPROVED });
     });
   });
 });

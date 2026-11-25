@@ -10,6 +10,7 @@ import { WaitUtils } from '../../utils/WaitUtils';
 import { Logger } from '../../utils/Logger';
 import { parseCsv } from '../../utils/CsvUtils';
 import { parseXlsx, type ParsedXlsx } from '../../utils/XlsxUtils';
+import { clickDateRange } from '../components/DateRangeCalendar';
 
 /** A tab's Export menu: Export Template / Export as CSV / Export as Excel. */
 export interface TabExportIds {
@@ -187,29 +188,15 @@ export class PolicyTabTable<K extends string> {
 
   /**
    * Clicks a `DD/MM/YYYY - DD/MM/YYYY` range's days in the calendar: a TYPED
-   * range is ignored (Formulary lesson, 2026-11-03).
-   *
-   * locator-exception: PrimeNG renders day cells without ids; they are read
-   * inside the open datepicker panel, which is reached from the field.
+   * range is ignored (Formulary lesson, 2026-11-03). Handles the build of
+   * 14 Nov 2026's own calendar and the earlier PrimeNG one (DateRangeCalendar).
    */
   protected async pickDateRange(input: Locator, range: string): Promise<void> {
     const days = range.split(/\s+-\s+/).map((text) => {
       const [d, m, y] = text.split('/').map(Number);
       return new Date(y, m - 1, d);
     });
-    await input.click();
-    const panel = this.page.locator('.p-datepicker-panel, .p-datepicker').filter({ visible: true }).first(); // locator-exception: the PrimeNG date-picker overlay is portalled with no id
-    await expect(panel, 'the date picker should open').toBeVisible({ timeout: Timeouts.default });
-    let shown = new Date();
-    for (const day of days) {
-      const months = (day.getFullYear() - shown.getFullYear()) * 12 + day.getMonth() - shown.getMonth();
-      for (let i = 0; i < Math.abs(months); i++) {
-        await panel.locator(months > 0 ? '.p-datepicker-next, .p-datepicker-next-button' : '.p-datepicker-prev, .p-datepicker-prev-button').first().click();
-      }
-      shown = day;
-      await panel.locator('td:not(.p-datepicker-other-month) span').filter({ hasText: new RegExp(`^\\s*${day.getDate()}\\s*$`) }).first().click();
-    }
-    if (await panel.isVisible().catch(() => false)) await input.click();
+    await clickDateRange(this.page, input, days);
   }
 
   private exportIds(): TabExportIds {

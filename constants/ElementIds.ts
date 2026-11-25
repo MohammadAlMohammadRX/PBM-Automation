@@ -3106,7 +3106,11 @@ export const POLICY_VERSIONS = {
   },
 } as const;
 
-/** Version columns: Version, Approval Status, Change, Networks, Requested By/On, Reviewed By/On (NO Members column). */
+/**
+ * Version columns: Version, Approval Status, Change, Networks, Requested By/On, Approved By/On (NO Members column).
+ * Since the build of 14 Nov 2026 the reviewer columns are LABELLED "Approved By" / "Approved On"; their ids are
+ * still `reviewedby` / `reviewedon` (VERIFIED 23 Nov 2026).
+ */
 export const POLICY_VERSION_COLUMN = {
   version: 'version',
   status: 'status',
@@ -3135,6 +3139,15 @@ export const POLICY_VERSION_FIELD = {
   expiryDate: 'expiry-date',
   gracePeriod: 'grace-period',
   networks: 'networks',
+  /** Since the build of 14 Nov 2026 (VERIFIED 23 Nov): the version's members and documents, and who requested and approved it. */
+  members: 'members',
+  membersEmpty: 'members-empty',
+  documents: 'documents',
+  documentsEmpty: 'documents-empty',
+  requestedBy: 'requested-by',
+  requestedOn: 'requested-on',
+  approvedBy: 'reviewed-by',
+  approvedOn: 'reviewed-on',
   reviewNote: 'review-note',
   terminationReason: 'termination-reason',
   terminationDate: 'termination-date',
@@ -3143,7 +3156,10 @@ export const POLICY_VERSION_FIELD = {
 
 export type PolicyVersionField = keyof typeof POLICY_VERSION_FIELD;
 
-/** Version advanced-search fields (`policy-detail-versions-advanced-search-field-{key}-input`). */
+/**
+ * Version advanced-search fields (`policy-detail-versions-advanced-search-field-{key}-input`). The build of 14 Nov 2026
+ * offers Change, Requested By, Approved By (id `reviewedby`) and Requested On - no Approval Status field (VERIFIED 23 Nov).
+ */
 export const POLICY_VERSION_FILTER_FIELD = { status: 'status', change: 'changetype', requestedBy: 'requestedby', reviewedBy: 'reviewedby', requestedOn: 'requestedon' } as const;
 
 export type PolicyVersionFilterKey = keyof typeof POLICY_VERSION_FILTER_FIELD;

@@ -46,5 +46,3 @@ export const POLICY_BULK_STATUS = {
   failed: 'Failed',
 } as const;
 
-/** The policy's audit trail in the system-wide Audit Logs (GetAuditLogs `entityType`). */
-export const POLICY_AUDIT_ENTITY = 'Policy';

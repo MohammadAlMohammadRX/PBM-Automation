@@ -1,17 +1,17 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import { blockedByPrecondition } from '../../fixtures/testStatus.fixture';
 import { env } from '../../constants/EnvironmentConfig';
-import { AppRoutes } from '../../constants/AppRoutes';
 import { ApiEndpoints } from '../../constants/ApiEndpoints';
 import { Timeouts } from '../../constants/Timeouts';
 import { POLICY_AUDIT, POLICY_CARD, POLICY_LIST, TOAST, buttonSelector } from '../../constants/ElementIds';
-import { POLICY_AUDIT_ENTITY, POLICY_HISTORY_PART } from '../../constants/policy/writerAIds';
+import { POLICY_HISTORY_PART } from '../../constants/policy/writerAIds';
 import { NON_ADMIN_PROFILE } from '../../data/accounts/nonAdminAccount.data';
 import { ACCESS_TOKEN_KEY } from '../../data/payers/lifecycleGuardrails.data';
 import { toArabicToken } from '../../data/payers/payer.data';
 import { PayerScopeDialog } from '../../pages/components/PayerScopeDialog';
 import { AUDIT_FILTER_FIELD, type AuditEntry } from '../../pages/components/AuditHistoryTab';
+import { clickDateRange } from '../../pages/components/DateRangeCalendar';
 import type { PolicyManagementPage, PolicyListAnswer } from '../../pages/policy/PolicyManagementPage';
 import type { PolicyAuditTab } from '../../pages/policy/PolicyAuditTab';
 import type { PolicyImportDialog, PolicyImportAnswer } from '../../pages/policy/PolicyImportDialog';
@@ -532,24 +532,11 @@ const auditField = (key: string): string => `${POLICY_AUDIT.advancedSearch}-fiel
 
 /**
  * Clicks a date range's two days in the open calendar of `input` - a TYPED
- * range is ignored by these filters (Formulary lesson, 2026-11-03).
+ * range is ignored by these filters (Formulary lesson, 2026-11-03). Handles the
+ * build of 14 Nov 2026's own calendar and the earlier PrimeNG one.
  */
 export async function pickDateRange(page: Page, input: Locator, from: Date, to: Date): Promise<void> {
-  await input.click();
-  const panel = page.locator('.p-datepicker-panel, .p-datepicker').filter({ visible: true }).first(); // locator-exception: the PrimeNG date-picker overlay is portalled with no id
-  await expect(panel, 'the date picker should open').toBeVisible({ timeout: Timeouts.default });
-  let shown = new Date();
-  for (const day of [from, to]) {
-    const months = (day.getFullYear() - shown.getFullYear()) * 12 + day.getMonth() - shown.getMonth();
-    for (let i = 0; i < Math.abs(months); i += 1) {
-      // locator-exception: the calendar's month arrows carry no id; scoped to the open panel.
-      await panel.locator(months > 0 ? '.p-datepicker-next, .p-datepicker-next-button' : '.p-datepicker-prev, .p-datepicker-prev-button').first().click();
-    }
-    shown = day;
-    // locator-exception: PrimeNG day cells carry no id; scoped to the open panel, matched by the day number.
-    await panel.locator('td:not(.p-datepicker-other-month) span').filter({ hasText: new RegExp(`^\\s*${day.getDate()}\\s*$`) }).first().click();
-  }
-  if (await panel.isVisible().catch(() => false)) await input.click();
+  await clickDateRange(page, input, [from, to]);
 }
 
 /**
@@ -625,26 +612,6 @@ export async function typeReversedRange(page: Page, audit: PolicyAuditTab, fromT
   const cls = `${(await input.getAttribute('class').catch(() => '')) ?? ''} ${(await input.locator('xpath=..').getAttribute('class').catch(() => '')) ?? ''}`;
   const messages = await drawer.getMessages();
   return { highlighted: aria === 'true' || /ng-invalid|p-invalid/.test(cls) || messages.length > 0, messages, value: await input.inputValue().catch(() => '') };
-}
-
-/** The policy's records in the system-wide Audit Logs (GetAuditLogs by entity). */
-export async function readSystemAuditLogs(page: Page, policyId: string): Promise<{ status: number; total: number; text: string }> {
-  const res = await NetworkUtils.postAsSession(page, ApiEndpoints.auditLogList, { entityType: POLICY_AUDIT_ENTITY, entityId: policyId, actionType: null, pageNumber: 1, rowsPerPage: 50 });
-  let total = 0;
-  try {
-    const payload = (JSON.parse(res.text) as { payload?: { totalRows?: number; items?: unknown[] } }).payload;
-    total = payload?.totalRows ?? payload?.items?.length ?? 0;
-  } catch {
-    total = 0;
-  }
-  return { status: res.status, total, text: res.text };
-}
-
-/** Opens System Settings > Audit Logs and returns its main text. */
-export async function openSystemAuditLogs(page: Page): Promise<string> {
-  await page.goto(new URL(AppRoutes.auditLogs, env.baseUrl).toString(), { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle').catch(() => undefined);
-  return (await page.locator('main').first().innerText({ timeout: Timeouts.default }).catch(() => '')).replace(/\s+/g, ' ').trim(); // locator-exception: the Audit Logs screen has no page object; its single <main> is read whole.
 }
 
 // ---- clone ----------------------------------------------------------------------------------

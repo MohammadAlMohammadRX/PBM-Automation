@@ -97,7 +97,13 @@ export class AuditHistoryTab {
       // "By: CareConnect" on plans / networks, "By CareConnect" on terminologies.
       const byLine = lines.find((l) => /^By:?\s/i.test(l)) ?? '';
       const rest = lines.filter((l) => l !== byLine);
-      return { action: rest[0] ?? '', when: rest[1] ?? '', by: byLine.replace(/^By:?\s*/i, '') };
+      const by = byLine.replace(/^By:?\s*/i, '');
+      // THE BUILD OF 14 NOV 2026 joins actor and time on the By line - "By: CareConnect · 23/11/2026 07:47 PM" - and
+      // the line under the action is the entity label (VERIFIED 23 Nov 2026 on the policy tab). Read as before, the
+      // actor carried the time and the time was empty: 19629 / 19632 / 19637 searched for "CareConnect · 23/11/...".
+      const joined = by.match(/^(.*?)\s*[·•]\s*(\d{1,2}\/\d{1,2}\/\d{4}.*)$/);
+      if (joined) return { action: rest[0] ?? '', when: joined[2].trim(), by: joined[1].trim() };
+      return { action: rest[0] ?? '', when: rest[1] ?? '', by };
     });
   }
 
@@ -159,12 +165,17 @@ export class AuditHistoryTab {
     // once there were none, and 19104 / 19112 reported an empty diff for an
     // entry showing "StatusId Active -> Expired" (verified live 2026-10-27).
     // An entry with no field changes simply waits this out.
-    await this.page.locator(`#${d.diffTable} tr[id^="${d.rowPrefix}"]`).first()
+    // A GROUPED entry ("Policy updated (2)", build of 14 Nov 2026) renders one table per change -
+    // `{drawer}-entry-{n}-diff-table` with rows `{drawer}-entry-{n}-row-{field}` (VERIFIED 23 Nov 2026); reading only
+    // the single table left 19633 with no rows although the drawer showed Current Version 2 -> 3 and Active Yes -> No.
+    const drawerId = d.diffTable.replace(/-diff-table$/, '');
+    const rows = `#${d.diffTable} tr[id^="${d.rowPrefix}"], table[id^="${drawerId}-entry-"][id$="-diff-table"] tr[id^="${drawerId}-entry-"]`;
+    await this.page.locator(rows).first()
       .waitFor({ state: 'visible', timeout: Timeouts.short }).catch(() => undefined);
     const read = (id: string) =>
       this.page.locator(`#${id}`).innerText({ timeout: Timeouts.short }).then((t) => t.trim()).catch(() => '');
     const changes = await this.page
-      .locator(`#${d.diffTable} tr[id^="${d.rowPrefix}"]`)
+      .locator(rows)
       .evaluateAll((trs) =>
         trs.map((tr) => {
           const cells = Array.from(tr.querySelectorAll('td')).map((td) => (td as HTMLElement).innerText.trim());
